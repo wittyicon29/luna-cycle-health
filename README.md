@@ -75,11 +75,17 @@ python -m venv .venv
 .venv\Scripts\activate
 # macOS/Linux
 # source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 cp .env.example .env
 ```
 
 Update `backend/.env` with your local values before starting the backend.
+
+To run the backend tests with coverage from the `backend` directory:
+
+```bash
+pytest tests/ -v --cov=app --cov-report=xml --cov-report=term
+```
 
 Start the API:
 
