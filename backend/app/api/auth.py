@@ -1,0 +1,234 @@
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Query
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.orm import Session
+from datetime import datetime, timedelta, timezone
+from ..core.database import get_db
+from ..core.security import (
+    verify_password, get_password_hash, create_access_token, 
+    decode_access_token, create_refresh_token, hash_token
+)
+from ..models.models import User, RefreshToken
+from ..schemas.schemas import (
+    UserCreate, UserLogin, Token, RefreshTokenRequest,
+    PasswordResetRequest, PasswordResetConfirm
+)
+from ..services.auth_service import (
+    send_password_reset_email,
+    create_password_reset_token, reset_password
+)
+from ..services.google_oauth import google_oauth_service
+from pydantic import BaseModel
+
+class UserStatus(BaseModel):
+    email: str
+    has_completed_questionnaire: bool
+    is_email_verified: bool
+    created_at: datetime
+
+router = APIRouter(prefix="/auth", tags=["Authentication"])
+security = HTTPBearer()
+
+@router.post("/register", response_model=Token, status_code=201)
+def register(user: UserCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    existing_user = db.query(User).filter(User.email == user.email).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    hashed_password = get_password_hash(user.password)
+    
+    # Create user with email verification required
+    from ..api.email_verification import generate_verification_token
+    verification_token = generate_verification_token()
+    
+    new_user = User(
+        email=user.email, 
+        hashed_password=hashed_password,
+        is_email_verified=False,  # Require email verification
+        email_verification_token=verification_token,
+        email_verification_expires=datetime.now(timezone.utc) + timedelta(hours=24),
+        default_cycle_length=28
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    
+    # Send verification email
+    from ..api.email_verification import create_verification_email
+    email_content = create_verification_email(verification_token, new_user.email)
+    background_tasks.add_task(
+        send_email,
+        to_email=new_user.email,
+        subject="Verify Your Luna Health Account",
+        content=email_content
+    )
+    
+    # Create tokens but don't allow login until email is verified
+    access_token = create_access_token({"sub": str(new_user.id)})
+    refresh_token_raw = create_refresh_token()
+    
+    # Store refresh token hash
+    refresh_token_db = RefreshToken(
+        user_id=new_user.id,
+        token_hash=hash_token(refresh_token_raw),
+        expires_at=datetime.now(timezone.utc) + timedelta(days=30)
+    )
+    db.add(refresh_token_db)
+    db.commit()
+    
+    return {
+        "access_token": access_token, 
+        "refresh_token": refresh_token_raw,
+        "token_type": "bearer",
+        "message": "Registration successful! Please check your email to verify your account."
+    }
+
+@router.post("/login", response_model=Token)
+def login(user: UserLogin, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    db_user = db.query(User).filter(User.email == user.email).first()
+    if not db_user or not verify_password(user.password, db_user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    # Check email verification
+    if not db_user.is_email_verified:
+        raise HTTPException(
+            status_code=403, 
+            detail="Please verify your email before logging in. Check your inbox for the verification link."
+        )
+    
+    # Create tokens
+    access_token = create_access_token({"sub": str(db_user.id)})
+    refresh_token_raw = create_refresh_token()
+    
+    # Store refresh token hash
+    refresh_token_db = RefreshToken(
+        user_id=db_user.id,
+        token_hash=hash_token(refresh_token_raw),
+        expires_at=datetime.now(timezone.utc) + timedelta(days=30)
+    )
+    db.add(refresh_token_db)
+    db.commit()
+    
+    # Send login alert email
+    from ..services.email_service import send_login_alert
+    
+    login_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    background_tasks.add_task(
+        send_login_alert,
+        to_email=db_user.email,
+        login_time=login_time
+    )
+    
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token_raw,
+        "token_type": "bearer"
+    }
+
+@router.post("/request-password-reset")
+def request_password_reset(request: PasswordResetRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    """Request password reset."""
+    token = create_password_reset_token(db, request.email)
+    
+    if token:
+        background_tasks.add_task(
+            send_password_reset_email,
+            to_email=request.email,
+            token=token
+        )
+    
+    # Always return success to prevent email enumeration
+    return {"message": "If an account with this email exists, a password reset link has been sent."}
+
+@router.post("/reset-password")
+def reset_password(request: PasswordResetConfirm, db: Session = Depends(get_db)):
+    """Reset password with token."""
+    if reset_password(db, request.token, request.new_password):
+        return {"message": "Password reset successfully! You can now log in."}
+    else:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+
+@router.post("/refresh", response_model=Token)
+def refresh(request: RefreshTokenRequest, db: Session = Depends(get_db)):
+    token_hash = hash_token(request.refresh_token)
+    
+    # Find and validate refresh token
+    db_token = db.query(RefreshToken).filter(
+        RefreshToken.token_hash == token_hash,
+        RefreshToken.is_revoked == False,
+        RefreshToken.expires_at > datetime.now(timezone.utc)
+    ).first()
+    
+    if not db_token:
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+    
+    # Revoke old token
+    db_token.is_revoked = True
+    
+    # Create new tokens
+    access_token = create_access_token({"sub": str(db_token.user_id)})
+    new_refresh_token_raw = create_refresh_token()
+    
+    # Store new refresh token
+    new_refresh_token_db = RefreshToken(
+        user_id=db_token.user_id,
+        token_hash=hash_token(new_refresh_token_raw),
+        expires_at=datetime.now(timezone.utc) + timedelta(days=30)
+    )
+    db.add(new_refresh_token_db)
+    db.commit()
+    
+    return {
+        "access_token": access_token,
+        "refresh_token": new_refresh_token_raw,
+        "token_type": "bearer"
+    }
+
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
+    payload = decode_access_token(credentials.credentials)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+    user_id = payload.get("sub")
+    # Convert string UUID to UUID object for SQLAlchemy
+    from uuid import UUID
+    try:
+        user_id_uuid = UUID(user_id) if isinstance(user_id, str) else user_id
+    except (ValueError, AttributeError):
+        raise HTTPException(status_code=401, detail="Invalid user ID")
+    
+    user = db.query(User).filter(User.id == user_id_uuid).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    
+    return user
+
+@router.get("/status", response_model=UserStatus)
+def get_auth_status(current_user: User = Depends(get_current_user)):
+    """Get current user's authentication status including questionnaire completion."""
+    return UserStatus(
+        email=current_user.email,
+        has_completed_questionnaire=current_user.has_completed_questionnaire,
+        is_email_verified=current_user.is_email_verified,
+        created_at=current_user.created_at
+    )
+
+@router.get("/google/auth-url")
+def get_google_auth_url():
+    """Get Google OAuth authorization URL."""
+    auth_url = google_oauth_service.get_google_auth_url()
+    return {"auth_url": auth_url}
+
+@router.post("/google/callback")
+async def google_oauth_callback(
+    code: str = Query(..., description="Authorization code from Google"),
+    db: Session = Depends(get_db)
+):
+    """Handle Google OAuth callback."""
+    try:
+        result = await google_oauth_service.authenticate_google_user(code, db)
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Google authentication failed: {str(e)}"
+        )
