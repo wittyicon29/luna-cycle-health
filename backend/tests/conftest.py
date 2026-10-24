@@ -3,11 +3,14 @@ import os
 os.environ["APP_ENV"] = "testing"
 os.environ["DATABASE_URL"] = "sqlite:///./test.db"
 os.environ["SECRET_KEY"] = "test-secret-key"
+os.environ["AUTH_RATE_LIMIT"] = "5/minute"
+os.environ["CHAT_RATE_LIMIT"] = "50/minute"
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.core.database import Base, SessionLocal, engine
+from app.core.limiter import limiter
 from app.core.security import create_access_token, get_password_hash
 from app.main import app
 from app.models.models import User
@@ -17,6 +20,7 @@ from app.models.models import User
 def fresh_database():
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
+    limiter.reset()
     yield
 
 

@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Query
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Query, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
 from ..core.database import get_db
+from ..core.config import settings
+from ..core.limiter import limiter
 from ..core.security import (
     verify_password, get_password_hash, create_access_token, 
     decode_access_token, create_refresh_token, hash_token
@@ -31,7 +33,8 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 security = HTTPBearer()
 
 @router.post("/register", response_model=Token, status_code=201)
-def register(user: UserCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+@limiter.limit(settings.AUTH_RATE_LIMIT)
+def register(request: Request, user: UserCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     existing_user = db.query(User).filter(User.email == user.email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -85,7 +88,8 @@ def register(user: UserCreate, background_tasks: BackgroundTasks, db: Session = 
     }
 
 @router.post("/login", response_model=Token)
-def login(user: UserLogin, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+@limiter.limit(settings.AUTH_RATE_LIMIT)
+def login(request: Request, user: UserLogin, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.email == user.email).first()
     if not db_user or not verify_password(user.password, db_user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
@@ -127,7 +131,8 @@ def login(user: UserLogin, background_tasks: BackgroundTasks, db: Session = Depe
     }
 
 @router.post("/request-password-reset")
-def request_password_reset(payload: PasswordResetRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+@limiter.limit(settings.AUTH_RATE_LIMIT)
+def request_password_reset(request: Request, payload: PasswordResetRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """Request password reset."""
     token = create_password_reset_token(db, payload.email)
 
@@ -142,7 +147,8 @@ def request_password_reset(payload: PasswordResetRequest, background_tasks: Back
     return {"message": "If an account with this email exists, a password reset link has been sent."}
 
 @router.post("/reset-password")
-def reset_password(payload: PasswordResetConfirm, db: Session = Depends(get_db)):
+@limiter.limit(settings.AUTH_RATE_LIMIT)
+def reset_password(request: Request, payload: PasswordResetConfirm, db: Session = Depends(get_db)):
     """Reset password with token."""
     if apply_password_reset(db, payload.token, payload.new_password):
         return {"message": "Password reset successfully! You can now log in."}
@@ -150,8 +156,9 @@ def reset_password(payload: PasswordResetConfirm, db: Session = Depends(get_db))
         raise HTTPException(status_code=400, detail="Invalid or expired reset token")
 
 @router.post("/refresh", response_model=Token)
-def refresh(request: RefreshTokenRequest, db: Session = Depends(get_db)):
-    token_hash = hash_token(request.refresh_token)
+@limiter.limit(settings.AUTH_RATE_LIMIT)
+def refresh(request: Request, payload: RefreshTokenRequest, db: Session = Depends(get_db)):
+    token_hash = hash_token(payload.refresh_token)
     
     # Find and validate refresh token
     db_token = db.query(RefreshToken).filter(
@@ -221,7 +228,9 @@ def get_google_auth_url():
     return {"auth_url": auth_url}
 
 @router.post("/google/callback")
+@limiter.limit(settings.AUTH_RATE_LIMIT)
 async def google_oauth_callback(
+    request: Request,
     code: str = Query(..., description="Authorization code from Google"),
     db: Session = Depends(get_db)
 ):

@@ -1,10 +1,11 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone, timedelta
 from ..core.database import get_db
 from ..models.models import User
 from ..services.email_service import send_email
 from ..core.config import settings
+from ..core.limiter import limiter
 from pydantic import BaseModel, EmailStr
 import secrets
 
@@ -50,7 +51,8 @@ The Luna Health Team
 """
 
 @router.post("/send-verification")
-async def send_verification_email(payload: EmailRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+@limiter.limit(settings.AUTH_RATE_LIMIT)
+async def send_verification_email(request: Request, payload: EmailRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """Send verification email to user."""
     user = db.query(User).filter(User.email == payload.email).first()
     
@@ -104,7 +106,8 @@ async def verify_email(request: VerifyRequest, db: Session = Depends(get_db)):
     return {"message": "Email verified successfully! You can now log in."}
 
 @router.post("/resend")
-async def resend_verification(payload: EmailRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+@limiter.limit(settings.AUTH_RATE_LIMIT)
+async def resend_verification(request: Request, payload: EmailRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """Resend verification email."""
     user = db.query(User).filter(User.email == payload.email).first()
     
