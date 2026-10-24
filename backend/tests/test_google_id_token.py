@@ -37,7 +37,7 @@ def configured(monkeypatch, keypair):
     monkeypatch.setattr(settings, "GOOGLE_ID_TOKEN_AUDIENCES", AUD)
     monkeypatch.setitem(google_id_token._cache, "keys", [])
     monkeypatch.setitem(google_id_token._cache, "fetched_at", 0.0)
-    monkeypatch.setattr(google_id_token, "_last_forced_refresh", 0.0)
+    monkeypatch.setattr(google_id_token, "_last_fetch_attempt", 0.0)
     fetches = {"n": 0}
 
     async def fake_fetch():
@@ -137,7 +137,7 @@ def test_unknown_kid_is_rejected_and_refetch_is_rate_limited(client, keypair, co
     claims = {"iss": "accounts.google.com", "aud": AUD, "email": "x@gmail.com",
               "email_verified": True, "exp": int(time.time()) + 600}
     token = jwt.encode(claims, keypair[0], algorithm="RS256", headers={"kid": "unknown"})
-    monkeypatch.setattr(google_id_token, "_last_forced_refresh", time.time())
+    monkeypatch.setattr(google_id_token, "_last_fetch_attempt", time.time())
 
     assert post(client, token).status_code == 400
     # the cached lookup ran once; a forced refresh inside the cooldown must not hit the network again
@@ -177,3 +177,128 @@ def test_verified_existing_account_signs_in_without_flags(client, db, make_user,
 def test_unconfigured_audience_allowlist_returns_503(client, keypair, monkeypatch):
     monkeypatch.setattr(settings, "GOOGLE_ID_TOKEN_AUDIENCES", "")
     assert post(client, make_token(keypair)).status_code == 503
+
+
+def test_audience_as_list_fails_closed(client, keypair):
+    # Google issues a single string aud; a list is never accepted, even if it contains ours.
+    assert post(client, make_token(keypair, aud=[AUD])).status_code == 400
+
+
+def test_token_without_exp_is_rejected(client, db, keypair):
+    from app.models.models import User
+
+    response = post(client, make_token(keypair, exp=None))
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Google sign-in could not be verified"
+    assert db.query(User).count() == 0
+
+
+def test_token_without_iat_is_rejected(client, keypair):
+    assert post(client, make_token(keypair, iat=None)).status_code == 400
+
+
+def test_fetch_failure_returns_503(client, keypair, monkeypatch):
+    from fastapi import HTTPException
+
+    async def boom():
+        raise HTTPException(status_code=503, detail="Google sign-in is temporarily unavailable")
+
+    monkeypatch.setattr(google_id_token, "_fetch_google_keys", boom)
+    response = post(client, make_token(keypair))
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Google sign-in is temporarily unavailable"
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [[], {"keys": "x"}, {"keys": [1]}, {"keys": []}, {}, {"nokeys": []}],
+)
+def test_malformed_keys_payload_returns_503(client, keypair, monkeypatch, payload):
+    class FakeResponse:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return payload
+
+    class FakeClient:
+        def __init__(self, *a, **k):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def get(self, url):
+            return FakeResponse()
+
+    monkeypatch.undo()  # drop the _fetch_google_keys stub, keep the real function
+    monkeypatch.setattr(settings, "GOOGLE_ID_TOKEN_AUDIENCES", AUD)
+    monkeypatch.setattr(google_id_token.httpx, "AsyncClient", FakeClient)
+    response = post(client, make_token(keypair))
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Google sign-in is temporarily unavailable"
+
+
+def test_bad_jwk_modulus_is_never_a_500(client, keypair, monkeypatch):
+    bad = dict(keypair[1], n="!!not-base64!!")
+
+    async def fake():
+        return [bad]
+
+    monkeypatch.setattr(google_id_token, "_fetch_google_keys", fake)
+    response = post(client, make_token(keypair))
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Google sign-in could not be verified"
+
+
+def test_cold_cache_unknown_kid_fetches_once_and_cooldown_holds(client, keypair, configured):
+    claims = {"iss": "accounts.google.com", "aud": AUD, "email": "x@gmail.com",
+              "email_verified": True, "iat": int(time.time()), "exp": int(time.time()) + 600}
+    token = jwt.encode(claims, keypair[0], algorithm="RS256", headers={"kid": "unknown"})
+
+    for _ in range(3):
+        assert post(client, token).status_code == 400
+    # the first request's cold fetch counts as the attempt; forced refreshes stay inside the cooldown
+    assert configured["n"] == 1
+
+
+def test_stale_keys_are_used_when_refetch_fails(client, keypair, monkeypatch):
+    from fastapi import HTTPException
+
+    monkeypatch.setitem(google_id_token._cache, "keys", [keypair[1]])
+    monkeypatch.setitem(google_id_token._cache, "fetched_at", time.time() - 7200)
+    calls = {"n": 0}
+
+    async def boom():
+        calls["n"] += 1
+        raise HTTPException(status_code=503, detail="Google sign-in is temporarily unavailable")
+
+    monkeypatch.setattr(google_id_token, "_fetch_google_keys", boom)
+    assert post(client, make_token(keypair)).status_code == 200
+    assert calls["n"] == 1
+
+
+def test_hs256_token_claiming_rs256_header_is_rejected(client, db, keypair):
+    # Key-confusion attempt: HMAC-sign with the public key bytes while the header says RS256.
+    # Passes the header check, so only the algorithms=["RS256"] pin in decode stops it.
+    import base64
+    import hashlib
+    import hmac
+    import json
+
+    from app.models.models import User
+
+    def b64(raw):
+        return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+
+    header = b64(json.dumps({"alg": "RS256", "kid": "kid-1", "typ": "JWT"}).encode())
+    claims = {"iss": "accounts.google.com", "aud": AUD, "email": "x@gmail.com",
+              "email_verified": True, "iat": int(time.time()), "exp": int(time.time()) + 600}
+    body = b64(json.dumps(claims).encode())
+    signing = f"{header}.{body}".encode()
+    sig = b64(hmac.new(keypair[1]["n"].encode(), signing, hashlib.sha256).digest())
+    assert post(client, f"{header}.{body}.{sig}").status_code == 400
+    assert db.query(User).count() == 0

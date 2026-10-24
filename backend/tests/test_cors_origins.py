@@ -17,7 +17,7 @@ def test_preflight_allows_a_configured_origin(monkeypatch):
     assert response.headers.get("access-control-allow-origin") == "http://localhost:3000"
 
 
-def test_capacitor_origin_is_documented_in_env_example():
+def test_capacitor_origin_is_documented_in_android_readme():
     import pathlib
 
     text = (pathlib.Path(__file__).parents[2] / "frontend" / "android" / "README.md")
