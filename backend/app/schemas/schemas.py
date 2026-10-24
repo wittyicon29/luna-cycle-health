@@ -1,6 +1,6 @@
-from pydantic import BaseModel, EmailStr, Field, validator
-from datetime import date, datetime
-from typing import Optional, List, Dict, Any
+from pydantic import BaseModel, EmailStr, Field, StringConstraints, model_validator, validator
+from datetime import date, datetime, timedelta
+from typing import Annotated, Optional, List, Dict, Any, Literal
 from uuid import UUID
 import re
 
@@ -55,13 +55,26 @@ class PasswordResetConfirm(BaseModel):
     token: str
     new_password: str = Field(min_length=8)
 
+Symptom = Annotated[str, StringConstraints(max_length=50)]
+
+
 class PeriodCreate(BaseModel):
     start_date: date
     end_date: Optional[date] = None
-    flow_intensity: Optional[str] = None
+    flow_intensity: Optional[Literal["light", "medium", "heavy"]] = None
     pain_level: Optional[int] = Field(None, ge=0, le=10)
-    symptoms: Optional[List[str]] = []
-    notes: Optional[str] = None
+    symptoms: Optional[List[Symptom]] = Field(default_factory=list, max_length=30)
+    notes: Optional[str] = Field(None, max_length=2000)
+
+    @model_validator(mode="after")
+    def check_dates(self):
+        if self.end_date and self.end_date < self.start_date:
+            raise ValueError("end_date cannot be before start_date")
+        # Allow tomorrow: users in IST are ahead of the server's UTC date.
+        if self.start_date > date.today() + timedelta(days=1):
+            raise ValueError("start_date cannot be in the future")
+        return self
+
 
 class PeriodResponse(BaseModel):
     id: UUID
