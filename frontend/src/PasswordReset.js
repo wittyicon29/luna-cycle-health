@@ -5,7 +5,7 @@ import { injectStyles } from './App';
 
 function PasswordReset() {
   useEffect(() => { injectStyles(); }, []);
-  const [token, setToken] = useState('');
+  const [token] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
