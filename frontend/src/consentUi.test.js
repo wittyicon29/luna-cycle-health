@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 jest.mock('./api', () => ({
@@ -100,14 +100,18 @@ describe('AiConsentModal', () => {
     expect(screen.getByText(/outside India/i)).toBeInTheDocument();
   });
 
-  test('allowing calls onGrant and declining just closes', async () => {
-    const onGrant = jest.fn().mockResolvedValue();
+  test('allowing calls onGrant, blocks "Not now" while saving, then declining closes', async () => {
+    let finish;
+    const onGrant = jest.fn(() => new Promise(resolve => { finish = resolve; }));
     const onClose = jest.fn();
     render(<AiConsentModal onGrant={onGrant} onClose={onClose} />);
 
     userEvent.click(screen.getByRole('button', { name: /allow ai features/i }));
     await waitFor(() => expect(onGrant).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole('button', { name: /not now/i })).toBeDisabled();
 
+    await act(async () => { finish(); });
+    await waitFor(() => expect(screen.getByRole('button', { name: /not now/i })).toBeEnabled());
     userEvent.click(screen.getByRole('button', { name: /not now/i }));
     expect(onClose).toHaveBeenCalled();
   });

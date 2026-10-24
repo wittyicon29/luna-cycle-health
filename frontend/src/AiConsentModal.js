@@ -31,7 +31,7 @@ export default function AiConsentModal({ onGrant, onClose }) {
         </p>
         {err && <div className="err">⚠ {err}</div>}
         <div className="modal-foot">
-          <button className="btn btn-g" onClick={onClose}>Not now</button>
+          <button className="btn btn-g" onClick={onClose} disabled={saving}>Not now</button>
           <button className="btn btn-p" onClick={grant} disabled={saving}>{saving ? 'Saving…' : 'Allow AI features'}</button>
         </div>
       </div>
