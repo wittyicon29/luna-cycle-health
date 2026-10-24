@@ -66,3 +66,30 @@ def test_one_users_periods_never_affect_anothers(client, make_user):
     create(client, a, "2026-07-29")
 
     assert lengths(client, b) == {"2026-07-15": None}
+
+
+def test_create_and_update_responses_include_recomputed_cycle_length(client, make_user):
+    headers = headers_for(make_user())
+
+    create(client, headers, "2026-07-01")
+    second = create(client, headers, "2026-07-29")
+    assert second["cycle_length"] == 28
+
+    response = client.put(
+        f"/api/v1/periods/{second['id']}", json={"start_date": "2026-08-01"}, headers=headers
+    )
+    assert response.status_code == 200
+    assert response.json()["cycle_length"] == 31
+
+
+def test_period_write_commits_once(client, make_user, monkeypatch):
+    from sqlalchemy.orm import Session
+
+    headers = headers_for(make_user())
+    commits = []
+    real_commit = Session.commit
+    monkeypatch.setattr(Session, "commit", lambda self: (commits.append(1), real_commit(self))[1])
+
+    create(client, headers, "2026-07-01")
+
+    assert len(commits) == 1
