@@ -130,6 +130,12 @@ class GoogleOAuthService:
                 raise
             db.refresh(user)
         elif not user.is_email_verified:
+            # Consent recorded at pre-registration was given by a third party; the owner gives it now.
+            if accepted_privacy_policy is not True or confirmed_18_plus is not True:
+                raise HTTPException(
+                    status_code=400,
+                    detail={"code": "consent_required", "purposes": ["terms_privacy", "age_18_plus"]},
+                )
             # Google just proved ownership of this address. Any password set on an
             # unverified account was chosen by someone who never proved it, so drop it.
             user.is_email_verified = True
@@ -140,6 +146,8 @@ class GoogleOAuthService:
             user.password_reset_expires = None
             # Refresh tokens held by whoever pre-registered this address must die too.
             db.query(RefreshToken).filter(RefreshToken.user_id == user.id).update({"is_revoked": True})
+            add_consent(db, user.id, "terms_privacy", True)
+            add_consent(db, user.id, "age_18_plus", True)
             db.commit()
             db.refresh(user)
         

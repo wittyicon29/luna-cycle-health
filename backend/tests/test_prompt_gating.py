@@ -53,3 +53,25 @@ def test_score_components_present_when_score_exists(client, ai_user, db, monkeyp
     assert response.status_code == 200
     assert any("Regularity:" in p for p in prompts)
     assert stored(db)["health_score_breakdown"]
+
+
+def test_score_focus_instructions_only_when_a_score_exists(client, ai_user, db, monkeypatch):
+    user, headers = ai_user
+    today = date.today()
+    add_periods(db, user, [today - timedelta(days=30), today - timedelta(days=2)])
+    prompts = capture(monkeypatch)
+    assert analyze(client, headers).status_code == 200
+    assert prompts
+    for prompt in prompts:
+        assert "Focus on health score breakdown" not in prompt
+        assert "Reference specific score components" not in prompt
+
+
+def test_score_focus_instructions_present_when_score_exists(client, ai_user, db, monkeypatch):
+    user, headers = ai_user
+    today = date.today()
+    add_periods(db, user, [today - timedelta(days=28 * i + 2) for i in range(5)])
+    prompts = capture(monkeypatch)
+    assert analyze(client, headers).status_code == 200
+    assert any("Focus on health score breakdown" in p for p in prompts)
+    assert any("Reference specific score components" in p for p in prompts)

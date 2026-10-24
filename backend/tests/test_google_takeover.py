@@ -18,7 +18,7 @@ def test_google_signin_takes_over_unverified_password_account(client, db, make_u
     db.commit()
     _fake_google(monkeypatch, "victim@gmail.com")
 
-    response = client.post(CALLBACK)
+    response = client.post(CALLBACK + "&accepted_privacy_policy=true&confirmed_18_plus=true")
 
     assert response.status_code == 200
     db.expire_all()
@@ -76,7 +76,7 @@ def test_takeover_revokes_existing_refresh_tokens(client, db, make_user, monkeyp
     raw = _refresh_token_for(db, user)
     _fake_google(monkeypatch, "victim@gmail.com")
 
-    assert client.post(CALLBACK).status_code == 200
+    assert client.post(CALLBACK + "&accepted_privacy_policy=true&confirmed_18_plus=true").status_code == 200
 
     response = client.post("/api/v1/auth/refresh", json={"refresh_token": raw})
     assert response.status_code == 401
@@ -113,3 +113,23 @@ def test_refresh_still_works_for_verified_user(client, db, make_user):
     raw = _refresh_token_for(db, user)
 
     assert client.post("/api/v1/auth/refresh", json={"refresh_token": raw}).status_code == 200
+
+
+def test_google_takeover_needs_the_owners_own_consent(client, db, make_user, monkeypatch):
+    from app.models.models import ConsentRecord
+    user = make_user(email="own@gmail.com", password="attackerpw1", verified=False)
+    _fake_google(monkeypatch, "own@gmail.com")
+
+    refused = client.post(CALLBACK)
+
+    assert refused.status_code == 400
+    assert refused.json()["detail"]["code"] == "consent_required"
+    db.expire_all()
+    db.refresh(user)
+    assert user.is_email_verified is False
+
+    ok = client.post(CALLBACK + "&accepted_privacy_policy=true&confirmed_18_plus=true")
+
+    assert ok.status_code == 200
+    purposes = {r.purpose for r in db.query(ConsentRecord).filter(ConsentRecord.user_id == user.id)}
+    assert {"terms_privacy", "age_18_plus"} <= purposes

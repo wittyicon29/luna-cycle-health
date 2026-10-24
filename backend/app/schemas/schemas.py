@@ -53,9 +53,20 @@ class EmailVerificationRequest(BaseModel):
 class PasswordResetRequest(BaseModel):
     email: EmailStr
 
+def check_password_bytes(v: str) -> str:
+    # bcrypt only handles 72 bytes; longer input must be a clear 422, not a 500.
+    if len(v.encode("utf-8")) > 72:
+        raise ValueError("Password must be at most 72 bytes")
+    return v
+
+
 class PasswordResetConfirm(BaseModel):
     token: str
     new_password: str = Field(min_length=8)
+
+    @validator('new_password')
+    def password_within_bcrypt_limit(cls, v):
+        return check_password_bytes(v)
 
 Symptom = Annotated[str, StringConstraints(max_length=50)]
 

@@ -7,7 +7,9 @@ from ..services.email_service import send_email
 from ..core.config import settings
 from ..core.limiter import limiter
 from ..core.security import get_password_hash, create_access_token, create_refresh_token, hash_token
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, validator
+from ..schemas.schemas import check_password_bytes
+from ..services.consent_service import add_consent
 import secrets
 
 router = APIRouter(prefix="/verify", tags=["Email Verification"])
@@ -18,6 +20,24 @@ class VerifyTokenRequest(BaseModel):
 class CompleteVerificationRequest(BaseModel):
     token: str
     password: str = Field(min_length=8)
+    accepted_privacy_policy: bool
+    confirmed_18_plus: bool
+
+    @validator('password')
+    def password_within_bcrypt_limit(cls, v):
+        return check_password_bytes(v)
+
+    @validator('accepted_privacy_policy')
+    def must_accept_policy(cls, v):
+        if v is not True:
+            raise ValueError('You must accept the Privacy Policy and Terms to create an account')
+        return v
+
+    @validator('confirmed_18_plus')
+    def must_be_adult(cls, v):
+        if v is not True:
+            raise ValueError('Luna Health is for users aged 18 and over')
+        return v
 
 class EmailRequest(BaseModel):
     email: EmailStr
@@ -127,6 +147,9 @@ def complete_verification(request: Request, payload: CompleteVerificationRequest
         raise HTTPException(status_code=400, detail=DEAD_LINK)
     # Anything issued before ownership was proven must not survive verification.
     db.query(RefreshToken).filter(RefreshToken.user_id == user.id).update({"is_revoked": True})
+    # Consent given by whoever pre-registered the address does not count; the owner gives it here.
+    add_consent(db, user.id, "terms_privacy", True)
+    add_consent(db, user.id, "age_18_plus", True)
 
     access_token = create_access_token({"sub": str(user.id)})
     refresh_token_raw = create_refresh_token()

@@ -184,6 +184,9 @@ JSON format:
             medical_analysis = {"clinical_findings": [], "risk_factors": [], "medical_recommendations": [], "urgency": "none", "key_concerns": [], "positive_indicators": [], "prediction_confidence": confidence_info.get('level', 'low'), "uncertainty_note": probabilistic_info.get('disclaimer', '')}
         
         # Step 2: Qwen with personality and probabilistic insights
+        has_score = stats.get('health_score') is not None
+        score_focus_line = "- Focus on health score breakdown with uncertainty context\n" if has_score else ""
+        score_reference = ', "Reference specific score components"' if has_score else ""
         qwen_prompt = f"""Convert medical analysis to supportive, personalized report with probabilistic messaging.
 
 Medical: {json.dumps(medical_analysis)}
@@ -196,8 +199,7 @@ Probabilistic Info: {json.dumps(probabilistic_info)}
 Create personalized insights with clear probabilistic messaging:
 - Emphasize that predictions are statistical estimates, not guarantees
 - Include confidence levels and natural variation in explanations
-- Focus on health score breakdown with uncertainty context
-- Acknowledge data quality and its impact on predictions
+{score_focus_line}- Acknowledge data quality and its impact on predictions
 - Provide recommendations that account for natural variability
 
 CRITICAL: Always include probabilistic disclaimers and uncertainty messaging. Help users understand that:
@@ -209,7 +211,7 @@ CRITICAL: Always include probabilistic disclaimers and uncertainty messaging. He
 JSON format:
 {{
   "simple_summary": "One sentence overview with probabilistic context (e.g., 'Based on your patterns, there's a 70% chance your next period will arrive around [date], with natural variation of ±X days')",
-  "key_insights": ["3-4 insights with data and confidence levels", "Include uncertainty and natural variation", "Reference specific score components"],
+  "key_insights": ["3-4 insights with data and confidence levels", "Include uncertainty and natural variation"{score_reference}],
   "why_this_result": ["Explain reasoning with uncertainty", "Connect to actual data patterns and limitations"],
   "recommendations": ["3-4 suggestions accounting for natural variability", "Include tracking recommendations for better predictions"],
   "what_to_expect": "Probabilistic next cycle description with ranges and confidence",

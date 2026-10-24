@@ -29,7 +29,7 @@ def test_registration_records_terms_and_age_consent(client, db, outbox, register
     verification = db.query(User).filter(User.email == register_payload["email"]).one().email_verification_token
     token = client.post(
         "/api/v1/verify/complete",
-        json={"token": verification, "password": "password123"},
+        json={"token": verification, "password": "password123", "accepted_privacy_policy": True, "confirmed_18_plus": True},
     ).json()["access_token"]
 
     response = client.get("/api/v1/consents", headers={"Authorization": f"Bearer {token}"})

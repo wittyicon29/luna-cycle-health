@@ -25,7 +25,7 @@ def test_verify_email_marks_user_verified(client, db, make_user):
     user.email_verification_expires = datetime.now(timezone.utc) + timedelta(hours=1)
     db.commit()
 
-    response = client.post("/api/v1/verify/complete", json={"token": "tok-123", "password": "password123"})
+    response = client.post("/api/v1/verify/complete", json={"token": "tok-123", "password": "password123", "accepted_privacy_policy": True, "confirmed_18_plus": True})
 
     assert response.status_code == 200
     db.refresh(user)
@@ -117,7 +117,7 @@ def test_signup_requires_email_verification_before_login(client, db, outbox, reg
     assert blocked.json()["detail"].startswith("Please verify your email")
 
     token = db.query(User).filter(User.email == register_payload["email"]).one().email_verification_token
-    complete = client.post("/api/v1/verify/complete", json={"token": token, "password": "password123"})
+    complete = client.post("/api/v1/verify/complete", json={"token": token, "password": "password123", "accepted_privacy_policy": True, "confirmed_18_plus": True})
     assert complete.status_code == 200
 
     login = client.post("/api/v1/auth/login", json=credentials)

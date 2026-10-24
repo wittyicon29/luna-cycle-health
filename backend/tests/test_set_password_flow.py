@@ -50,7 +50,7 @@ def test_check_reports_the_email_and_changes_nothing(client, db, outbox):
 
 def test_unknown_token_is_rejected(client, outbox):
     check = client.post("/api/v1/verify/check", json={"token": "nope"})
-    complete = client.post("/api/v1/verify/complete", json={"token": "nope", "password": "longenough1"})
+    complete = client.post("/api/v1/verify/complete", json={"token": "nope", "password": "longenough1", "accepted_privacy_policy": True, "confirmed_18_plus": True})
     assert check.status_code == complete.status_code == 400
     assert check.json()["detail"] == complete.json()["detail"] == DEAD_LINK
 
@@ -63,14 +63,15 @@ def test_expired_token_is_rejected(client, db, outbox):
 
     assert client.post("/api/v1/verify/check", json={"token": user.email_verification_token}).status_code == 400
     assert client.post("/api/v1/verify/complete",
-                       json={"token": user.email_verification_token, "password": "longenough1"}).status_code == 400
+                       json={"token": user.email_verification_token, "password": "longenough1",
+                             "accepted_privacy_policy": True, "confirmed_18_plus": True}).status_code == 400
 
 
 def test_complete_sets_the_password_verifies_and_signs_in(client, db, outbox):
     register(client)
     token = token_of(db)
 
-    response = client.post("/api/v1/verify/complete", json={"token": token, "password": "my-new-pass-1"})
+    response = client.post("/api/v1/verify/complete", json={"token": token, "password": "my-new-pass-1", "accepted_privacy_policy": True, "confirmed_18_plus": True})
 
     assert response.status_code == 200
     body = response.json()
@@ -86,9 +87,9 @@ def test_complete_sets_the_password_verifies_and_signs_in(client, db, outbox):
 def test_complete_is_single_use(client, db, outbox):
     register(client)
     token = token_of(db)
-    client.post("/api/v1/verify/complete", json={"token": token, "password": "my-new-pass-1"})
+    client.post("/api/v1/verify/complete", json={"token": token, "password": "my-new-pass-1", "accepted_privacy_policy": True, "confirmed_18_plus": True})
 
-    again = client.post("/api/v1/verify/complete", json={"token": token, "password": "someone-elses-1"})
+    again = client.post("/api/v1/verify/complete", json={"token": token, "password": "someone-elses-1", "accepted_privacy_policy": True, "confirmed_18_plus": True})
 
     assert again.status_code == 400
     assert again.json()["detail"] == DEAD_LINK
@@ -100,7 +101,7 @@ def test_short_passwords_are_rejected_and_the_account_stays_unverified(client, d
     register(client)
     token = token_of(db)
 
-    response = client.post("/api/v1/verify/complete", json={"token": token, "password": "short"})
+    response = client.post("/api/v1/verify/complete", json={"token": token, "password": "short", "accepted_privacy_policy": True, "confirmed_18_plus": True})
 
     assert response.status_code == 422
     assert db.query(User).filter(User.email == EMAIL).one().is_email_verified is False
@@ -113,7 +114,7 @@ def test_refresh_tokens_from_before_verification_are_revoked(client, db, outbox)
                         expires_at=datetime.now(timezone.utc) + timedelta(days=30)))
     db.commit()
 
-    client.post("/api/v1/verify/complete", json={"token": user.email_verification_token, "password": "my-new-pass-1"})
+    client.post("/api/v1/verify/complete", json={"token": user.email_verification_token, "password": "my-new-pass-1", "accepted_privacy_policy": True, "confirmed_18_plus": True})
 
     assert client.post("/api/v1/auth/refresh", json={"refresh_token": "attacker-held"}).status_code == 401
 
@@ -127,7 +128,7 @@ def test_the_pre_registration_attack_gets_the_attacker_nothing(client, db, outbo
     register(client, password="attacker-knows-this")
     token = token_of(db)
 
-    client.post("/api/v1/verify/complete", json={"token": token, "password": "victims-own-secret-1"})
+    client.post("/api/v1/verify/complete", json={"token": token, "password": "victims-own-secret-1", "accepted_privacy_policy": True, "confirmed_18_plus": True})
 
     assert client.post("/api/v1/auth/login", json={"email": EMAIL, "password": "attacker-knows-this"}).status_code == 401
     assert client.post("/api/v1/auth/login", json={"email": EMAIL, "password": "victims-own-secret-1"}).status_code == 200
@@ -161,7 +162,7 @@ def test_a_token_consumed_between_validation_and_claim_is_rejected(client, db, o
 
     monkeypatch.setattr(email_verification, "_unverified_user_for_token", consumed_after_validation)
 
-    response = client.post("/api/v1/verify/complete", json={"token": token, "password": "racer-pass-1"})
+    response = client.post("/api/v1/verify/complete", json={"token": token, "password": "racer-pass-1", "accepted_privacy_policy": True, "confirmed_18_plus": True})
 
     assert response.status_code == 400
     assert response.json()["detail"] == DEAD_LINK
@@ -173,9 +174,9 @@ def test_a_token_consumed_between_validation_and_claim_is_rejected(client, db, o
 def test_a_rejected_second_complete_keeps_the_first_session_usable(client, db, outbox):
     register(client)
     token = token_of(db)
-    first = client.post("/api/v1/verify/complete", json={"token": token, "password": "my-new-pass-1"}).json()
+    first = client.post("/api/v1/verify/complete", json={"token": token, "password": "my-new-pass-1", "accepted_privacy_policy": True, "confirmed_18_plus": True}).json()
 
-    second = client.post("/api/v1/verify/complete", json={"token": token, "password": "someone-elses-1"})
+    second = client.post("/api/v1/verify/complete", json={"token": token, "password": "someone-elses-1", "accepted_privacy_policy": True, "confirmed_18_plus": True})
 
     assert second.status_code == 400
     refreshed = client.post("/api/v1/auth/refresh", json={"refresh_token": first["refresh_token"]})
@@ -199,3 +200,53 @@ def test_completing_a_password_reset_verifies_an_unverified_account(client, db, 
     assert fresh.is_email_verified is True
     assert fresh.email_verification_token is None
     assert fresh.email_verification_expires is None
+
+
+def _complete(client, token, **extra):
+    body = {"token": token, "password": "my-new-pass-1", "accepted_privacy_policy": True, "confirmed_18_plus": True}
+    body.update(extra)
+    return client.post("/api/v1/verify/complete", json=body)
+
+
+def test_complete_requires_both_consents_and_leaves_account_unverified(client, db, outbox):
+    register(client)
+    token = token_of(db)
+
+    for extra in ({"accepted_privacy_policy": False}, {"confirmed_18_plus": False}):
+        assert _complete(client, token, **extra).status_code == 422
+    body = {"token": token, "password": "my-new-pass-1"}
+    assert client.post("/api/v1/verify/complete", json=body).status_code == 422
+    assert db.query(User).filter(User.email == EMAIL).one().is_email_verified is False
+
+
+def test_complete_records_fresh_consents_for_the_verifying_owner(client, db, outbox):
+    from app.models.models import ConsentRecord
+    register(client)
+    token = token_of(db)
+    user = db.query(User).filter(User.email == EMAIL).one()
+    before = db.query(ConsentRecord).filter(ConsentRecord.user_id == user.id).count()
+
+    assert _complete(client, token).status_code == 200
+
+    rows = db.query(ConsentRecord).filter(ConsentRecord.user_id == user.id).all()
+    assert len(rows) == before + 2
+    assert {r.purpose for r in rows} == {"terms_privacy", "age_18_plus"}
+
+
+def test_overlong_passwords_are_a_422_not_a_500(client, db, outbox):
+    register(client)
+    token = token_of(db)
+
+    response = _complete(client, token, password="a" * 80)
+
+    assert response.status_code == 422
+    assert "at most 72 bytes" in response.text
+    # multi-byte characters count by bytes
+    assert _complete(client, token, password="é" * 40).status_code == 422
+    assert _complete(client, token, password="a" * 72).status_code == 200
+
+
+def test_overlong_reset_password_is_a_422(client):
+    response = client.post("/api/v1/auth/reset-password", json={"token": "x", "new_password": "a" * 80})
+    assert response.status_code == 422
+    assert "at most 72 bytes" in response.text
