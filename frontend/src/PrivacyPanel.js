@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { API } from './api';
 import { downloadJson } from './download';
+import { clearLocalUserData } from './session';
 
 const section = { display: 'flex', flexDirection: 'column', gap: '.45rem' };
 const title = { fontFamily: "'Cormorant Garamond', serif", fontSize: '1.05rem', color: '#E8A09A', marginBottom: '.3rem' };
@@ -39,6 +40,7 @@ export default function PrivacyPanel({ token, consents, onSetConsent, onAccountD
   const deleteAccount = () =>
     run('delete', async () => {
       await API.account.delete(token);
+      clearLocalUserData();
       onAccountDeleted(); // only after the server confirmed
     });
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { API } from './api';
 
@@ -65,9 +65,18 @@ function EmailVerification() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
+  const started = useRef(false);
+  const redirectTimer = useRef(null);
+
+  // Clear the redirect timer on unmount.
+  useEffect(() => () => clearTimeout(redirectTimer.current), []);
+
   useEffect(() => {
+    // The token is single-use; React's dev double effect must not send it twice.
+    if (started.current) return;
+    started.current = true;
     injectStyles();
-    
+
     const token = searchParams.get('token');
     if (!token) {
       setError('Invalid verification link');
@@ -86,7 +95,7 @@ function EmailVerification() {
       setLoading(false);
       
       // Redirect to login after 3 seconds
-      setTimeout(() => {
+      redirectTimer.current = setTimeout(() => {
         navigate('/login');
       }, 3000);
 
