@@ -7,6 +7,8 @@ import useConsents from "./useConsents";
 import RequiredConsentScreen from "./RequiredConsentScreen";
 import AiConsentModal from "./AiConsentModal";
 import PrivacyPanel from "./PrivacyPanel";
+import PeriodDelete from "./PeriodDelete";
+import { localDateString } from "./localDate";
 
 // ─── PHASE CONFIG ─────────────────────────────────────────────────────────────
 const PHASES = {
@@ -261,7 +263,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .stats-strip{height:58px;flex-shrink:0;border-top:1px solid var(--border);background:#120A22;display:flex;align-items:center;padding:0 1.5rem}
 .st-item{flex:1;display:flex;flex-direction:column;align-items:center;border-right:1px solid var(--border)}
 .st-item:last-child{border-right:none}
-.st-val{font-family:'Cormorant Garamond',serif;font-size:1.5rem;line-height:1;letter-spacing:.01em;color:#FF8FAA}
+.st-val{font-family:'Outfit',sans-serif;font-variant-numeric:lining-nums;font-size:1.4rem;line-height:1;letter-spacing:.01em;color:#FF8FAA}
 .st-lbl{font-size:.58rem;color:#7A5C90;text-transform:uppercase;letter-spacing:.1em;margin-top:2px;font-weight:500}
 
 /* DOCK */
@@ -347,7 +349,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .modal-ov{position:fixed;inset:0;background:rgba(7,8,12,.85);backdrop-filter:blur(6px);z-index:60;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s ease}
 .modal{background:var(--s1);border:1px solid var(--border);width:100%;max-width:450px;max-height:88vh;overflow-y:auto;padding:2rem;border-radius:12px;box-shadow:0 24px 80px rgba(0,0,0,.6);animation:cardIn .3s cubic-bezier(.4,0,.2,1)}
 .modal-title{font-family:'Cormorant Garamond',serif;font-size:1.35rem;color:#E8A09A;margin-bottom:1.4rem}
-.modal-foot{display:flex;gap:.65rem;justify-content:flex-end;margin-top:1.4rem}
+.modal-foot{display:flex;gap:.65rem;justify-content:flex-end;margin-top:1.4rem;position:sticky;bottom:-2rem;margin-left:-2rem;margin-right:-2rem;margin-bottom:-2rem;padding:1rem 2rem;background:var(--s1);border-top:1px solid var(--border)}
 
 /* CHIPS */
 .chips{display:flex;flex-wrap:wrap;gap:.32rem}
@@ -755,7 +757,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
 const SYMPTOMS_LIST = ["cramps", "bloating", "headache", "fatigue", "mood swings", "acne", "back pain", "nausea", "tender breasts", "insomnia"];
 const DAY_W = 34, BACK = 90, FWD = 60, TOTAL = BACK + FWD;
 
-function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss }) {
+function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss, token, onPeriodDeleted }) {
   const scrollRef = useRef(null);
   const [hoveredPhase, setHoveredPhase] = useState(null);
   const [phaseCardX, setPhaseCardX] = useState(0);
@@ -906,6 +908,7 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
                       {d.loggedPeriod.flow_intensity && <div style={{ marginTop: ".45rem" }}><span className="badge b-r">{d.loggedPeriod.flow_intensity} flow</span></div>}
                       {d.loggedPeriod.pain_level != null && <div style={{ fontSize: ".7rem", color: "var(--muted)", marginTop: ".35rem", fontFamily: "'Fira Code',monospace" }}>Pain: {d.loggedPeriod.pain_level}/10</div>}
                       {(d.loggedPeriod.symptoms || []).length > 0 && <div style={{ marginTop: ".5rem", display: "flex", flexWrap: "wrap", gap: ".22rem" }}>{d.loggedPeriod.symptoms.slice(0, 4).map(s => <span key={s} className="badge b-m">{s}</span>)}</div>}
+                      <PeriodDelete period={d.loggedPeriod} token={token} onDeleted={onPeriodDeleted} />
                     </>
                   ) : <div style={{ fontSize: ".77rem", color: "var(--muted)" }}>Predicted period start</div>}
                 </div>
@@ -921,7 +924,8 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
 
 // ─── LOG PERIOD MODAL ─────────────────────────────────────────────────────────
 function LogModal({ token, onClose, onSave }) {
-  const [startDate, setStartDate] = useState(""); const [endDate, setEndDate] = useState("");
+  const today = localDateString();
+  const [startDate, setStartDate] = useState(today); const [endDate, setEndDate] = useState("");
   const [flow, setFlow] = useState("medium"); const [pain, setPain] = useState(3);
   const [symptoms, setSymptoms] = useState([]); const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false); const [err, setErr] = useState("");
@@ -957,8 +961,8 @@ function LogModal({ token, onClose, onSave }) {
     <Modal title="Log New Period" onClose={onClose}
       footer={<><button className="btn btn-g" onClick={onClose}>Cancel</button><button className="btn btn-p" onClick={save} disabled={saving}>{saving ? <><Spinner /> Saving…</> : "Save to Journey"}</button></>}>
       <div className="f-row">
-        <div className="f"><label>Start Date *</label><input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} /></div>
-        <div className="f"><label>End Date</label><input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} /></div>
+        <div className="f"><label>Start Date *</label><input type="date" value={startDate} max={today} onChange={e => { const v = e.target.value; setStartDate(v); if (endDate && v > endDate) setEndDate(""); }} /></div>
+        <div className="f"><label>End Date</label><input type="date" value={endDate} min={startDate} max={today} onChange={e => setEndDate(e.target.value)} /></div>
       </div>
       <div className="f"><label>Flow Intensity</label><select value={flow} onChange={e => setFlow(e.target.value)}><option value="light">Light</option><option value="medium">Medium</option><option value="heavy">Heavy</option></select></div>
       <div className="f">
@@ -1836,13 +1840,14 @@ function JourneyApp({ token, email, onLogout }) {
         <JourneyMap periods={periods} avgCycle={avgCycle} selectedInfo={selectedInfo}
           onSelectMarker={(day, x) => setSelectedInfo({ day, x })}
           onDismiss={() => setSelectedInfo(null)}
+          token={token} onPeriodDeleted={() => { setSelectedInfo(null); loadPeriods(); }}
         />
       )}
 
       {/* STATS STRIP */}
       <div className="stats-strip">
         <div className="st-item"><div className="st-val" style={{ color: ph.color, fontFamily: "'Fira Code',monospace", fontSize: "1.2rem" }}>{cycleDay ?? "—"}</div><div className="st-lbl">Cycle Day</div></div>
-        <div className="st-item"><div className="st-val">{daysToNext ?? "—"}</div><div className="st-lbl">Days to Next</div></div>
+        <div className="st-item"><div className="st-val">{daysToNext != null ? `${daysToNext}d` : "—"}</div><div className="st-lbl">Next in</div></div>
         <div className="st-item"><div className="st-val">{avgCycle}</div><div className="st-lbl">Avg Cycle</div></div>
         <div className="st-item"><div className="st-val">{periods.length}</div><div className="st-lbl">Logged</div></div>
         <div className="st-item"><div className="st-val" style={{ color: ph.color, fontSize: "1rem", lineHeight: 1.2, fontFamily: "'Outfit',sans-serif" }}>{ph.name}</div><div className="st-lbl">Phase</div></div>
@@ -1959,4 +1964,4 @@ export default function App() {
   return <JourneyApp token={token} email={email} onLogout={handleLogout} />;
 }
 
-export { injectStyles, AuthScreen, JourneyApp, ChatDrawer };
+export { injectStyles, AuthScreen, JourneyApp, ChatDrawer, LogModal };

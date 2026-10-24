@@ -131,6 +131,7 @@ export const API = {
     list: t => req('/periods/', {}, t),
     create: (d, t) => post('/periods/', d, t),
     update: (id, d, t) => req(`/periods/${id}`, { method: 'PUT', body: JSON.stringify(d) }, t),
+    remove: (id, t) => req(`/periods/${id}`, { method: 'DELETE' }, t),
   },
   questionnaires: {
     latest: t => req('/questionnaires/latest', {}, t),

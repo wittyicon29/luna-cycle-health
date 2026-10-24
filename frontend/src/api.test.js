@@ -271,3 +271,13 @@ describe('API', () => {
     expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({ email: 'u@gmail.com' });
   });
 });
+
+test('periods.remove sends DELETE to the period', async () => {
+  fetch.mockResolvedValue(reply(200, { message: 'Period deleted' }));
+
+  await API.periods.remove('p1', 'tok');
+
+  const [url, opts] = fetch.mock.calls[0];
+  expect(url).toMatch(/\/periods\/p1$/);
+  expect(opts.method).toBe('DELETE');
+});
