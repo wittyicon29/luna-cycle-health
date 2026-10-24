@@ -121,6 +121,92 @@ describe('req', () => {
     expect(localStorage.getItem('refresh_token')).toBeNull();
   });
 
+  test('a refresh answered 400 also ends the session', async () => {
+    localStorage.setItem('access_token', 'old');
+    localStorage.setItem('refresh_token', 'r1');
+    const expired = jest.fn();
+    window.addEventListener('luna:session-expired', expired);
+    fetch.mockResolvedValueOnce(reply(401, { detail: 'expired' })).mockResolvedValueOnce(reply(400, { detail: 'bad' }));
+
+    await expect(req('/periods/', {}, 'old')).rejects.toBeInstanceOf(ApiError);
+
+    window.removeEventListener('luna:session-expired', expired);
+    expect(expired).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem('refresh_token')).toBeNull();
+  });
+
+  test('no stored refresh token ends the session', async () => {
+    localStorage.setItem('access_token', 'old');
+    const expired = jest.fn();
+    window.addEventListener('luna:session-expired', expired);
+    fetch.mockResolvedValueOnce(reply(401, { detail: 'expired' }));
+
+    await expect(req('/periods/', {}, 'old')).rejects.toMatchObject({ status: 401 });
+
+    window.removeEventListener('luna:session-expired', expired);
+    expect(expired).toHaveBeenCalledTimes(1);
+  });
+
+  describe.each([
+    ['503', () => fetch.mockResolvedValueOnce(reply(503, { detail: 'down' }))],
+    ['429', () => fetch.mockResolvedValueOnce(reply(429, { detail: 'slow down' }))],
+    ['a network error', () => fetch.mockRejectedValueOnce(new TypeError('Failed to fetch'))],
+  ])('a transient refresh failure (%s)', (_name, failRefresh) => {
+    test('keeps the session and rejects with a readable ApiError', async () => {
+      localStorage.setItem('access_token', 'old');
+      localStorage.setItem('refresh_token', 'r1');
+      const expired = jest.fn();
+      window.addEventListener('luna:session-expired', expired);
+      fetch.mockResolvedValueOnce(reply(401, { detail: 'expired' }));
+      failRefresh();
+
+      const error = await req('/periods/', {}, 'old').catch(e => e);
+
+      window.removeEventListener('luna:session-expired', expired);
+      expect(error).toBeInstanceOf(ApiError);
+      expect(error.message).toBeTruthy();
+      expect(expired).not.toHaveBeenCalled();
+      expect(localStorage.getItem('access_token')).toBe('old');
+      expect(localStorage.getItem('refresh_token')).toBe('r1');
+    });
+  });
+
+  test('uses the freshest stored access token over a stale argument', async () => {
+    localStorage.setItem('access_token', 'fresh');
+    fetch.mockResolvedValue(reply(200, {}));
+
+    await req('/x', {}, 'stale');
+
+    expect(fetch.mock.calls[0][1].headers.Authorization).toBe('Bearer fresh');
+  });
+
+  test('uses the passed token when none is stored', async () => {
+    fetch.mockResolvedValue(reply(200, {}));
+
+    await req('/x', {}, 'passed');
+
+    expect(fetch.mock.calls[0][1].headers.Authorization).toBe('Bearer passed');
+  });
+
+  test('after a refresh, a caller still holding the stale token does not refresh again', async () => {
+    localStorage.setItem('access_token', 'old');
+    localStorage.setItem('refresh_token', 'r1');
+    let refreshCalls = 0;
+    fetch.mockImplementation(async (url, opts) => {
+      if (url.endsWith('/auth/refresh')) {
+        refreshCalls += 1;
+        return reply(200, { access_token: 'a2', refresh_token: 'r2', token_type: 'bearer' });
+      }
+      return opts.headers.Authorization === 'Bearer a2' ? reply(200, { ok: true }) : reply(401, { detail: 'expired' });
+    });
+
+    await req('/a', {}, 'old');
+    await req('/b', {}, 'old');
+
+    expect(refreshCalls).toBe(1);
+    expect(fetch.mock.calls.filter(([u]) => u.endsWith('/b'))).toHaveLength(1);
+  });
+
   test('a wrong password does not trigger a refresh', async () => {
     localStorage.setItem('refresh_token', 'r1');
     fetch.mockResolvedValue(reply(401, { detail: 'Invalid credentials' }));

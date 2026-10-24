@@ -1871,19 +1871,17 @@ export default function App() {
     }
   }, []);
 
-  // api.js refreshes tokens silently; keep React state in sync, and bounce to login if the session dies.
+  // api.js refreshes tokens silently (req() always sends the newest stored token, so React state
+  // is deliberately left alone); bounce to login only if the session dies.
   useEffect(() => {
-    const onRefreshed = e => setToken(e.detail.accessToken);
     const onExpired = () => {
       setToken(null);
       setEmail("");
       setAuthMode("login");
       setShowAuth(true);
     };
-    window.addEventListener("luna:tokens-refreshed", onRefreshed);
     window.addEventListener("luna:session-expired", onExpired);
     return () => {
-      window.removeEventListener("luna:tokens-refreshed", onRefreshed);
       window.removeEventListener("luna:session-expired", onExpired);
     };
   }, []);

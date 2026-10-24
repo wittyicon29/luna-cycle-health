@@ -54,10 +54,12 @@ async function toApiError(res) {
 let refreshing = null;
 
 // One refresh at a time: concurrent 401s share the same in-flight refresh.
+// Resolves to { token } on success, { rejected: true } when the server definitively refused
+// the refresh token (or there is none), or { rejected: false, status } for a transient failure.
 function refreshTokens() {
   if (refreshing) return refreshing;
   const refreshToken = localStorage.getItem('refresh_token');
-  if (!refreshToken) return Promise.resolve(null);
+  if (!refreshToken) return Promise.resolve({ rejected: true });
 
   refreshing = (async () => {
     try {
@@ -66,14 +68,15 @@ function refreshTokens() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refresh_token: refreshToken }),
       });
-      if (!res.ok) return null;
+      if (res.status === 400 || res.status === 401) return { rejected: true };
+      if (!res.ok) return { rejected: false, status: res.status };
       const data = await res.json();
       localStorage.setItem('access_token', data.access_token);
       localStorage.setItem('refresh_token', data.refresh_token);
       emit('luna:tokens-refreshed', { accessToken: data.access_token });
-      return data.access_token;
+      return { token: data.access_token };
     } catch (e) {
-      return null;
+      return { rejected: false };
     } finally {
       refreshing = null;
     }
@@ -82,17 +85,20 @@ function refreshTokens() {
 }
 
 export async function req(path, opts = {}, token = null, retried = false) {
+  // Prefer the freshest stored token so callers holding a stale one don't trigger needless refreshes.
+  const bearer = token ? localStorage.getItem('access_token') || token : null;
   const headers = {
     'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
     ...opts.headers,
   };
   const res = await fetch(`${API_BASE}${path}`, { ...opts, headers });
 
   if (res.status === 401 && token && !retried && !NO_REFRESH_PREFIXES.some(p => path.startsWith(p))) {
-    const fresh = await refreshTokens();
-    if (fresh) return req(path, opts, fresh, true);
-    expireSession();
+    const result = await refreshTokens();
+    if (result.token) return req(path, opts, result.token, true);
+    if (result.rejected) expireSession();
+    else throw new ApiError('Connection problem. Please try again.', { status: result.status });
   }
   if (!res.ok) throw await toApiError(res);
   return res.json();
