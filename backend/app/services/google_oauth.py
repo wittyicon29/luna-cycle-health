@@ -2,6 +2,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone, timedelta
 from ..models.models import User, RefreshToken
+from .consent_service import record_consent
 from ..core.security import create_access_token, create_refresh_token, hash_token
 import httpx
 import os
@@ -68,7 +69,13 @@ class GoogleOAuthService:
             
             return response.json()
     
-    async def authenticate_google_user(self, code: str, db: Session) -> Dict:
+    async def authenticate_google_user(
+        self,
+        code: str,
+        db: Session,
+        accepted_privacy_policy: bool = False,
+        confirmed_18_plus: bool = False,
+    ) -> Dict:
         """Authenticate user with Google OAuth code."""
         # Exchange code for tokens
         token_data = await self.exchange_code_for_token(code)
@@ -95,6 +102,11 @@ class GoogleOAuthService:
         user = db.query(User).filter(User.email == email).first()
         
         if not user:
+            if accepted_privacy_policy is not True or confirmed_18_plus is not True:
+                raise HTTPException(
+                    status_code=400,
+                    detail={"code": "consent_required", "purposes": ["terms_privacy", "age_18_plus"]},
+                )
             # Create new user
             user = User(
                 email=email,
@@ -106,6 +118,8 @@ class GoogleOAuthService:
             db.add(user)
             db.commit()
             db.refresh(user)
+            record_consent(db, user.id, "terms_privacy", True)
+            record_consent(db, user.id, "age_18_plus", True)
         
         # Create JWT tokens
         jwt_access_token = create_access_token({"sub": str(user.id)})

@@ -235,12 +235,23 @@ def get_google_auth_url():
 async def google_oauth_callback(
     request: Request,
     code: str = Query(..., description="Authorization code from Google"),
+    accepted_privacy_policy: bool = Query(False),
+    confirmed_18_plus: bool = Query(False),
     db: Session = Depends(get_db)
 ):
     """Handle Google OAuth callback."""
     try:
-        result = await google_oauth_service.authenticate_google_user(code, db)
+        result = await google_oauth_service.authenticate_google_user(
+            code, db, accepted_privacy_policy, confirmed_18_plus
+        )
         return result
+    except HTTPException as e:
+        if isinstance(e.detail, dict):
+            raise  # structured errors (e.g. consent_required) must reach the client intact
+        raise HTTPException(
+            status_code=400,
+            detail=f"Google authentication failed: {e.detail}"
+        )
     except Exception as e:
         raise HTTPException(
             status_code=400,

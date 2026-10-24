@@ -17,12 +17,12 @@ class ConsentUpdate(BaseModel):
     granted: bool
 
 
-@router.get("/", response_model=Dict[str, bool])
+@router.get("", response_model=Dict[str, bool])
 def get_consents(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return current_consents(db, current_user.id)
 
 
-@router.post("/", response_model=Dict[str, bool])
+@router.post("", response_model=Dict[str, bool])
 def update_consent(
     payload: ConsentUpdate,
     current_user: User = Depends(get_current_user),

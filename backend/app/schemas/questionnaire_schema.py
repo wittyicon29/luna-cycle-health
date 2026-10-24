@@ -41,7 +41,7 @@ class ContraceptionType(str, Enum):
 
 # Section A: Basic & Demographic
 class BasicDemographic(BaseModel):
-    age: int = Field(ge=10, le=100)
+    age: int = Field(ge=18, le=100)
     biological_sex: BiologicalSex
     gender_identity: Optional[str] = None
     weight_kg: float = Field(gt=0)
