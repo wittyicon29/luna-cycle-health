@@ -1,13 +1,41 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+import logging
+import uuid
+from datetime import datetime, timezone
 from typing import List
+from uuid import UUID
+from zoneinfo import ZoneInfo
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy.orm import Session
+
+from ..core.config import settings
 from ..core.database import get_db
+from ..core.limiter import limiter
 from ..models.models import User, Period, Questionnaire, Analysis, ChatMessage
 from ..schemas.schemas import ChatMessageResponse, ChatRequest, ChatResponse
 from ..services.llm_service import llm_service
 from ..services.prediction_service import predict_next_period, get_cycle_summary
 from .auth import get_current_user
 from .consents import require_consent
+
+logger = logging.getLogger(__name__)
+
+IST = ZoneInfo("Asia/Kolkata")
+
+
+def chat_daily_limit_for(user: User) -> int:
+    """Messages per IST day. A seam so paid plans can raise it later."""
+    return settings.CHAT_DAILY_LIMIT
+
+
+def messages_sent_today(db: Session, user_id: UUID) -> int:
+    start_ist = datetime.now(IST).replace(hour=0, minute=0, second=0, microsecond=0)
+    start_utc = start_ist.astimezone(timezone.utc).replace(tzinfo=None)
+    return db.query(ChatMessage).filter(
+        ChatMessage.user_id == user_id,
+        ChatMessage.role == "user",
+        ChatMessage.created_at >= start_utc,
+    ).count()
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
@@ -21,26 +49,27 @@ def get_chat_history(
     ).order_by(ChatMessage.created_at.asc()).all()
     return messages
 
-import uuid
-
 @router.post("/ask", response_model=ChatResponse)
+@limiter.limit(settings.CHAT_RATE_LIMIT)
 async def ask_question(
-    request: ChatRequest,
+    request: Request,
+    payload: ChatRequest,
     current_user: User = Depends(require_consent("ai_processing")),
     db: Session = Depends(get_db)
 ):
     """Ask questions about your cycle health and get personalized answers."""
-    
-    session_id = request.session_id or str(uuid.uuid4())
-    
-    # Save user message
-    user_msg = ChatMessage(user_id=current_user.id, session_id=session_id, role="user", content=request.question)
-    db.add(user_msg)
-    db.commit()
-    
+
+    if messages_sent_today(db, current_user.id) >= chat_daily_limit_for(current_user):
+        raise HTTPException(
+            status_code=429,
+            detail="You've reached today's chat limit. It resets at midnight IST.",
+        )
+
+    session_id = payload.session_id or str(uuid.uuid4())
+
     context = ""
     
-    if request.include_context:
+    if payload.include_context:
         # Gather user's data
         periods = db.query(Period).filter(
             Period.user_id == current_user.id
@@ -123,7 +152,7 @@ Never sound like: a generic chatbot, a robot, or a diagnosing doctor.
 You are: knowledgeable, friendly, empathetic, calm, science-based, and non-alarmist."""
 
     user_prompt = f"""USER_MESSAGE (what the user actually said):
-{request.question}
+{payload.question}
 
 USER_DATA_CONTEXT (may or may not be relevant to this message):
 {context if context else "No personal data available for this user yet."}
@@ -138,21 +167,23 @@ Now write your reply to the user following these rules."""
 
     try:
         answer = await llm_service.call_qwen(user_prompt, system_prompt)
-        
-        # Save assistant message
-        assistant_msg = ChatMessage(user_id=current_user.id, session_id=session_id, role="assistant", content=answer)
-        db.add(assistant_msg)
-        db.commit()
-        
-        return ChatResponse(
-            answer=answer,
-            context_used=bool(context),
-            message_id=str(assistant_msg.id),
-            session_id=session_id
-        )
-    
-    except Exception as e:
+    except Exception as exc:
+        # Log the failure type only: the message may contain provider keys or user text.
+        logger.error("Chat LLM call failed: %s", type(exc).__name__)
         raise HTTPException(
-            status_code=500,
-            detail=f"Unable to generate response: {str(e)}"
+            status_code=502,
+            detail="Luna is unavailable right now. Please try again in a moment.",
         )
+
+    user_msg = ChatMessage(user_id=current_user.id, session_id=session_id, role="user", content=payload.question)
+    assistant_msg = ChatMessage(user_id=current_user.id, session_id=session_id, role="assistant", content=answer)
+    db.add_all([user_msg, assistant_msg])
+    db.commit()
+    db.refresh(assistant_msg)
+
+    return ChatResponse(
+        answer=answer,
+        context_used=bool(context),
+        message_id=str(assistant_msg.id),
+        session_id=session_id
+    )

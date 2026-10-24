@@ -111,7 +111,7 @@ class AnalysisResponse(BaseModel):
         from_attributes = True
 
 class ChatRequest(BaseModel):
-    question: str
+    question: str = Field(min_length=1, max_length=1000)
     include_context: bool = True
     session_id: Optional[str] = None
 
