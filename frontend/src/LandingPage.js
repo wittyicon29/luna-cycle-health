@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { SUPPORT_EMAIL } from './config';
 
 // ─── PHASE DATA ───────────────────────────────────────────────────────────────
 const PHASES = [
@@ -24,8 +25,8 @@ const PHASES = [
     days: 'Day 14±', icon: '✦', wheelAngle: 90,
     color: '#D4A040', glow: 'rgba(212,160,64,0.5)',
     bg: 'rgba(212,160,64,0.10)', border: 'rgba(212,160,64,0.28)',
-    desc: 'Peak vitality. You are magnetic, communicative, and at your most fertile. Seize this window.',
-    traits: ['Peak confidence', 'Magnetic energy', 'Fertile window', 'High performance'],
+    desc: 'Energy and confidence often peak around now. Notice how your body feels.',
+    traits: ['Peak confidence', 'Magnetic energy', 'Social energy', 'High performance'],
   },
   {
     id: 'luteal', name: 'Luteal', territory: 'The Return',
@@ -42,8 +43,8 @@ const FEATURES = [
   { icon: '🧠', title: 'AI Analysis', color: '#4A9E6E', desc: 'MedGemma-powered insights calibrated to your patterns. Cycle health scores, regularity metrics, and personalised recommendations.' },
   { icon: '💬', title: 'Luna AI Chat', color: '#7ECECE', desc: 'Ask anything about your cycle, symptoms, or reproductive health. Your private AI health companion, always available.' },
   { icon: '📋', title: 'Health Profile', color: '#D4A040', desc: 'A comprehensive questionnaire builds your health fingerprint — informing every prediction and insight Luna generates for you.' },
-  { icon: '🔮', title: 'Smart Predictions', color: '#7C66C0', desc: 'Luna learns your rhythms to forecast your next period, ovulation window, and fertile days with increasing precision.' },
-  { icon: '🔒', title: 'Private by Design', color: '#5FA87A', desc: 'End-to-end encryption. Your data stays yours — never sold, never shared. Wellness built on trust.' },
+  { icon: '🔮', title: 'Smart Predictions', color: '#7C66C0', desc: 'Luna learns your rhythms to forecast your next period and where you are in your cycle.' },
+  { icon: '🔒', title: 'Private by Design', color: '#5FA87A', desc: 'Your notes, chats and health profile are encrypted at rest. We never sell your data, and AI features are opt-in.' },
 ];
 
 const STEPS = [
@@ -55,7 +56,7 @@ const STEPS = [
 
 const MARQUEE_ITEMS = [
   { text: 'Journey Map', icon: '🗺' }, { text: 'AI Insights', icon: '🧠' },
-  { text: 'Phase Guidance', icon: '🌙' }, { text: 'Fertility Window', icon: '✦' },
+  { text: 'Phase Guidance', icon: '🌙' },
   { text: 'Symptom Tracking', icon: '📋' }, { text: 'Luna AI Chat', icon: '💬' },
   { text: 'Cycle Predictions', icon: '🔮' }, { text: 'Privacy First', icon: '🔒' },
 ];
@@ -745,7 +746,7 @@ function LandingPage() {
             <em style={{ fontStyle: 'italic' }} className="lp-shimmer">Your Journey?</em>
           </h2>
           <p style={{ fontSize: '.95rem', color: 'rgba(234,229,220,.5)', lineHeight: 1.8, maxWidth: 440, margin: '0 auto 2.4rem' }}>
-            Join thousands of women navigating their cycles with intelligence, clarity, and self-knowledge.
+            Start mapping your cycle today — it takes a minute to set up.
           </p>
           <div style={{ display: 'flex', gap: '.9rem', justifyContent: 'center', flexWrap: 'wrap' }}>
             <button className="lp-btn-primary" onClick={handleSignUp} style={{ padding: '.95rem 2.4rem', fontSize: '.97rem' }}>
@@ -770,28 +771,32 @@ function LandingPage() {
           </div>
           {[
             { title: 'Features', items: ['Journey Map', 'AI Analysis', 'Luna Chat', 'Health Profile', 'Predictions'] },
-            { title: 'Privacy', items: ['Privacy Policy', 'Terms of Service', 'Data Security', 'GDPR'] },
-            { title: 'Support', items: ['Help Centre', 'FAQ', 'Contact', 'Community'] },
+            { title: 'Privacy', items: [{ label: 'Privacy Policy', href: '/privacy' }, { label: 'Terms of Service', href: '/terms' }] },
+            ...(SUPPORT_EMAIL ? [{ title: 'Support', items: [{ label: 'Contact', href: `mailto:${SUPPORT_EMAIL}` }] }] : []),
           ].map(col => (
             <div key={col.title}>
               <div style={{ fontSize: '.6rem', fontFamily: "'Fira Code',monospace", letterSpacing: '.1em', textTransform: 'uppercase', color: 'rgba(234,229,220,.28)', marginBottom: '.85rem', fontWeight: 500 }}>{col.title}</div>
               <ul style={{ listStyle: 'none' }}>
-                {col.items.map(item => (
+                {col.items.map(entry => {
+                  const item = typeof entry === 'string' ? entry : entry.label;
+                  const Tag = typeof entry === 'string' ? 'span' : 'a';
+                  return (
                   <li key={item} style={{ marginBottom: '.38rem' }}>
-                    <span style={{ fontSize: '.8rem', color: 'rgba(234,229,220,.42)', cursor: 'pointer', transition: 'color .2s' }}
+                    <Tag {...(typeof entry === 'string' ? {} : { href: entry.href })} style={{ fontSize: '.8rem', color: 'rgba(234,229,220,.42)', cursor: 'pointer', transition: 'color .2s', textDecoration: 'none' }}
                       onMouseEnter={e => e.target.style.color = '#EAE5DC'}
                       onMouseLeave={e => e.target.style.color = 'rgba(234,229,220,.42)'}>
                       {item}
-                    </span>
+                    </Tag>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             </div>
           ))}
         </div>
         <div style={{ paddingTop: '1.4rem', borderTop: '1px solid rgba(255,255,255,.04)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
           <p style={{ fontSize: '.68rem', color: 'rgba(234,229,220,.22)', fontFamily: "'Fira Code',monospace" }}>
-            © 2024 Luna Health · Made with care for women's wellness
+            © {new Date().getFullYear()} Luna Health · Made with care for women's wellness
           </p>
           <div style={{ display: 'flex', gap: '.4rem' }}>
             {PHASES.map(ph => <div key={ph.id} style={{ width: 6, height: 6, borderRadius: '50%', background: ph.color, opacity: .4 }} />)}
