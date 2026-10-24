@@ -289,7 +289,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .drawer-body{flex:1;overflow-y:auto;padding:1.25rem 1.5rem}
 
 /* CHAT */
-.chat-layout{display:flex;flex:1;overflow:hidden}
+.chat-layout{display:flex;flex:1;overflow:hidden;position:relative}
 .chat-hist-panel{width:195px;flex-shrink:0;border-right:1px solid var(--border);background:var(--s2);display:flex;flex-direction:column;overflow:hidden}
 .ch-head{padding:.8rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
 .ch-lbl{font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-weight:500}
@@ -307,7 +307,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .bname{font-size:.6rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:.32rem;font-weight:500}
 .bubble.user .bname{color:rgba(196,84,74,.7)}
 .chat-in{padding:.8rem 1.2rem;border-top:1px solid var(--border);background:var(--s2);display:flex;gap:.6rem;align-items:flex-end}
-.chat-in textarea{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--cream);padding:.62rem .9rem;font-family:'Outfit',sans-serif;font-size:.82rem;resize:none;height:44px;max-height:150px;outline:none;border-radius:var(--r);transition:border-color .2s,box-shadow .2s;line-height:1.5}
+.chat-in textarea{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--cream);padding:.62rem .9rem;font-family:'Outfit',sans-serif;font-size:.82rem;resize:none;height:44px;min-height:44px;max-height:150px;outline:none;border-radius:var(--r);transition:border-color .2s,box-shadow .2s;line-height:1.5}
 .chat-in textarea:focus{border-color:rgba(255,107,138,0.4);box-shadow:0 0 3px rgba(255,107,138,0.15)}
 .tdots{display:flex;gap:4px;align-items:center;padding:.32rem 0}
 .tdots span{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:td 1.4s ease-in-out infinite}
@@ -393,7 +393,9 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 @keyframes talkMouth{0%,100%{transform:scaleX(1)}40%{transform:scaleX(1.18)}70%{transform:scaleX(.85)}}
 @keyframes blink{0%,88%,92%,100%{transform:scaleY(1)}90%{transform:scaleY(.15)}}
 
-@media(max-width:640px){.chat-hist-panel{display:none}.f-row{grid-template-columns:1fr}}
+.chat-hist-toggle,.chat-hist-back{display:none;min-height:44px;min-width:44px;padding:0 .8rem;background:none;border:1px solid var(--border);color:var(--muted);border-radius:var(--r);cursor:pointer;font-size:.75rem;font-family:inherit}
+.chat-disclaimer{padding:.35rem 1.2rem .6rem;font-size:.68rem;color:var(--muted);background:var(--s2);line-height:1.4}
+@media(max-width:640px){.chat-hist-toggle,.chat-hist-back{display:inline-flex;align-items:center;justify-content:center}.chat-hist-panel{display:none}.chat-hist-panel.open{display:flex;position:absolute;inset:0;width:100%;z-index:5;border-right:none}.ch-item{min-height:44px;display:flex;align-items:center}.f-row{grid-template-columns:1fr}}
 `;
 
 function injectStyles() {
@@ -1041,7 +1043,7 @@ function LogModal({ token, onClose, onSave }) {
 function ChatDrawer({ token, onClose }) {
   const defaultMsg = { 
   role: "assistant", 
-  content: "Hey there! 👋 I'm here to help you understand\n\nWhat's on your mind today? 💜",
+  content: "Hey there! 👋 I'm Luna. I can help you understand your cycle, your symptoms and how you're feeling.\n\nWhat's on your mind today? 💜",
   quickActions: [
     "What does my health score mean?",
     "How can I track symptoms better?", 
@@ -1054,6 +1056,7 @@ function ChatDrawer({ token, onClose }) {
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const [input, setInput] = useState(""); const [sending, setSending] = useState(false);
   const [err, setErr] = useState("");
+  const [histOpen, setHistOpen] = useState(false);
   const bottomRef = useRef(null); const taRef = useRef(null);
 
   useEffect(() => {
@@ -1140,24 +1143,24 @@ function ChatDrawer({ token, onClose }) {
             <div className="drawer-title">Luna</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: ".75rem" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: ".4rem", fontSize: ".65rem", color: "#5FA87A", fontFamily: "'Fira Code',monospace" }}>
-              <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#5FA87A", animation: "pulse 2.5s ease-in-out infinite" }} />Online
-            </div>
+            <button type="button" className="chat-hist-toggle" aria-label="Conversation history" aria-expanded={histOpen} onClick={() => setHistOpen(o => !o)}>History</button>
+            <div style={{ fontSize: ".65rem", color: "var(--muted)", fontFamily: "'Fira Code',monospace" }}>AI companion</div>
             <button className="drawer-close" onClick={onClose}>×</button>
           </div>
         </div>
         <div className="chat-layout">
-          <div className="chat-hist-panel">
+          <div className={`chat-hist-panel${histOpen ? " open" : ""}`}>
             <div className="ch-head">
               <span className="ch-lbl">History</span>
-              <button onClick={() => { setCurrentSessionId(null); setInput(""); taRef.current?.focus(); }} style={{ background: "none", border: "1px solid var(--border)", color: "var(--muted)", cursor: "pointer", padding: ".2rem .45rem", borderRadius: "4px", fontSize: ".72rem", transition: "all .2s" }}>+</button>
+              <button type="button" className="chat-hist-back" onClick={() => setHistOpen(false)}>Back to chat</button>
+              <button aria-label="New chat" onClick={() => { setCurrentSessionId(null); setHistOpen(false); setInput(""); taRef.current?.focus(); }} style={{ background: "none", border: "1px solid var(--border)", color: "var(--muted)", cursor: "pointer", padding: ".2rem .45rem", borderRadius: "4px", fontSize: ".72rem", transition: "all .2s" }}>+</button>
             </div>
             <div className="ch-list">
               {sessions.length === 0 ? <div className="ch-empty">No messages yet.<br />Start a conversation.</div> :
                 sessions.map((s) => {
                   const firstUserMsg = s.messages.find(m => m.role === "user");
                   const title = firstUserMsg ? firstUserMsg.content : "New Chat";
-                  return <div key={s.id} onClick={() => setCurrentSessionId(s.id)} className={`ch-item ${s.id === currentSessionId ? "on" : ""}`}>{title?.slice(0, 44)}{title?.length > 44 ? "…" : ""}</div>
+                  return <div key={s.id} onClick={() => { setCurrentSessionId(s.id); setHistOpen(false); }} className={`ch-item ${s.id === currentSessionId ? "on" : ""}`}>{title?.slice(0, 44)}{title?.length > 44 ? "…" : ""}</div>
                 })}
             </div>
           </div>
@@ -1208,7 +1211,7 @@ function ChatDrawer({ token, onClose }) {
             <div className="chat-in">
               <textarea ref={taRef} value={input} onChange={e => setInput(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-                placeholder="What would you like to know about your cycle today? 💭"
+                placeholder="Ask Luna about your cycle…"
                 rows={1} style={{ height: "44px" }}
                 onInput={e => { e.target.style.height = "44px"; e.target.style.height = Math.min(e.target.scrollHeight, 150) + "px"; }}
               />
@@ -1216,6 +1219,7 @@ function ChatDrawer({ token, onClose }) {
                 {sending ? <Spinner /> : "Send"}
               </button>
             </div>
+            <div className="chat-disclaimer">Luna is an AI companion, not a doctor. For medical concerns, please see a clinician.</div>
           </div>
         </div>
       </div>
@@ -1955,4 +1959,4 @@ export default function App() {
   return <JourneyApp token={token} email={email} onLogout={handleLogout} />;
 }
 
-export { injectStyles, AuthScreen, JourneyApp };
+export { injectStyles, AuthScreen, JourneyApp, ChatDrawer };
