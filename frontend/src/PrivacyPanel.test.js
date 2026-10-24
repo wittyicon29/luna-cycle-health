@@ -63,6 +63,34 @@ test('download my data fetches the export and saves a dated file', async () => {
   expect(downloadJson.mock.calls[0][1]).toEqual({ account: { email: 'u@gmail.com' } });
 });
 
+test('success message appears only after the save succeeded', async () => {
+  API.account.export.mockResolvedValue({ a: 1 });
+  downloadJson.mockResolvedValue(true);
+  setup();
+  userEvent.click(screen.getByRole('button', { name: /download my data/i }));
+  expect(await screen.findByText(/Your data was downloaded/)).toBeInTheDocument();
+});
+
+test('a dismissed share sheet shows neither success nor error', async () => {
+  API.account.export.mockResolvedValue({ a: 1 });
+  downloadJson.mockResolvedValue(false);
+  setup();
+  userEvent.click(screen.getByRole('button', { name: /download my data/i }));
+  await waitFor(() => expect(downloadJson).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(screen.getByRole('button', { name: /download my data/i })).not.toBeDisabled());
+  expect(screen.queryByText(/Your data was downloaded/)).toBeNull();
+  expect(document.querySelector('.err')).toBeNull();
+});
+
+test('a failed save shows the error, not the success message', async () => {
+  API.account.export.mockResolvedValue({ a: 1 });
+  downloadJson.mockRejectedValue(new Error('Could not save your data on this device.'));
+  setup();
+  userEvent.click(screen.getByRole('button', { name: /download my data/i }));
+  expect(await screen.findByText(/Could not save your data/)).toBeInTheDocument();
+  expect(screen.queryByText(/Your data was downloaded/)).toBeNull();
+});
+
 test('a failed export shows the error and downloads nothing', async () => {
   API.account.export.mockRejectedValue(new Error('Export failed'));
   setup();

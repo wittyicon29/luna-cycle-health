@@ -1,0 +1,78 @@
+apply plugin: 'com.android.application'
+
+// Play rejects re-used versionCodes: pass LUNA_VERSION_CODE (positive integer) per upload.
+def lunaVersionCodeRaw = System.getenv("LUNA_VERSION_CODE") != null ? System.getenv("LUNA_VERSION_CODE") : "1"
+if (!(lunaVersionCodeRaw ==~ /[1-9][0-9]{0,8}/)) {
+    throw new GradleException("LUNA_VERSION_CODE must be a positive integer, got '" + lunaVersionCodeRaw + "'")
+}
+def lunaVersionName = System.getenv("LUNA_VERSION_NAME") != null ? System.getenv("LUNA_VERSION_NAME") : "1.0"
+
+android {
+    namespace "app.placeholder.luna"
+    compileSdk rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "app.placeholder.luna"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode Integer.parseInt(lunaVersionCodeRaw)
+        versionName lunaVersionName
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    // Release signing comes from the environment (LUNA_KEYSTORE, LUNA_KEYSTORE_PASSWORD,
+    // LUNA_KEY_ALIAS, LUNA_KEY_PASSWORD) so secrets never appear on a command line.
+    // Without LUNA_KEYSTORE the release build stays unsigned.
+    def lunaKeystore = System.getenv("LUNA_KEYSTORE")
+    if (lunaKeystore) {
+        signingConfigs {
+            release {
+                storeFile file(lunaKeystore)
+                storePassword System.getenv("LUNA_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("LUNA_KEY_ALIAS")
+                keyPassword System.getenv("LUNA_KEY_PASSWORD")
+            }
+        }
+    }
+    buildTypes {
+        release {
+            if (lunaKeystore) {
+                signingConfig signingConfigs.release
+            }
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

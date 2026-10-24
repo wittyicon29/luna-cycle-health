@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { API } from './api';
 import ConsentCheckboxes from './ConsentCheckboxes';
+import { setSession } from './tokenStore';
 
 const utf8Bytes = value => unescape(encodeURIComponent(value)).length;
 
@@ -138,9 +139,7 @@ function EmailVerification() {
     setSubmitting(true);
     try {
       const res = await API.verify.complete(token, password, { accepted, adult });
-      localStorage.setItem('access_token', res.access_token);
-      localStorage.setItem('refresh_token', res.refresh_token);
-      localStorage.setItem('email', email);
+      await setSession({ accessToken: res.access_token, refreshToken: res.refresh_token, email });
       navigate('/app', { replace: true });
     } catch (err) {
       setFormError(err.message);

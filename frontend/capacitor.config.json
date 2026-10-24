@@ -1,0 +1,25 @@
+{
+  "appId": "app.placeholder.luna",
+  "appName": "Luna Health",
+  "webDir": "build",
+  "loggingBehavior": "none",
+  "android": {
+    "allowMixedContent": false,
+    "adjustMarginsForEdgeToEdge": "auto"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 800,
+      "backgroundColor": "#1A0F2E",
+      "showSpinner": false
+    },
+    "SocialLogin": {
+      "providers": {
+        "google": true,
+        "facebook": false,
+        "apple": false,
+        "twitter": false
+      }
+    }
+  }
+}

@@ -94,6 +94,35 @@ class GoogleOAuthService:
                 detail="Could not get email from Google"
             )
         
+        return await self._sign_in_verified_email(
+            email, db, accepted_privacy_policy, confirmed_18_plus
+        )
+
+    async def authenticate_google_id_token(
+        self,
+        id_token: str,
+        db: Session,
+        accepted_privacy_policy: bool = False,
+        confirmed_18_plus: bool = False,
+    ) -> Dict:
+        """Authenticate a user with a Google ID token obtained by the native app."""
+        from .google_id_token import verify_google_id_token
+
+        claims = await verify_google_id_token(id_token)
+        email = claims.get("email")
+        if claims.get("email_verified") is not True or not isinstance(email, str) or not email:
+            raise HTTPException(status_code=400, detail="Google sign-in could not be verified")
+        return await self._sign_in_verified_email(
+            email, db, accepted_privacy_policy, confirmed_18_plus
+        )
+
+    async def _sign_in_verified_email(
+        self,
+        email: str,
+        db: Session,
+        accepted_privacy_policy: bool,
+        confirmed_18_plus: bool,
+    ) -> Dict:
         # Validate Gmail address
         if not email.endswith("@gmail.com"):
             raise HTTPException(

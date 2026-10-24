@@ -10,16 +10,23 @@ jest.mock('./api', () => ({
       login: jest.fn(),
       getGoogleAuthUrl: jest.fn(),
       requestPasswordReset: jest.fn(),
+      googleIdToken: jest.fn(),
     },
     verify: { resend: jest.fn() },
   },
 }));
 
-const { API } = require('./api');
+jest.mock('./platform', () => ({ isNative: jest.fn(() => false) }));
+jest.mock('./nativeGoogle', () => ({ signInWithGoogleNative: jest.fn() }));
+
+const { API, ApiError } = require('./api');
+const { isNative } = require('./platform');
+const { signInWithGoogleNative } = require('./nativeGoogle');
 const { AuthScreen } = require('./App');
 
 beforeEach(() => {
   jest.clearAllMocks();
+  isNative.mockReturnValue(false);
   sessionStorage.clear();
 });
 
@@ -186,4 +193,54 @@ test('a login response with no tokens shows an error, not a verify-email message
   expect(await screen.findByText(/something went wrong/i)).toBeInTheDocument();
   expect(screen.queryByText(/check your email/i)).not.toBeInTheDocument();
   expect(onLogin).not.toHaveBeenCalled();
+});
+
+describe('native Google sign-in', () => {
+  beforeEach(() => isNative.mockReturnValue(true));
+
+  function tickAndClick() {
+    userEvent.click(screen.getByLabelText(/18 years/i));
+    userEvent.click(screen.getByLabelText(/agree to the/i));
+    userEvent.click(screen.getByRole('button', { name: /continue with google/i }));
+  }
+
+  test('exchanges the ID token with the consent flags and logs in', async () => {
+    signInWithGoogleNative.mockResolvedValue('idtok');
+    API.auth.googleIdToken.mockResolvedValue({ access_token: 'a', refresh_token: 'r', user: { email: 'n@gmail.com' } });
+    const onLogin = jest.fn();
+    render(<AuthScreen onLogin={onLogin} initialMode="register" />);
+
+    tickAndClick();
+
+    await waitFor(() => expect(onLogin).toHaveBeenCalledWith('a', 'r', 'n@gmail.com'));
+    expect(API.auth.googleIdToken).toHaveBeenCalledWith('idtok', { accepted: true, adult: true });
+    expect(API.auth.getGoogleAuthUrl).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem('luna_google_state')).toBeNull();
+  });
+
+  test('consent_required shows the consent message and does not log in', async () => {
+    signInWithGoogleNative.mockResolvedValue('idtok');
+    API.auth.googleIdToken.mockRejectedValue(
+      new ApiError('Please review and accept the required consent to continue.', { status: 400, detail: { code: 'consent_required' } })
+    );
+    const onLogin = jest.fn();
+    render(<AuthScreen onLogin={onLogin} initialMode="register" />);
+
+    tickAndClick();
+
+    expect(await screen.findByText(/review and accept the required consent/i)).toBeInTheDocument();
+    expect(onLogin).not.toHaveBeenCalled();
+  });
+
+  test('a cancelled sign-in shows no error', async () => {
+    signInWithGoogleNative.mockRejectedValue(new Error('Google sign-in was cancelled'));
+    render(<AuthScreen onLogin={jest.fn()} initialMode="login" />);
+
+    userEvent.click(screen.getByRole('button', { name: /continue with google/i }));
+
+    await waitFor(() => expect(signInWithGoogleNative).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByRole('button', { name: /continue with google/i })).toBeEnabled());
+    expect(screen.queryByText(/failed/i)).not.toBeInTheDocument();
+    expect(API.auth.googleIdToken).not.toHaveBeenCalled();
+  });
 });

@@ -33,8 +33,8 @@ export default function PrivacyPanel({ token, consents, onSetConsent, onAccountD
     run('export', async () => {
       const data = await API.account.export(token);
       const day = new Date().toISOString().slice(0, 10);
-      downloadJson(`luna-health-export-${day}.json`, data);
-      setMsg('Your data was downloaded.');
+      const saved = await downloadJson(`luna-health-export-${day}.json`, data);
+      if (saved) setMsg('Your data was downloaded.');
     });
 
   const deleteAccount = () =>

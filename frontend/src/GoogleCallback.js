@@ -5,6 +5,7 @@ import { API } from './api';
 import { injectStyles } from './App';
 import { takeGoogleConsent } from './consentFlags';
 import { takeGoogleState } from './googleState';
+import { setSession } from './tokenStore';
 
 const shell = {
   minHeight: '100vh',
@@ -64,10 +65,8 @@ function GoogleCallback() {
 
     API.auth
       .googleCallback(code, takeGoogleConsent())
-      .then(response => {
-        localStorage.setItem('access_token', response.access_token);
-        localStorage.setItem('refresh_token', response.refresh_token);
-        localStorage.setItem('email', response.user.email);
+      .then(async response => {
+        await setSession({ accessToken: response.access_token, refreshToken: response.refresh_token, email: response.user.email });
         setState({ status: 'success' });
         timer.current = window.setTimeout(() => navigate('/app', { replace: true }), 1500);
       })

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Debug only: cleartext to the host API. The page origin is https://localhost, so the app should
+         use http://localhost:8000 with `adb reverse tcp:8000 tcp:8000` (loopback is not mixed content);
+         http://10.0.2.2 is allowed here for the network layer but Chromium blocks it as mixed content. -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">10.0.2.2</domain>
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+</network-security-config>

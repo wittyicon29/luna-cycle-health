@@ -6,15 +6,22 @@ import EmailVerification from './EmailVerification';
 import GoogleCallback from './GoogleCallback';
 import LegalPage from './LegalPage';
 import PasswordReset from './PasswordReset';
+import { getAccessToken } from './tokenStore';
 import { PRIVACY_POLICY, TERMS } from './legalContent';
+
+// A stored session skips the marketing page; an expired one is handled by the app's own
+// session-expired flow once /app loads.
+function LandingOrApp() {
+  return getAccessToken() ? <Navigate to="/app" replace /> : <LandingPage />;
+}
 
 function AppRouter() {
   return (
     <Router>
       <Routes>
         {/* Landing page - marketing site */}
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/landing" element={<LandingPage />} />
+        <Route path="/" element={<LandingOrApp />} />
+        <Route path="/landing" element={<LandingOrApp />} />
         
         {/* Email verification */}
         <Route path="/verify-email" element={<EmailVerification />} />

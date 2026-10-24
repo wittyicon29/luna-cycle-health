@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     QWEN_MODEL: str = "qwen/qwen3-32b"
     APP_ENV: str = "development"
     ALLOWED_ORIGINS: str = "http://localhost:3000"
+    GOOGLE_ID_TOKEN_AUDIENCES: str = ""  # comma-separated Web client IDs accepted as the ID-token audience
     SMTP_SERVER: Optional[str] = None
     SMTP_PORT: int = 587
     SMTP_USER: Optional[str] = None

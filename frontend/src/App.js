@@ -3,6 +3,8 @@ import LandingPage from "./LandingPage";
 import { API } from "./api";
 import ConsentCheckboxes from "./ConsentCheckboxes";
 import { saveGoogleConsent } from "./consentFlags";
+import { isNative } from "./platform";
+import { signInWithGoogleNative } from "./nativeGoogle";
 import { newGoogleState, buildGoogleRedirect } from "./googleState";
 import useConsents from "./useConsents";
 import RequiredConsentScreen from "./RequiredConsentScreen";
@@ -11,6 +13,7 @@ import PrivacyPanel from "./PrivacyPanel";
 import PeriodDelete from "./PeriodDelete";
 import ProfileBanner from "./ProfileBanner";
 import { localDateString, formatLongDate } from "./localDate";
+import { getAccessToken, getEmail, setSession, clearSession } from "./tokenStore";
 
 // ─── PHASE CONFIG ─────────────────────────────────────────────────────────────
 const PHASES = {
@@ -598,6 +601,19 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
   
   async function handleGoogleSignIn() {
     setLoading(true);
+    if (isNative()) {
+      try {
+        const idToken = await signInWithGoogleNative();
+        const res = await API.auth.googleIdToken(idToken, { accepted, adult });
+        onLogin(res.access_token, res.refresh_token, res.user.email);
+      } catch (e) {
+        if (e && e.message !== "Google sign-in was cancelled") {
+          setErr(e.code === "consent_required" || e.name === "ApiError" ? e.message : "Failed to sign in with Google");
+        }
+        setLoading(false);
+      }
+      return;
+    }
     try {
       saveGoogleConsent({ accepted, adult });
       const response = await API.auth.getGoogleAuthUrl();
@@ -1935,10 +1951,10 @@ export default function App() {
   const [showAuth, setShowAuth] = useState(false);
   const [authMode, setAuthMode] = useState("login");
 
-  // Check for token in localStorage on mount
+  // Restore the stored session (localStorage on web, Keystore cache on native) on mount
   useEffect(() => {
-    const storedToken = localStorage.getItem('access_token');
-    const storedEmail = localStorage.getItem('email');
+    const storedToken = getAccessToken();
+    const storedEmail = getEmail();
     if (storedToken && storedEmail) {
       setToken(storedToken);
       setEmail(storedEmail);
@@ -1977,9 +1993,7 @@ export default function App() {
   const handleLogin = (accessToken, refreshToken, userEmail) => {
     setToken(accessToken);
     setEmail(userEmail);
-    localStorage.setItem('access_token', accessToken);
-    localStorage.setItem('refresh_token', refreshToken);
-    localStorage.setItem('email', userEmail);
+    setSession({ accessToken, refreshToken, email: userEmail });
     setShowAuth(false);
     
     // Redirect to app after successful login
@@ -1989,9 +2003,7 @@ export default function App() {
   const handleLogout = () => {
     setToken(null);
     setEmail("");
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('email');
+    clearSession();
     
     // Redirect to login page after logout
     window.history.pushState({}, '', '/login');
