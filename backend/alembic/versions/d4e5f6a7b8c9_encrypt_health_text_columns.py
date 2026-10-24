@@ -18,7 +18,9 @@ depends_on = None
 
 def upgrade() -> None:
     # JSON -> TEXT so the columns can hold "enc:v1:<token>" values. Existing rows keep
-    # their plaintext JSON and are re-encrypted the next time they are written.
+    # their plaintext JSON/text and stay readable, but they are NOT re-encrypted
+    # automatically. A one-off backfill that re-saves every row through the ORM is
+    # required before launch if any real data exists.
     op.alter_column(
         'questionnaires', 'responses',
         existing_type=postgresql.JSON(astext_type=sa.Text()),
