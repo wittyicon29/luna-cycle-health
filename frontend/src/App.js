@@ -201,7 +201,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .btn-g:hover:not(:disabled){border-color:var(--border-h);color:var(--cream);background:var(--s2)}
 .btn-g:disabled{opacity:.4;cursor:not-allowed}
 .btn-full{width:100%}
-.btn-sm{padding:.4rem .85rem;font-size:.72rem}
+.btn-sm{padding:.4rem .85rem;font-size:.72rem;min-height:44px}
 .err{font-size:.75rem;color:#FF6B8A;padding:.55rem .8rem;background:rgba(255,107,138,0.1);border:1px solid rgba(255,107,138,0.3);border-radius:6px;margin-top:.5rem;animation:feedIn .2s ease}
 @keyframes feedIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,107,138,0.3);border-top-color:#FF6B8A;border-radius:50%;animation:spin .6s linear infinite}
@@ -214,7 +214,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .tlogo .m{display:inline-block;animation:moonFloat 4s ease-in-out infinite}
 .phase-pill{display:flex;align-items:center;gap:.4rem;padding:.28rem .7rem;border-radius:100px;font-size:.72rem;font-weight:500;letter-spacing:.03em;border:1px solid;white-space:nowrap;transition:all .4s}
 .cday-badge{font-family:'Fira Code',monospace;font-size:.68rem;color:var(--muted);padding:.25rem .6rem;border:1px solid var(--border);border-radius:4px;white-space:nowrap}
-.avatar-btn{width:32px;height:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;color:#fff;border:none;transition:transform .2s,box-shadow .2s;flex-shrink:0}
+.avatar-btn{width:44px;height:44px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;color:#fff;border:none;transition:transform .2s,box-shadow .2s;flex-shrink:0}
 .avatar-btn:hover{transform:scale(1.08)}
 
 /* JOURNEY CANVAS */
@@ -287,8 +287,11 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .drawer-handle{width:36px;height:4px;border-radius:2px;background:rgba(255,255,255,.13);margin:10px auto 0;flex-shrink:0;cursor:pointer}
 .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.5rem .75rem;flex-shrink:0;border-bottom:1px solid var(--border)}
 .drawer-title{font-family:'Cormorant Garamond',serif;font-size:1.4rem;font-weight:500;letter-spacing:.01em}
-.drawer-close{background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--muted);transition:color .2s;padding:.2rem;line-height:1}
+.drawer-close{background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--muted);transition:color .2s;padding:.2rem;line-height:1;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
 .drawer-close:hover{color:var(--cream)}
+:focus-visible{outline:2px solid #E8A09A;outline-offset:2px}
+:focus:not(:focus-visible){outline:none}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;scroll-behavior:auto !important}}
 .drawer-body{flex:1;overflow-y:auto;padding:1.25rem 1.5rem}
 
 /* CHAT */
