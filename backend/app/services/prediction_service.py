@@ -21,6 +21,18 @@ def remove_outliers(lengths: List[int]) -> List[int]:
     upper = q3 + 1.5 * iqr
     return [l for l in lengths if lower <= l <= upper]
 
+def cycle_lengths(cycles: List[Any]) -> List[int]:
+    """Cycle lengths (18-60 days) from consecutive start dates, else stored lengths in range."""
+    sorted_cycles = sorted(cycles, key=lambda c: c.start_date)
+    calculated = []
+    for prev, cur in zip(sorted_cycles, sorted_cycles[1:]):
+        days_diff = (cur.start_date - prev.start_date).days
+        if 18 <= days_diff <= 60:
+            calculated.append(days_diff)
+    if calculated:
+        return calculated
+    return [c.cycle_length for c in cycles if c.cycle_length and 18 <= c.cycle_length <= 60]
+
 def calculate_health_score(cycles: List[Any]) -> int:
     """Calculate comprehensive health score (0-100) based on multiple factors."""
     if not cycles:
@@ -289,7 +301,7 @@ def get_cycle_summary(cycles: List[Any]) -> Dict[str, Any]:
     if not cycles:
         return {}
     
-    lengths = [c.cycle_length for c in cycles if c.cycle_length]
+    lengths = cycle_lengths(cycles)
     
     # Calculate detailed health score components
     health_score = calculate_health_score(cycles)
