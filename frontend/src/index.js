@@ -3,10 +3,10 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import AppRouter from './AppRouter';
 import reportWebVitals from './reportWebVitals';
-import { initTokenStore } from './tokenStore';
+import { initTokenStoreWithTimeout } from './tokenStore';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
-initTokenStore().finally(() => {
+initTokenStoreWithTimeout(3000).finally(() => {
   root.render(
     <React.StrictMode>
       <AppRouter />

@@ -90,3 +90,39 @@ describe('native', () => {
     expect(store.getAccessToken()).toBe('a2');
   });
 });
+
+describe('hardening', () => {
+  beforeEach(() => isNative.mockReturnValue(true));
+
+  test('startup gives up on a hung secure store after the timeout and a late hydration cannot overwrite a newer session', async () => {
+    jest.useFakeTimers();
+    try {
+      let release;
+      mockSecure.get.mockImplementation(() => new Promise(resolve => { release = resolve; }));
+      const started = store.initTokenStoreWithTimeout(3000);
+      jest.advanceTimersByTime(3000);
+      await expect(started).resolves.toBeUndefined();
+      expect(store.getAccessToken()).toBeNull();
+
+      await store.setSession({ accessToken: 'new', refreshToken: 'nr', email: 'n@gmail.com' });
+      release('OLD');
+      await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+      expect(store.getAccessToken()).toBe('new');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test('a clear issued while a write is in flight is not undone by it', async () => {
+    const calls = [];
+    mockSecure.set.mockImplementation(async (k) => { await new Promise(r => setTimeout(r, 20)); calls.push(`set:${k}`); });
+    mockSecure.remove.mockImplementation(async (k) => { calls.push(`remove:${k}`); });
+    const w = store.setSession({ accessToken: 'a', refreshToken: 'r', email: 'e' });
+    const c = store.clearSession();
+    expect(store.getAccessToken()).toBeNull();
+    await Promise.all([w, c]);
+    const lastSet = Math.max(...calls.map((x, i) => (x.startsWith('set:') ? i : -1)));
+    const firstRemove = calls.findIndex(x => x.startsWith('remove:'));
+    expect(firstRemove).toBeGreaterThan(lastSet);
+  });
+});

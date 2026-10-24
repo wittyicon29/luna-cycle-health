@@ -1936,7 +1936,7 @@ export default function App() {
   const [showAuth, setShowAuth] = useState(false);
   const [authMode, setAuthMode] = useState("login");
 
-  // Check for token in localStorage on mount
+  // Restore the stored session (localStorage on web, Keystore cache on native) on mount
   useEffect(() => {
     const storedToken = getAccessToken();
     const storedEmail = getEmail();
