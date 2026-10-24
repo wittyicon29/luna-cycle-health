@@ -40,15 +40,13 @@ def register(request: Request, user: UserCreate, background_tasks: BackgroundTas
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     
-    hashed_password = get_password_hash(user.password)
-    
     # Create user with email verification required
     from ..api.email_verification import generate_verification_token
     verification_token = generate_verification_token()
     
     new_user = User(
         email=user.email, 
-        hashed_password=hashed_password,
+        hashed_password="",  # chosen later, when the email owner opens the verification link
         is_email_verified=False,  # Require email verification
         email_verification_token=verification_token,
         email_verification_expires=datetime.now(timezone.utc) + timedelta(hours=24),

@@ -6,13 +6,18 @@ from ..models.models import User, RefreshToken
 from ..services.email_service import send_email
 from ..core.config import settings
 from ..core.limiter import limiter
-from pydantic import BaseModel, EmailStr
+from ..core.security import get_password_hash, create_access_token, create_refresh_token, hash_token
+from pydantic import BaseModel, EmailStr, Field
 import secrets
 
 router = APIRouter(prefix="/verify", tags=["Email Verification"])
 
-class VerifyRequest(BaseModel):
+class VerifyTokenRequest(BaseModel):
     token: str
+
+class CompleteVerificationRequest(BaseModel):
+    token: str
+    password: str = Field(min_length=8)
 
 class EmailRequest(BaseModel):
     email: EmailStr
@@ -30,7 +35,7 @@ Hello,
 
 Thank you for registering with Luna Health! 
 
-To complete your registration and activate your account, please verify your email address by clicking the link below:
+Open the link below to finish creating your Luna Health account and choose your password:
 
 {verification_url}
 
@@ -80,32 +85,47 @@ async def send_verification_email(request: Request, payload: EmailRequest, backg
     
     return {"message": "Verification email sent successfully."}
 
-@router.post("/verify")
-async def verify_email(request: VerifyRequest, db: Session = Depends(get_db)):
-    """Verify email with token."""
+def _unverified_user_for_token(db: Session, token: str) -> User:
     user = db.query(User).filter(
-        User.email_verification_token == request.token,
+        User.email_verification_token == token,
         User.email_verification_expires > datetime.now(timezone.utc)
     ).first()
-    
     if not user:
-        raise HTTPException(
-            status_code=400, 
-            detail="Invalid or expired verification token"
-        )
-    
+        raise HTTPException(status_code=400, detail="Invalid or expired verification link.")
     if user.is_email_verified:
-        return {"message": "Email is already verified."}
-    
-    # Mark email as verified
-    # The token is kept (until it expires) so a repeated click, e.g. an email
-    # link scanner prefetching the URL first, still gets a success response.
+        raise HTTPException(status_code=400, detail="This link has already been used. Please log in.")
+    return user
+
+@router.post("/check")
+@limiter.limit(settings.AUTH_RATE_LIMIT)
+def check_verification_token(request: Request, payload: VerifyTokenRequest, db: Session = Depends(get_db)):
+    """Report which address a verification link belongs to. Changes nothing."""
+    user = _unverified_user_for_token(db, payload.token)
+    return {"email": user.email}
+
+@router.post("/complete")
+@limiter.limit(settings.AUTH_RATE_LIMIT)
+def complete_verification(request: Request, payload: CompleteVerificationRequest, db: Session = Depends(get_db)):
+    """Choose a password, verify the email and sign in. Single use."""
+    user = _unverified_user_for_token(db, payload.token)
+
+    user.hashed_password = get_password_hash(payload.password)
     user.is_email_verified = True
+    user.email_verification_token = None
+    user.email_verification_expires = None
     # Anything issued before ownership was proven must not survive verification.
     db.query(RefreshToken).filter(RefreshToken.user_id == user.id).update({"is_revoked": True})
+
+    access_token = create_access_token({"sub": str(user.id)})
+    refresh_token_raw = create_refresh_token()
+    db.add(RefreshToken(
+        user_id=user.id,
+        token_hash=hash_token(refresh_token_raw),
+        expires_at=datetime.now(timezone.utc) + timedelta(days=30)
+    ))
     db.commit()
-    
-    return {"message": "Email verified successfully! You can now log in."}
+
+    return {"access_token": access_token, "refresh_token": refresh_token_raw, "token_type": "bearer"}
 
 @router.post("/resend")
 @limiter.limit(settings.AUTH_RATE_LIMIT)

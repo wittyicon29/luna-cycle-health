@@ -25,7 +25,7 @@ def test_verify_email_marks_user_verified(client, db, make_user):
     user.email_verification_expires = datetime.now(timezone.utc) + timedelta(hours=1)
     db.commit()
 
-    response = client.post("/api/v1/verify/verify", json={"token": "tok-123"})
+    response = client.post("/api/v1/verify/complete", json={"token": "tok-123", "password": "password123"})
 
     assert response.status_code == 200
     db.refresh(user)
@@ -110,12 +110,13 @@ def test_register_does_not_issue_tokens(client, outbox, register_payload):
 
 def test_signup_requires_email_verification_before_login(client, db, outbox, register_payload):
     client.post("/api/v1/auth/register", json=register_payload)
-    credentials = {"email": register_payload["email"], "password": register_payload["password"]}
+    credentials = {"email": register_payload["email"], "password": "password123"}
 
-    assert client.post("/api/v1/auth/login", json=credentials).status_code == 403
+    assert client.post("/api/v1/auth/login", json=credentials).status_code in (401, 403)
 
     token = db.query(User).filter(User.email == register_payload["email"]).one().email_verification_token
-    assert client.post("/api/v1/verify/verify", json={"token": token}).status_code == 200
+    complete = client.post("/api/v1/verify/complete", json={"token": token, "password": "password123"})
+    assert complete.status_code == 200
 
     login = client.post("/api/v1/auth/login", json=credentials)
     assert login.status_code == 200

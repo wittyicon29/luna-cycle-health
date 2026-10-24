@@ -6,7 +6,6 @@ import re
 
 class UserCreate(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=8)
     accepted_privacy_policy: bool
     confirmed_18_plus: bool
     

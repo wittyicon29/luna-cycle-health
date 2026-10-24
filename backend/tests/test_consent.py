@@ -26,11 +26,10 @@ def test_registration_records_terms_and_age_consent(client, db, outbox, register
     from app.models.models import User
 
     client.post("/api/v1/auth/register", json=register_payload)
-    db.query(User).filter(User.email == register_payload["email"]).one().is_email_verified = True
-    db.commit()
+    verification = db.query(User).filter(User.email == register_payload["email"]).one().email_verification_token
     token = client.post(
-        "/api/v1/auth/login",
-        json={"email": register_payload["email"], "password": register_payload["password"]},
+        "/api/v1/verify/complete",
+        json={"token": verification, "password": "password123"},
     ).json()["access_token"]
 
     response = client.get("/api/v1/consents", headers={"Authorization": f"Bearer {token}"})
