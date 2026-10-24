@@ -19,6 +19,18 @@ def get_owned_period(db: Session, period_id: UUID, user: User) -> Period:
     return period
 
 
+def recompute_cycle_lengths(db: Session, user_id) -> None:
+    """Set each period's cycle_length to the days since the previous period's start.
+
+    Does not commit: the caller commits once so the change and recompute are atomic.
+    """
+    periods = db.query(Period).filter(Period.user_id == user_id).order_by(Period.start_date.asc()).all()
+    previous = None
+    for period in periods:
+        period.cycle_length = (period.start_date - previous.start_date).days if previous else None
+        previous = period
+
+
 @router.post("/", response_model=PeriodResponse)
 def create_period(period: PeriodCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     new_period = Period(
@@ -31,6 +43,8 @@ def create_period(period: PeriodCreate, current_user: User = Depends(get_current
         notes=period.notes
     )
     db.add(new_period)
+    db.flush()
+    recompute_cycle_lengths(db, current_user.id)
     db.commit()
     db.refresh(new_period)
     return new_period
@@ -57,6 +71,8 @@ def update_period(period_id: UUID, period_update: PeriodCreate, current_user: Us
     period.symptoms = period_update.symptoms
     period.notes = period_update.notes
 
+    db.flush()
+    recompute_cycle_lengths(db, current_user.id)
     db.commit()
     db.refresh(period)
     return period
@@ -66,5 +82,7 @@ def update_period(period_id: UUID, period_update: PeriodCreate, current_user: Us
 def delete_period(period_id: UUID, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     period = get_owned_period(db, period_id, current_user)
     db.delete(period)
+    db.flush()
+    recompute_cycle_lengths(db, current_user.id)
     db.commit()
     return {"message": "Period deleted"}

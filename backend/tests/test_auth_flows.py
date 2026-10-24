@@ -25,7 +25,7 @@ def test_verify_email_marks_user_verified(client, db, make_user):
     user.email_verification_expires = datetime.now(timezone.utc) + timedelta(hours=1)
     db.commit()
 
-    response = client.post("/api/v1/verify/verify", json={"token": "tok-123"})
+    response = client.post("/api/v1/verify/complete", json={"token": "tok-123", "password": "password123", "accepted_privacy_policy": True, "confirmed_18_plus": True})
 
     assert response.status_code == 200
     db.refresh(user)
@@ -96,3 +96,30 @@ def test_resend_is_throttled_when_called_twice_quickly(client, make_user, outbox
     assert first.status_code == 200
     assert second.status_code == 429
     assert len(outbox) == 1
+
+
+def test_register_does_not_issue_tokens(client, outbox, register_payload):
+    response = client.post("/api/v1/auth/register", json=register_payload)
+
+    assert response.status_code == 201
+    body = response.json()
+    assert "access_token" not in body
+    assert "refresh_token" not in body
+    assert "verify" in body["message"].lower()
+
+
+def test_signup_requires_email_verification_before_login(client, db, outbox, register_payload):
+    client.post("/api/v1/auth/register", json=register_payload)
+    credentials = {"email": register_payload["email"], "password": "password123"}
+
+    blocked = client.post("/api/v1/auth/login", json=credentials)
+    assert blocked.status_code == 403
+    assert blocked.json()["detail"].startswith("Please verify your email")
+
+    token = db.query(User).filter(User.email == register_payload["email"]).one().email_verification_token
+    complete = client.post("/api/v1/verify/complete", json={"token": token, "password": "password123", "accepted_privacy_policy": True, "confirmed_18_plus": True})
+    assert complete.status_code == 200
+
+    login = client.post("/api/v1/auth/login", json=credentials)
+    assert login.status_code == 200
+    assert "access_token" in login.json()

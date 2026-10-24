@@ -11,7 +11,7 @@ from ..core.security import (
 )
 from ..models.models import User, RefreshToken
 from ..schemas.schemas import (
-    UserCreate, UserLogin, Token, RefreshTokenRequest,
+    UserCreate, UserLogin, Token, RegisterResponse, RefreshTokenRequest,
     PasswordResetRequest, PasswordResetConfirm
 )
 from ..services.auth_service import (
@@ -33,14 +33,12 @@ class UserStatus(BaseModel):
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 security = HTTPBearer()
 
-@router.post("/register", response_model=Token, status_code=201)
+@router.post("/register", response_model=RegisterResponse, status_code=201)
 @limiter.limit(settings.AUTH_RATE_LIMIT)
 def register(request: Request, user: UserCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     existing_user = db.query(User).filter(User.email == user.email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
-    
-    hashed_password = get_password_hash(user.password)
     
     # Create user with email verification required
     from ..api.email_verification import generate_verification_token
@@ -48,7 +46,7 @@ def register(request: Request, user: UserCreate, background_tasks: BackgroundTas
     
     new_user = User(
         email=user.email, 
-        hashed_password=hashed_password,
+        hashed_password="",  # chosen later, when the email owner opens the verification link
         is_email_verified=False,  # Require email verification
         email_verification_token=verification_token,
         email_verification_expires=datetime.now(timezone.utc) + timedelta(hours=24),
@@ -76,30 +74,18 @@ def register(request: Request, user: UserCreate, background_tasks: BackgroundTas
         content=email_content
     )
     
-    # Create tokens but don't allow login until email is verified
-    access_token = create_access_token({"sub": str(new_user.id)})
-    refresh_token_raw = create_refresh_token()
-    
-    # Store refresh token hash
-    refresh_token_db = RefreshToken(
-        user_id=new_user.id,
-        token_hash=hash_token(refresh_token_raw),
-        expires_at=datetime.now(timezone.utc) + timedelta(days=30)
-    )
-    db.add(refresh_token_db)
-    db.commit()
-    
-    return {
-        "access_token": access_token, 
-        "refresh_token": refresh_token_raw,
-        "token_type": "bearer",
-        "message": "Registration successful! Please check your email to verify your account."
-    }
+    return {"message": "Registration successful! Please check your email to verify your account."}
 
 @router.post("/login", response_model=Token)
 @limiter.limit(settings.AUTH_RATE_LIMIT)
 def login(request: Request, user: UserLogin, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.email == user.email).first()
+    if db_user and not db_user.is_email_verified and not db_user.hashed_password:
+        # Registered but the person has not chosen a password yet.
+        raise HTTPException(
+            status_code=403,
+            detail="Please verify your email before logging in. Check your inbox for the verification link."
+        )
     if not db_user or not verify_password(user.password, db_user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
@@ -179,8 +165,19 @@ def refresh(request: Request, payload: RefreshTokenRequest, db: Session = Depend
     if not db_token:
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
     
-    # Revoke old token
-    db_token.is_revoked = True
+    owner = db.query(User).filter(User.id == db_token.user_id).first()
+    if not owner or not owner.is_email_verified:
+        raise HTTPException(status_code=403, detail="Please verify your email to continue.")
+    
+    # Claim the old token atomically: only one request can flip it from
+    # unrevoked to revoked, so a concurrently revoked token is never rotated.
+    claimed = db.query(RefreshToken).filter(
+        RefreshToken.id == db_token.id,
+        RefreshToken.is_revoked == False,  # noqa: E712
+    ).update({"is_revoked": True}, synchronize_session=False)
+    if claimed != 1:
+        db.rollback()
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
     
     # Create new tokens
     access_token = create_access_token({"sub": str(db_token.user_id)})
@@ -217,6 +214,8 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     user = db.query(User).filter(User.id == user_id_uuid).first()
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+    if not user.is_email_verified:
+        raise HTTPException(status_code=403, detail="Please verify your email to continue.")
     
     return user
 

@@ -12,7 +12,7 @@ const { API } = require('./api');
 const { downloadJson } = require('./download');
 const PrivacyPanel = require('./PrivacyPanel').default;
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => { jest.clearAllMocks(); localStorage.clear(); });
 
 function setup(overrides = {}) {
   const props = {
@@ -31,6 +31,8 @@ test('links to the policies', () => {
 
   expect(screen.getByRole('link', { name: /privacy policy/i })).toHaveAttribute('href', '/privacy');
   expect(screen.getByRole('link', { name: /terms/i })).toHaveAttribute('href', '/terms');
+  expect(screen.getByRole('link', { name: /privacy policy/i })).toHaveClass('legal-link');
+  expect(screen.getByRole('link', { name: /terms/i })).toHaveClass('legal-link');
 });
 
 test('AI consent can be withdrawn and granted again', async () => {
@@ -107,4 +109,34 @@ test('a failed deletion keeps the user signed in and shows why', async () => {
 
   expect(await screen.findByText(/Server error/)).toBeInTheDocument();
   expect(props.onAccountDeleted).not.toHaveBeenCalled();
+});
+
+test('a confirmed deletion wipes every luna_* key, including the one holding the email', async () => {
+  localStorage.setItem('luna_onboarding_done_u@gmail.com', '1');
+  localStorage.setItem('luna_other', 'x');
+  localStorage.setItem('unrelated', 'keep');
+  API.account.delete.mockResolvedValue({ message: 'deleted' });
+  const props = setup();
+  userEvent.click(screen.getByRole('button', { name: /delete my account/i }));
+  userEvent.type(screen.getByLabelText(/type delete to confirm/i), 'DELETE');
+
+  userEvent.click(screen.getByRole('button', { name: /delete forever/i }));
+
+  await waitFor(() => expect(props.onAccountDeleted).toHaveBeenCalled());
+  expect(localStorage.getItem('luna_onboarding_done_u@gmail.com')).toBeNull();
+  expect(localStorage.getItem('luna_other')).toBeNull();
+  expect(localStorage.getItem('unrelated')).toBe('keep');
+});
+
+test('a failed deletion leaves local data untouched', async () => {
+  localStorage.setItem('luna_onboarding_done_u@gmail.com', '1');
+  API.account.delete.mockRejectedValue(new Error('Server error'));
+  setup();
+  userEvent.click(screen.getByRole('button', { name: /delete my account/i }));
+  userEvent.type(screen.getByLabelText(/type delete to confirm/i), 'DELETE');
+
+  userEvent.click(screen.getByRole('button', { name: /delete forever/i }));
+
+  await screen.findByText(/Server error/);
+  expect(localStorage.getItem('luna_onboarding_done_u@gmail.com')).toBe('1');
 });

@@ -22,8 +22,15 @@ def test_registration_requires_confirming_age_18_plus(client, outbox, register_p
     assert client.post("/api/v1/auth/register", json=register_payload).status_code == 422
 
 
-def test_registration_records_terms_and_age_consent(client, outbox, register_payload):
-    token = client.post("/api/v1/auth/register", json=register_payload).json()["access_token"]
+def test_registration_records_terms_and_age_consent(client, db, outbox, register_payload):
+    from app.models.models import User
+
+    client.post("/api/v1/auth/register", json=register_payload)
+    verification = db.query(User).filter(User.email == register_payload["email"]).one().email_verification_token
+    token = client.post(
+        "/api/v1/verify/complete",
+        json={"token": verification, "password": "password123", "accepted_privacy_policy": True, "confirmed_18_plus": True},
+    ).json()["access_token"]
 
     response = client.get("/api/v1/consents", headers={"Authorization": f"Bearer {token}"})
 
@@ -94,14 +101,14 @@ def test_legacy_questionnaire_schema_rejects_users_under_18():
         BasicDemographic(age=17, biological_sex="female", weight_kg=50, height_cm=160)
 
 
-def _fake_google(monkeypatch, email):
+def _fake_google(monkeypatch, email, verified_email=True):
     from app.services.google_oauth import google_oauth_service
 
     async def fake_exchange(code):
         return {"access_token": "fake"}
 
     async def fake_info(token):
-        return {"email": email}
+        return {"email": email, "verified_email": verified_email}
 
     monkeypatch.setattr(google_oauth_service, "exchange_code_for_token", fake_exchange)
     monkeypatch.setattr(google_oauth_service, "get_user_info", fake_info)

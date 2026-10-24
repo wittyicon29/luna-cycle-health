@@ -3,16 +3,20 @@ import LandingPage from "./LandingPage";
 import { API } from "./api";
 import ConsentCheckboxes from "./ConsentCheckboxes";
 import { saveGoogleConsent } from "./consentFlags";
+import { newGoogleState, buildGoogleRedirect } from "./googleState";
 import useConsents from "./useConsents";
 import RequiredConsentScreen from "./RequiredConsentScreen";
 import AiConsentModal from "./AiConsentModal";
 import PrivacyPanel from "./PrivacyPanel";
+import PeriodDelete from "./PeriodDelete";
+import ProfileBanner from "./ProfileBanner";
+import { localDateString, formatLongDate } from "./localDate";
 
 // ─── PHASE CONFIG ─────────────────────────────────────────────────────────────
 const PHASES = {
   menstrual: { name: "Menstrual", territory: "The Valley", days: "Days 1–5", color: "#F28BA0", bg: "#2A1020", glow: "rgba(242, 130, 160, 0.12)", border: "#FF5C7A", muted: "#FFAFC0", icon: "🩸", tip: "Rest, warmth & gentle movement. Your body is releasing and renewing." },
   follicular: { name: "Follicular", territory: "The Ascent", days: "Days 6–13", color: "#64DCB4", bg: "#0E2420", glow: "rgba(100, 220, 180, 0.10)", border: "#2EC4A0", muted: "#A0F0D8", icon: "🌱", tip: "Energy rises. Perfect for new projects, social activities and bold decisions." },
-  ovulation: { name: "Ovulation", territory: "The Summit", days: "Day 14±", color: "#FFC84A", bg: "#221800", glow: "rgba(255, 200, 80, 0.10)", border: "#FFAA00", muted: "#FFE0A0", icon: "✨", tip: "Peak energy & confidence. Magnetic, communicative, most fertile window." },
+  ovulation: { name: "Ovulation", territory: "The Summit", days: "Day 14±", color: "#FFC84A", bg: "#221800", glow: "rgba(255, 200, 80, 0.10)", border: "#FFAA00", muted: "#FFE0A0", icon: "✨", tip: "Energy and confidence often peak around now. Notice how your body feels." },
   luteal: { name: "Luteal", territory: "The Return", days: "Days 15–28", color: "#AA8CF0", bg: "#180F30", glow: "rgba(170, 140, 240, 0.12)", border: "#8860E0", muted: "#D0C0FF", icon: "🌙", tip: "Turn inward. Good for reflection, creative depth, and completing things." },
   unknown: { name: "Uncharted", territory: "Uncharted", days: "—", color: "#A889C0", bg: "#241539", glow: "rgba(168, 137, 192, 0.15)", border: "#3D2860", muted: "#7A5C90", icon: "·", tip: "Log a period to calibrate your journey map." },
 };
@@ -133,12 +137,12 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:2px}
 
 /* AUTH */
-.auth-wrap{min-height:100vh;background:var(--bg);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.auth-wrap{height:100%;min-height:0;background:var(--bg);display:flex;align-items:flex-start;justify-content:center;position:relative;padding:1rem;overflow:hidden;overflow:clip;overflow-x:clip;overflow-y:auto}
 .auth-orb{position:absolute;border-radius:50%;filter:blur(120px);pointer-events:none;animation:orbIn 1.5s ease both}
 .auth-orb-a{width:500px;height:500px;background:radial-gradient(circle,rgba(196,84,74,0.18),transparent 70%);top:-100px;right:-100px;animation-delay:.2s}
 .auth-orb-b{width:400px;height:400px;background:radial-gradient(circle,rgba(124,102,192,0.12),transparent 70%);bottom:-80px;left:-80px;animation-delay:.5s}
 @keyframes orbIn{from{opacity:0}to{opacity:1}}
-.auth-card{position:relative;z-index:1;width:100%;max-width:380px;background:var(--s1);border:1px solid var(--border);padding:2.5rem;border-radius:12px;box-shadow:0 24px 80px rgba(0,0,0,0.5);animation:cardIn .5s cubic-bezier(.4,0,.2,1) both}
+.auth-card{margin:auto;position:relative;z-index:1;width:100%;max-width:380px;background:var(--s1);border:1px solid var(--border);padding:2.5rem;border-radius:12px;box-shadow:0 24px 80px rgba(0,0,0,0.5);animation:cardIn .5s cubic-bezier(.4,0,.2,1) both}
 @keyframes cardIn{from{opacity:0;transform:translateY(20px) scale(.98)}to{opacity:1;transform:none}}
 .auth-logo{text-align:center;margin-bottom:2rem}
 .auth-moon{display:block;font-size:2.2rem;margin-bottom:.5rem;animation:moonFloat 4s ease-in-out infinite}
@@ -147,8 +151,16 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .auth-logo p{font-size:.7rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-top:.3rem}
 .auth-tabs{display:flex;gap:.3rem;margin-bottom:1.8rem}
 .auth-tab{flex:1;padding:.55rem;background:transparent;border:1px solid transparent;color:var(--muted);font-family:'Outfit',sans-serif;font-size:.75rem;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;border-radius:6px;transition:all .2s}
-.auth-tab.on{color:#C4544A;border-color:rgba(196,84,74,.3);background:rgba(196,84,74,.07)}
+.auth-tab.on{color:#FF8A80;border-color:rgba(196,84,74,.3);background:rgba(196,84,74,.07)}
 .auth-tab:not(.on):hover{color:var(--cream)}
+.pw-wrap{position:relative}
+.f .pw-wrap input{padding-right:3rem}
+.pw-toggle{position:absolute;top:50%;right:0;transform:translateY(-50%);width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1rem;border-radius:var(--r)}
+.pw-toggle:hover{color:var(--cream)}
+.pw-toggle:focus-visible{outline:2px solid #FF8A80;outline-offset:-2px}
+.pw-hint{font-size:.65rem;color:var(--muted);margin-top:.3rem}
+.legal-link{color:#E8A09A;text-decoration:underline}
+.legal-link:hover{color:#FFC1BB}
 
 /* FORM */
 .f{margin-bottom:1rem}
@@ -190,7 +202,8 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .btn-g:hover:not(:disabled){border-color:var(--border-h);color:var(--cream);background:var(--s2)}
 .btn-g:disabled{opacity:.4;cursor:not-allowed}
 .btn-full{width:100%}
-.btn-sm{padding:.4rem .85rem;font-size:.72rem}
+.btn-ico{margin-right:.6rem}
+.btn-sm{padding:.4rem .85rem;font-size:.72rem;min-height:44px}
 .err{font-size:.75rem;color:#FF6B8A;padding:.55rem .8rem;background:rgba(255,107,138,0.1);border:1px solid rgba(255,107,138,0.3);border-radius:6px;margin-top:.5rem;animation:feedIn .2s ease}
 @keyframes feedIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,107,138,0.3);border-top-color:#FF6B8A;border-radius:50%;animation:spin .6s linear infinite}
@@ -203,12 +216,15 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .tlogo .m{display:inline-block;animation:moonFloat 4s ease-in-out infinite}
 .phase-pill{display:flex;align-items:center;gap:.4rem;padding:.28rem .7rem;border-radius:100px;font-size:.72rem;font-weight:500;letter-spacing:.03em;border:1px solid;white-space:nowrap;transition:all .4s}
 .cday-badge{font-family:'Fira Code',monospace;font-size:.68rem;color:var(--muted);padding:.25rem .6rem;border:1px solid var(--border);border-radius:4px;white-space:nowrap}
-.avatar-btn{width:32px;height:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;color:#fff;border:none;transition:transform .2s,box-shadow .2s;flex-shrink:0}
+.avatar-btn{width:44px;height:44px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;color:#fff;border:none;transition:transform .2s,box-shadow .2s;flex-shrink:0}
 .avatar-btn:hover{transform:scale(1.08)}
 
 /* JOURNEY CANVAS */
 .j-canvas{flex:1;overflow:hidden;position:relative;background:var(--bg)}
 .j-scroll{width:100%;height:100%;overflow-x:auto;overflow-y:hidden;cursor:grab;user-select:none}
+.j-empty{position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;padding:1rem;text-align:center;pointer-events:none;font-family:'Cormorant Garamond',serif;font-size:1.3rem;color:var(--cream)}
+.j-empty p{background:rgba(26,15,46,.85);background:color-mix(in srgb,var(--bg) 85%,transparent);padding:.6rem 1rem;border-radius:12px;max-width:100%}
+.j-empty .btn{pointer-events:auto;min-height:44px}
 .j-scroll:active{cursor:grabbing}
 .j-inner{height:100%;position:relative;display:flex;flex-direction:column}
 
@@ -224,6 +240,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .week-sep{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.03);pointer-events:none;z-index:1}
 .road{position:absolute;left:0;right:0;height:2px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.05);z-index:1}
 .p-dot{position:absolute;border-radius:50%;z-index:10;top:50%;transform:translate(-50%,-50%);cursor:pointer;transition:transform .2s,box-shadow .2s}
+.p-dot::before{content:"";position:absolute;inset:-20px;border-radius:50%}
 .p-dot:hover{transform:translate(-50%,-50%) scale(1.6)}
 
 /* Today beacon */
@@ -245,15 +262,17 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .ph-card-tip{font-size:.77rem;color:var(--cream);line-height:1.6;opacity:.85}
 
 /* Marker detail card */
-.mk-card{position:absolute;z-index:25;background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:.95rem 1.1rem;box-shadow:0 8px 32px rgba(0,0,0,.5);min-width:195px;animation:cardIn .2s ease}
-.mk-card-close{position:absolute;top:7px;right:8px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;line-height:1;transition:color .2s}
+.mk-card{position:absolute;z-index:25;background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:.95rem 1.1rem;box-shadow:0 8px 32px rgba(0,0,0,.5);min-width:195px;width:max-content;max-width:min(280px,calc(100vw - 16px));white-space:normal;overflow-wrap:anywhere;animation:cardIn .2s ease}
+.mk-card-close{position:absolute;top:0;right:0;background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;line-height:1;transition:color .2s;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
 .mk-card-close:hover{color:var(--cream)}
+.mk-card-head{padding-right:48px}
 
 /* STATS STRIP */
 .stats-strip{height:58px;flex-shrink:0;border-top:1px solid var(--border);background:#120A22;display:flex;align-items:center;padding:0 1.5rem}
-.st-item{flex:1;display:flex;flex-direction:column;align-items:center;border-right:1px solid var(--border)}
+.st-item{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;border-right:1px solid var(--border)}
 .st-item:last-child{border-right:none}
-.st-val{font-family:'Cormorant Garamond',serif;font-size:1.5rem;line-height:1;letter-spacing:.01em;color:#FF8FAA}
+.st-val{font-family:'Outfit',sans-serif;font-variant-numeric:lining-nums;font-size:1.4rem;line-height:1;letter-spacing:.01em;color:#FF8FAA}
+.st-val-phase{font-size:.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
 .st-lbl{font-size:.58rem;color:#7A5C90;text-transform:uppercase;letter-spacing:.1em;margin-top:2px;font-weight:500}
 
 /* DOCK */
@@ -276,12 +295,18 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .drawer-handle{width:36px;height:4px;border-radius:2px;background:rgba(255,255,255,.13);margin:10px auto 0;flex-shrink:0;cursor:pointer}
 .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.5rem .75rem;flex-shrink:0;border-bottom:1px solid var(--border)}
 .drawer-title{font-family:'Cormorant Garamond',serif;font-size:1.4rem;font-weight:500;letter-spacing:.01em}
-.drawer-close{background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--muted);transition:color .2s;padding:.2rem;line-height:1}
+.drawer-close{background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--muted);transition:color .2s;padding:.2rem;line-height:1;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
 .drawer-close:hover{color:var(--cream)}
+.modal-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.2rem;line-height:1;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
+.new-chat-btn{background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;padding:.2rem .45rem;border-radius:4px;font-size:.72rem;transition:all .2s;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
+:focus-visible{outline:2px solid #E8A09A;outline-offset:2px}
+:focus:not(:focus-visible){outline:none}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;scroll-behavior:auto !important}
+.spinner{animation-duration:.6s !important;animation-iteration-count:infinite !important}}
 .drawer-body{flex:1;overflow-y:auto;padding:1.25rem 1.5rem}
 
 /* CHAT */
-.chat-layout{display:flex;flex:1;overflow:hidden}
+.chat-layout{display:flex;flex:1;overflow:hidden;position:relative}
 .chat-hist-panel{width:195px;flex-shrink:0;border-right:1px solid var(--border);background:var(--s2);display:flex;flex-direction:column;overflow:hidden}
 .ch-head{padding:.8rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
 .ch-lbl{font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-weight:500}
@@ -299,7 +324,8 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .bname{font-size:.6rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:.32rem;font-weight:500}
 .bubble.user .bname{color:rgba(196,84,74,.7)}
 .chat-in{padding:.8rem 1.2rem;border-top:1px solid var(--border);background:var(--s2);display:flex;gap:.6rem;align-items:flex-end}
-.chat-in textarea{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--cream);padding:.62rem .9rem;font-family:'Outfit',sans-serif;font-size:.82rem;resize:none;height:44px;max-height:150px;outline:none;border-radius:var(--r);transition:border-color .2s,box-shadow .2s;line-height:1.5}
+.chat-in textarea{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--cream);padding:.62rem .9rem;font-family:'Outfit',sans-serif;font-size:.82rem;resize:none;height:44px;min-height:44px;max-height:150px;outline:none;border-radius:var(--r);transition:border-color .2s,box-shadow .2s;line-height:1.5}
+.f input:focus-visible,.f select:focus-visible,.f textarea:focus-visible,.chat-in textarea:focus-visible{outline:2px solid #E8A09A;outline-offset:2px}
 .chat-in textarea:focus{border-color:rgba(255,107,138,0.4);box-shadow:0 0 3px rgba(255,107,138,0.15)}
 .tdots{display:flex;gap:4px;align-items:center;padding:.32rem 0}
 .tdots span{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:td 1.4s ease-in-out infinite}
@@ -333,17 +359,17 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .sbar-fill{height:3px;background:linear-gradient(90deg,#C4544A,#E8A09A);transition:width 1.2s cubic-bezier(.4,0,.2,1);border-radius:2px}
 .pred-tile{padding:.75rem 1rem;background:rgba(255,255,255,.03);border:1px solid var(--border);flex:1;min-width:120px;border-radius:var(--r)}
 .pred-lbl{font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:.3rem;font-weight:500}
-.pred-val{font-family:'Cormorant Garamond',serif;font-size:1rem;color:#E8A09A}
+.pred-val{font-family:'Outfit',sans-serif;font-variant-numeric:lining-nums;font-size:1rem;color:#E8A09A}
 
 /* MODAL */
 .modal-ov{position:fixed;inset:0;background:rgba(7,8,12,.85);backdrop-filter:blur(6px);z-index:60;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s ease}
 .modal{background:var(--s1);border:1px solid var(--border);width:100%;max-width:450px;max-height:88vh;overflow-y:auto;padding:2rem;border-radius:12px;box-shadow:0 24px 80px rgba(0,0,0,.6);animation:cardIn .3s cubic-bezier(.4,0,.2,1)}
 .modal-title{font-family:'Cormorant Garamond',serif;font-size:1.35rem;color:#E8A09A;margin-bottom:1.4rem}
-.modal-foot{display:flex;gap:.65rem;justify-content:flex-end;margin-top:1.4rem}
+.modal-foot{display:flex;gap:.65rem;justify-content:flex-end;margin-top:1.4rem;position:sticky;bottom:-2rem;margin-left:-2rem;margin-right:-2rem;margin-bottom:-2rem;padding:1rem 2rem;background:var(--s1);border-top:1px solid var(--border)}
 
 /* CHIPS */
-.chips{display:flex;flex-wrap:wrap;gap:.32rem}
-.chip{padding:.22rem .68rem;font-size:.7rem;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'Outfit',sans-serif;transition:all .15s;border-radius:100px;user-select:none}
+.chips{display:flex;flex-wrap:wrap;gap:.4rem}
+.chip{min-height:40px;padding:.22rem .8rem;font-size:.7rem;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'Outfit',sans-serif;transition:all .15s;border-radius:100px;user-select:none}
 .chip.on{border-color:#C4544A;color:#C4544A;background:rgba(196,84,74,.1)}
 .chip:hover:not(.on){border-color:var(--border-h);color:var(--cream)}
 
@@ -385,7 +411,10 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 @keyframes talkMouth{0%,100%{transform:scaleX(1)}40%{transform:scaleX(1.18)}70%{transform:scaleX(.85)}}
 @keyframes blink{0%,88%,92%,100%{transform:scaleY(1)}90%{transform:scaleY(.15)}}
 
-@media(max-width:640px){.chat-hist-panel{display:none}.f-row{grid-template-columns:1fr}}
+.chat-hist-toggle,.chat-hist-back{display:none;min-height:44px;min-width:44px;padding:0 .8rem;background:none;border:1px solid var(--border);color:var(--muted);border-radius:var(--r);cursor:pointer;font-size:.75rem;font-family:inherit}
+.chat-disclaimer{padding:.35rem 1.2rem .6rem;font-size:.68rem;color:var(--muted);background:var(--s2);line-height:1.4}
+@media(max-width:640px){.chat-hist-toggle,.chat-hist-back{display:inline-flex;align-items:center;justify-content:center}.chat-hist-panel{display:none}.chat-hist-panel.open{display:flex;position:absolute;inset:0;width:100%;z-index:5;border-right:none}.ch-item{min-height:44px;display:flex;align-items:center}.f-row{grid-template-columns:1fr}}
+@media(max-width:400px){.chat-ai-label{display:none}}
 `;
 
 function injectStyles() {
@@ -405,7 +434,7 @@ function Modal({ title, onClose, children, footer }) {
       <div className="modal">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.4rem" }}>
           <div className="modal-title">{title}</div>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: "1.2rem", lineHeight: 1 }}>×</button>
+          <button className="modal-close" aria-label="Close" onClick={onClose}>×</button>
         </div>
         {children}
         {footer && <div className="modal-foot">{footer}</div>}
@@ -420,7 +449,7 @@ function Onboarding({ onClose, email }) {
   const steps = [
     {
       title: "Set up your health profile",
-      body: "Start by filling a quick health questionnaire so Luna understands your body, symptoms and cycle history. It’s not a diagnosis, just context to make future insights more personal.",
+      body: "Optional: add your health profile from the banner or Profile → Health Profile so insights can feel more personal. It’s context, not a diagnosis.",
       badge: "Health Profile",
     },
     {
@@ -458,12 +487,12 @@ function Onboarding({ onClose, email }) {
   return (
     <div className="modal-ov" style={{ zIndex: 70 }} onClick={e => e.target === e.currentTarget && finish()}>
       <div className="modal" style={{ maxWidth: 520, animationDuration: ".35s" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.2rem" }}>
-          <div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: ".5rem", marginBottom: "1.2rem" }}>
+          <div style={{ flex: "1 1 200px", minWidth: 0 }}>
             <div className="intro-pill"><span style={{ fontSize: "0.8rem" }}>◐</span>Welcome tour</div>
             <div className="modal-title" style={{ marginBottom: 0 }}>Meet your Luna journey</div>
           </div>
-          <button onClick={finish} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: "1.2rem", lineHeight: 1 }}>Skip</button>
+          <button type="button" className="btn btn-g btn-sm" onClick={finish}>Skip</button>
         </div>
         <div style={{ fontSize: ".86rem", color: "var(--muted)", marginBottom: "1.1rem" }}>
           {active.badge && <span className="badge b-m" style={{ marginBottom: ".5rem", display: "inline-flex" }}>{active.badge}</span>}
@@ -543,18 +572,21 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
   const [showResendVerification, setShowResendVerification] = useState(false);
   const [adult, setAdult] = useState(false);
   const [accepted, setAccepted] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const needsConsent = tab === "register" && !(adult && accepted);
+  const registerBlocked = needsConsent || (tab === "register" && !email.trim());
   
   async function submit(e) {
     e.preventDefault(); setErr(""); setMessage(""); setLoading(true);
     try {
       const d = tab === "login"
         ? await API.auth.login({ email, password: pass })
-        : await API.auth.register({ email, password: pass, accepted_privacy_policy: accepted, confirmed_18_plus: adult });
+        : await API.auth.register({ email, accepted_privacy_policy: accepted, confirmed_18_plus: adult });
       
-      if (d.message && d.message.includes("verify")) {
-        // Registration successful but email verification required
-        setMessage(d.message);
+      if (!d.access_token) {
+        if (tab === "login") { setErr("Something went wrong. Please try again."); return; }
+        // Register: no tokens issued (e.g. email verification required)
+        setMessage("Check your email. Open the link we sent to choose your password and finish signing up.");
         return;
       }
       
@@ -569,7 +601,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
     try {
       saveGoogleConsent({ accepted, adult });
       const response = await API.auth.getGoogleAuthUrl();
-      window.location.href = response.auth_url;
+      window.location.href = buildGoogleRedirect(response.auth_url, newGoogleState());
     } catch (e) {
       setErr("Failed to initiate Google Sign-In");
       setLoading(false);
@@ -668,13 +700,18 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
           <button className={`auth-tab ${tab === "register" ? "on" : ""}`} onClick={() => { setTab("register"); setErr(""); setMessage(""); }}>Register</button>
         </div>
         <form onSubmit={submit}>
-          <div className="f"><label>Email</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@gmail.com" required autoFocus /></div>
-          <div className="f"><label>Password</label><input type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="•••••••" required /></div>
+          <div className="f"><label>Email</label><input type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@gmail.com" required autoFocus /></div>
+          {tab === "login" && <div className="f"><label>Password</label>
+            <div className="pw-wrap">
+              <input type={showPassword ? "text" : "password"} autoComplete="current-password" value={pass} onChange={e => setPass(e.target.value)} placeholder="•••••••" required />
+              <button type="button" className="pw-toggle" aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword(v => !v)}>{showPassword ? "🙈" : "👁"}</button>
+            </div>
+          </div>}
           {tab === "register" && <ConsentCheckboxes adult={adult} accepted={accepted} onAdultChange={setAdult} onAcceptedChange={setAccepted} />}
           <Err msg={err} />
           {message && <div style={{ color: "#5FA87A", fontSize: ".8rem", marginBottom: "1rem", textAlign: "center" }}>{message}</div>}
-          <button className="btn btn-p btn-full" style={{ marginTop: "1.1rem" }} type="submit" disabled={loading || needsConsent}>
-            {loading ? <><Spinner /> Processing…</> : tab === "login" ? "Begin Your Journey" : "Create Account"}
+          <button className="btn btn-p btn-full" style={{ marginTop: "1.1rem" }} type="submit" disabled={loading || registerBlocked}>
+            {loading ? <><Spinner /> Processing…</> : tab === "login" ? "Log in" : "Create Account"}
           </button>
         </form>
         
@@ -726,7 +763,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
         )}
         
         <p style={{ fontSize: ".65rem", color: "var(--muted)", textAlign: "center", marginTop: "1rem" }}>
-          Only Gmail addresses are supported for registration.<br />
+          {tab === "register" && <>Only Gmail addresses are supported for registration.<br /></>}
           Luna Health is for people aged 18 and over.
         </p>
       </div>
@@ -738,7 +775,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
 const SYMPTOMS_LIST = ["cramps", "bloating", "headache", "fatigue", "mood swings", "acne", "back pain", "nausea", "tender breasts", "insomnia"];
 const DAY_W = 34, BACK = 90, FWD = 60, TOTAL = BACK + FWD;
 
-function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss }) {
+function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss, token, onPeriodDeleted, onLogPeriod }) {
   const scrollRef = useRef(null);
   const [hoveredPhase, setHoveredPhase] = useState(null);
   const [phaseCardX, setPhaseCardX] = useState(0);
@@ -785,6 +822,12 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
 
   return (
     <div className="j-canvas" onClick={onDismiss}>
+      {periods.length === 0 && onLogPeriod && (
+        <div className="j-empty">
+          <p>Your journey starts with your first period.</p>
+          <button type="button" className="btn btn-p" onClick={e => { e.stopPropagation(); onLogPeriod(); }}>Log a period</button>
+        </div>
+      )}
       <div ref={scrollRef} className="j-scroll" onMouseDown={onMD} onMouseMove={onMM} onMouseUp={onMU} onMouseLeave={onMU}>
         <div className="j-inner" style={{ width: canvasW }}>
 
@@ -857,7 +900,7 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
             </div>
 
             {/* Phase hover card */}
-            {hoveredPhase && (() => {
+            {hoveredPhase && !(periods.length === 0 && hoveredPhase === "unknown") && (() => {
               const ph = PHASES[hoveredPhase] || PHASES.unknown;
               const scrollLeft = scrollRef.current?.scrollLeft || 0;
               const viewW = scrollRef.current?.clientWidth || 800;
@@ -866,7 +909,7 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
               const clampedLeft = phaseCardX - (relX + cardW > viewW ? cardW + 8 : 0);
               return (
                 <div className="ph-card" style={{ left: Math.max(scrollLeft + 8, clampedLeft - 20) }}>
-                  <div className="ph-card-title" style={{ color: ph.color }}>{ph.icon} {ph.name} · {ph.territory}</div>
+                  <div className="ph-card-title" style={{ color: ph.color }}>{hoveredPhase === "unknown" || ph === PHASES.unknown ? ph.name : `${ph.icon} ${ph.name} · ${ph.territory}`}</div>
                   <div className="ph-card-sub">{ph.days}</div>
                   <div className="ph-card-tip">{ph.tip}</div>
                 </div>
@@ -877,20 +920,23 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
             {selectedInfo && (() => {
               const d = selectedInfo.day;
               const scrollLeft = scrollRef.current?.scrollLeft || 0;
-              const cardLeft = Math.max(scrollLeft + 8, selectedInfo.x - 100);
+              const visW = scrollRef.current?.clientWidth || 0;
+              const cardMaxW = Math.min(280, (visW || 390) - 16);
+              const cardLeft = Math.max(scrollLeft + 8, Math.min(selectedInfo.x - 100, scrollLeft + (visW || 390) - cardMaxW - 8));
               return (
                 <div className="mk-card" style={{ left: cardLeft, bottom: 14 }} onClick={e => e.stopPropagation()}>
-                  <button className="mk-card-close" onClick={onDismiss}>×</button>
+                  <button className="mk-card-close" aria-label="Close" onClick={onDismiss}>×</button>
                   {d.loggedPeriod ? (
                     <>
-                      <div style={{ fontSize: ".62rem", letterSpacing: ".1em", textTransform: "uppercase", color: PHASES.menstrual.color, marginBottom: ".45rem", fontWeight: 500 }}>🩸 Logged Period</div>
-                      <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.05rem", marginBottom: ".35rem" }}>{new Date(d.loggedPeriod.start_date).toLocaleDateString("en", { month: "long", day: "numeric", year: "numeric" })}</div>
-                      {d.loggedPeriod.end_date && <div style={{ fontSize: ".7rem", color: "var(--muted)" }}>Ended: {new Date(d.loggedPeriod.end_date).toLocaleDateString()}</div>}
+                      <div className="mk-card-head" style={{ fontSize: ".62rem", letterSpacing: ".1em", textTransform: "uppercase", color: PHASES.menstrual.color, marginBottom: ".45rem", fontWeight: 500 }}>🩸 Logged Period</div>
+                      <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.05rem", marginBottom: ".35rem" }}>{formatLongDate(d.loggedPeriod.start_date)}</div>
+                      {d.loggedPeriod.end_date && <div style={{ fontSize: ".7rem", color: "var(--muted)" }}>Ended: {formatLongDate(d.loggedPeriod.end_date)}</div>}
                       {d.loggedPeriod.flow_intensity && <div style={{ marginTop: ".45rem" }}><span className="badge b-r">{d.loggedPeriod.flow_intensity} flow</span></div>}
                       {d.loggedPeriod.pain_level != null && <div style={{ fontSize: ".7rem", color: "var(--muted)", marginTop: ".35rem", fontFamily: "'Fira Code',monospace" }}>Pain: {d.loggedPeriod.pain_level}/10</div>}
                       {(d.loggedPeriod.symptoms || []).length > 0 && <div style={{ marginTop: ".5rem", display: "flex", flexWrap: "wrap", gap: ".22rem" }}>{d.loggedPeriod.symptoms.slice(0, 4).map(s => <span key={s} className="badge b-m">{s}</span>)}</div>}
+                      <PeriodDelete period={d.loggedPeriod} token={token} onDeleted={onPeriodDeleted} />
                     </>
-                  ) : <div style={{ fontSize: ".77rem", color: "var(--muted)" }}>Predicted period start</div>}
+                  ) : <div className="mk-card-head" style={{ fontSize: ".77rem", color: "var(--muted)" }}>Predicted period start</div>}
                 </div>
               );
             })()}
@@ -904,7 +950,8 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
 
 // ─── LOG PERIOD MODAL ─────────────────────────────────────────────────────────
 function LogModal({ token, onClose, onSave }) {
-  const [startDate, setStartDate] = useState(""); const [endDate, setEndDate] = useState("");
+  const today = localDateString();
+  const [startDate, setStartDate] = useState(today); const [endDate, setEndDate] = useState("");
   const [flow, setFlow] = useState("medium"); const [pain, setPain] = useState(3);
   const [symptoms, setSymptoms] = useState([]); const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false); const [err, setErr] = useState("");
@@ -932,6 +979,9 @@ function LogModal({ token, onClose, onSave }) {
   }, [token]);
   async function save() {
     if (!startDate) { setErr("Start date required"); return; }
+    const todayNow = localDateString();
+    if (endDate && endDate < startDate) { setErr("The end date can't be before the start date."); return; }
+    if (startDate > todayNow || (endDate && endDate > todayNow)) { setErr("Dates can't be in the future."); return; }
     setSaving(true); setErr("");
     try { await API.periods.create({ start_date: startDate, end_date: endDate || null, flow_intensity: flow, pain_level: pain, symptoms, notes }, token); onSave(); }
     catch (e) { setErr(e.message); } finally { setSaving(false); }
@@ -940,8 +990,8 @@ function LogModal({ token, onClose, onSave }) {
     <Modal title="Log New Period" onClose={onClose}
       footer={<><button className="btn btn-g" onClick={onClose}>Cancel</button><button className="btn btn-p" onClick={save} disabled={saving}>{saving ? <><Spinner /> Saving…</> : "Save to Journey"}</button></>}>
       <div className="f-row">
-        <div className="f"><label>Start Date *</label><input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} /></div>
-        <div className="f"><label>End Date</label><input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} /></div>
+        <div className="f"><label>Start Date *</label><input type="date" value={startDate} max={today} onChange={e => { const v = e.target.value; setStartDate(v); if (endDate && v > endDate) setEndDate(""); }} /></div>
+        <div className="f"><label>End Date</label><input type="date" value={endDate} min={startDate} max={today} onChange={e => setEndDate(e.target.value)} /></div>
       </div>
       <div className="f"><label>Flow Intensity</label><select value={flow} onChange={e => setFlow(e.target.value)}><option value="light">Light</option><option value="medium">Medium</option><option value="heavy">Heavy</option></select></div>
       <div className="f">
@@ -1026,7 +1076,7 @@ function LogModal({ token, onClose, onSave }) {
 function ChatDrawer({ token, onClose }) {
   const defaultMsg = { 
   role: "assistant", 
-  content: "Hey there! 👋 I'm here to help you understand\n\nWhat's on your mind today? 💜",
+  content: "Hey there! 👋 I'm Luna. I can help you understand your cycle, your symptoms and how you're feeling.\n\nWhat's on your mind today? 💜",
   quickActions: [
     "What does my health score mean?",
     "How can I track symptoms better?", 
@@ -1039,6 +1089,7 @@ function ChatDrawer({ token, onClose }) {
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const [input, setInput] = useState(""); const [sending, setSending] = useState(false);
   const [err, setErr] = useState("");
+  const [histOpen, setHistOpen] = useState(false);
   const bottomRef = useRef(null); const taRef = useRef(null);
 
   useEffect(() => {
@@ -1125,24 +1176,24 @@ function ChatDrawer({ token, onClose }) {
             <div className="drawer-title">Luna</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: ".75rem" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: ".4rem", fontSize: ".65rem", color: "#5FA87A", fontFamily: "'Fira Code',monospace" }}>
-              <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#5FA87A", animation: "pulse 2.5s ease-in-out infinite" }} />Online
-            </div>
-            <button className="drawer-close" onClick={onClose}>×</button>
+            <button type="button" className="chat-hist-toggle" aria-label="Conversation history" aria-expanded={histOpen} onClick={() => setHistOpen(o => !o)}>History</button>
+            <div className="chat-ai-label" style={{ fontSize: ".65rem", color: "var(--muted)", fontFamily: "'Fira Code',monospace" }}>AI companion</div>
+            <button className="drawer-close" aria-label="Close" onClick={onClose}>×</button>
           </div>
         </div>
         <div className="chat-layout">
-          <div className="chat-hist-panel">
+          <div className={`chat-hist-panel${histOpen ? " open" : ""}`}>
             <div className="ch-head">
               <span className="ch-lbl">History</span>
-              <button onClick={() => { setCurrentSessionId(null); setInput(""); taRef.current?.focus(); }} style={{ background: "none", border: "1px solid var(--border)", color: "var(--muted)", cursor: "pointer", padding: ".2rem .45rem", borderRadius: "4px", fontSize: ".72rem", transition: "all .2s" }}>+</button>
+              <button type="button" className="chat-hist-back" onClick={() => setHistOpen(false)}>Back to chat</button>
+              <button className="new-chat-btn" aria-label="New chat" onClick={() => { setCurrentSessionId(null); setHistOpen(false); setInput(""); taRef.current?.focus(); }}>+</button>
             </div>
             <div className="ch-list">
               {sessions.length === 0 ? <div className="ch-empty">No messages yet.<br />Start a conversation.</div> :
                 sessions.map((s) => {
                   const firstUserMsg = s.messages.find(m => m.role === "user");
                   const title = firstUserMsg ? firstUserMsg.content : "New Chat";
-                  return <div key={s.id} onClick={() => setCurrentSessionId(s.id)} className={`ch-item ${s.id === currentSessionId ? "on" : ""}`}>{title?.slice(0, 44)}{title?.length > 44 ? "…" : ""}</div>
+                  return <div key={s.id} onClick={() => { setCurrentSessionId(s.id); setHistOpen(false); }} className={`ch-item ${s.id === currentSessionId ? "on" : ""}`}>{title?.slice(0, 44)}{title?.length > 44 ? "…" : ""}</div>
                 })}
             </div>
           </div>
@@ -1193,7 +1244,7 @@ function ChatDrawer({ token, onClose }) {
             <div className="chat-in">
               <textarea ref={taRef} value={input} onChange={e => setInput(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-                placeholder="What would you like to know about your cycle today? 💭"
+                placeholder="Ask Luna about your cycle…"
                 rows={1} style={{ height: "44px" }}
                 onInput={e => { e.target.style.height = "44px"; e.target.style.height = Math.min(e.target.scrollHeight, 150) + "px"; }}
               />
@@ -1201,6 +1252,7 @@ function ChatDrawer({ token, onClose }) {
                 {sending ? <Spinner /> : "Send"}
               </button>
             </div>
+            <div className="chat-disclaimer">Luna is an AI companion, not a doctor. For medical concerns, please see a clinician.</div>
           </div>
         </div>
       </div>
@@ -1414,7 +1466,7 @@ function AnalysisDrawer({ token, onClose }) {
 
   const active = selected || latest;
   const score = active?.cycle_health_score ?? null;
-  const ScoreRing = ({ score = 0 }) => { const r = 44, c = 2 * Math.PI * r, off = c - (score / 100) * c; return (<div className="score-ring"><svg width="108" height="108" viewBox="0 0 108 108"><circle cx="54" cy="54" r={r} fill="none" stroke="rgba(255,255,255,.05)" strokeWidth="7" /><circle cx="54" cy="54" r={r} fill="none" stroke="url(#rg2)" strokeWidth="7" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={off} style={{ transition: "stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1)" }} /><defs><linearGradient id="rg2" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#C4544A" /><stop offset="100%" stopColor="#7ECECE" /></linearGradient></defs></svg><div className="score-num"><span className="n">{score}</span><span className="s">/ 100</span></div></div>); };
+  const ScoreRing = ({ score = null }) => { const hasScore = typeof score === "number" && Number.isFinite(score); const r = 44, c = 2 * Math.PI * r, off = c - ((hasScore ? score : 0) / 100) * c; return (<div className="score-ring"><svg width="108" height="108" viewBox="0 0 108 108"><circle cx="54" cy="54" r={r} fill="none" stroke="rgba(255,255,255,.05)" strokeWidth="7" /><circle cx="54" cy="54" r={r} fill="none" stroke="url(#rg2)" strokeWidth="7" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={off} style={{ transition: "stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1)" }} /><defs><linearGradient id="rg2" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#C4544A" /><stop offset="100%" stopColor="#7ECECE" /></linearGradient></defs></svg><div className="score-num"><span className="n">{hasScore ? score : "—"}</span>{hasScore ? <span className="s">/ 100</span> : null}</div></div>); };
 
   const fmt = d => { try { return new Date(d + "T00:00:00").toLocaleDateString("en", { month: "short", day: "numeric" }); } catch { return d; } };
   const fmtDT = d => { try { return new Date(d).toLocaleString("en", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }); } catch { return d; } };
@@ -1428,7 +1480,7 @@ function AnalysisDrawer({ token, onClose }) {
           <div className="drawer-title">AI Analysis</div>
           <div style={{ display: "flex", alignItems: "center", gap: ".75rem" }}>
             <button className="btn btn-p btn-sm" onClick={generate} disabled={generating}>{generating ? <><Spinner />Analysing…</> : "✦ Run Analysis"}</button>
-            <button className="drawer-close" onClick={onClose}>×</button>
+            <button className="drawer-close" aria-label="Close" onClick={onClose}>×</button>
           </div>
         </div>
         <div className="drawer-body">
@@ -1465,7 +1517,10 @@ function AnalysisDrawer({ token, onClose }) {
               active ? (
                 <>
                   <div style={{ display: "flex", gap: "1.5rem", alignItems: "flex-start", flexWrap: "wrap", marginBottom: "1.2rem" }}>
-                    {score != null && <ScoreRing score={score} />}
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: ".4rem" }}>
+                      <ScoreRing score={score} />
+                      {score == null && <div style={{ fontSize: ".66rem", color: "var(--muted)", textAlign: "center", maxWidth: 120 }}>Needs 3+ cycles for a score</div>}
+                    </div>
                     <div style={{ flex: 1, minWidth: 180 }}>
                       {active.avg_cycle_length && <div className="sbar"><div className="sbar-lbl"><span>Avg Cycle</span><span style={{ fontFamily: "'Fira Code',monospace", color: "#E8A09A" }}>{active.avg_cycle_length}d</span></div><div className="sbar-track"><div className="sbar-fill" style={{ width: `${Math.min((active.avg_cycle_length / 35) * 100, 100)}%` }} /></div></div>}
                       {active.cycle_std_deviation != null && <div className="sbar"><div className="sbar-lbl"><span>Regularity</span><span style={{ fontFamily: "'Fira Code',monospace", color: "#E8A09A" }}>σ={active.cycle_std_deviation}</span></div><div className="sbar-track"><div className="sbar-fill" style={{ width: `${Math.max(0, 100 - active.cycle_std_deviation * 10)}%`, background: "linear-gradient(90deg,#4A9E6E,#7ECECE)" }} /></div></div>}
@@ -1501,7 +1556,7 @@ function AnalysisDrawer({ token, onClose }) {
                   {active.llm_response && <Insights raw={active.llm_response} medicalAnalysis={active.medical_analysis} userReport={active.user_report} />}
                 </>
               ) : (
-                <div className="empty"><div className="ei">🔮</div><p>No analyses yet.<br />Add period data then click <strong style={{ color: "#7ECECE" }}>Run Analysis</strong>.</p></div>
+                <div className="empty"><div className="ei">🔮</div><p>No insights yet.<br />Log at least two periods (about a month apart), then tap <strong style={{ color: "#7ECECE" }}>Run Analysis</strong>.</p></div>
               )
             )}
             {tab === "history" && (
@@ -1615,7 +1670,7 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
           <div style={{ display: "flex", alignItems: "center", gap: ".75rem" }}>
             {view === "main" && <button className="btn btn-g btn-sm" onClick={() => setView("questionnaire")}>Health Profile →</button>}
             {view === "questionnaire" && <button className="btn btn-g btn-sm" onClick={() => setView("main")}>← Back</button>}
-            <button className="drawer-close" onClick={onClose}>×</button>
+            <button className="drawer-close" aria-label="Close" onClick={onClose}>×</button>
           </div>
         </div>
         <div className="drawer-body">
@@ -1627,8 +1682,8 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
               </div>
               <div className="divider" />
               <div style={{ display: "flex", flexDirection: "column", gap: ".45rem" }}>
-                <button className="btn btn-g" style={{ justifyContent: "flex-start", gap: ".6rem" }} onClick={() => setView("questionnaire")}>📋 Update Health Profile</button>
-                <button className="btn btn-g" style={{ justifyContent: "flex-start", gap: ".6rem", color: "#E07070", borderColor: "rgba(224,112,112,.2)" }} onClick={onLogout}>⏻ Sign Out</button>
+                <button className="btn btn-g" style={{ justifyContent: "flex-start", gap: ".6rem" }} onClick={() => setView("questionnaire")}><span aria-hidden="true" className="btn-ico">📋</span>Update Health Profile</button>
+                <button className="btn btn-g" style={{ justifyContent: "flex-start", gap: ".6rem", color: "#E07070", borderColor: "rgba(224,112,112,.2)" }} onClick={onLogout}><span aria-hidden="true" className="btn-ico">⏻</span>Sign Out</button>
               </div>
               <div className="divider" />
               <PrivacyPanel token={token} consents={consents} onSetConsent={onSetConsent} onAccountDeleted={onLogout} />
@@ -1700,6 +1755,10 @@ function JourneyApp({ token, email, onLogout }) {
   const [selectedInfo, setSelectedInfo] = useState(null);
   const [showIntro, setShowIntro] = useState(false);
   const [forceQuestionnaire, setForceQuestionnaire] = useState(false);
+  const [profileIncomplete, setProfileIncomplete] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(() => {
+    try { return window.sessionStorage.getItem("luna_profile_banner_dismissed") === "1"; } catch (e) { return false; }
+  });
   const { consents, error: consentError, reload: reloadConsents, setConsent } = useConsents(token);
   const [pendingAi, setPendingAi] = useState(null);
 
@@ -1717,6 +1776,14 @@ function JourneyApp({ token, email, onLogout }) {
     return () => window.removeEventListener("luna:consent-required", onConsentRequired);
   }, [reloadConsents]);
 
+  const refreshProfileStatus = useCallback(async () => {
+    if (!token) return;
+    try {
+      const userStatus = await API.auth.status(token);
+      setProfileIncomplete(!userStatus.has_completed_questionnaire);
+    } catch (e) { /* keep the current banner state */ }
+  }, [token]);
+
   useEffect(() => {
     const checkUserStatus = async () => {
       try {
@@ -1727,10 +1794,7 @@ function JourneyApp({ token, email, onLogout }) {
         // Check questionnaire status via API
         if (token) {
           const userStatus = await API.auth.status(token);
-          if (!userStatus.has_completed_questionnaire) {
-            setOverlay("profile");
-            setForceQuestionnaire(true);
-          }
+          setProfileIncomplete(!userStatus.has_completed_questionnaire);
         }
       } catch (error) {
         setShowIntro(true);
@@ -1804,7 +1868,7 @@ function JourneyApp({ token, email, onLogout }) {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: ".65rem" }}>
           {cycleDay && <div className="cday-badge">Day {cycleDay} · {ph.name}</div>}
-          <button className="avatar-btn" onClick={() => setOverlay("profile")} style={{ background: `linear-gradient(135deg,${ph.color},#7C66C0)` }}>{email[0]?.toUpperCase()}</button>
+          <button className="avatar-btn" aria-label="Open profile" onClick={() => setOverlay("profile")} style={{ background: `linear-gradient(135deg,${ph.color},#7C66C0)` }}>{email[0]?.toUpperCase()}</button>
         </div>
       </div>
 
@@ -1817,16 +1881,25 @@ function JourneyApp({ token, email, onLogout }) {
         <JourneyMap periods={periods} avgCycle={avgCycle} selectedInfo={selectedInfo}
           onSelectMarker={(day, x) => setSelectedInfo({ day, x })}
           onDismiss={() => setSelectedInfo(null)}
+          token={token} onPeriodDeleted={() => { setSelectedInfo(null); loadPeriods(); }}
+          onLogPeriod={() => setOverlay("log")}
+        />
+      )}
+
+      {profileIncomplete && !bannerDismissed && (
+        <ProfileBanner
+          onStart={() => { setForceQuestionnaire(true); setOverlay("profile"); }}
+          onLater={() => { try { window.sessionStorage.setItem("luna_profile_banner_dismissed", "1"); } catch (e) { /* ignore */ } setBannerDismissed(true); }}
         />
       )}
 
       {/* STATS STRIP */}
       <div className="stats-strip">
         <div className="st-item"><div className="st-val" style={{ color: ph.color, fontFamily: "'Fira Code',monospace", fontSize: "1.2rem" }}>{cycleDay ?? "—"}</div><div className="st-lbl">Cycle Day</div></div>
-        <div className="st-item"><div className="st-val">{daysToNext ?? "—"}</div><div className="st-lbl">Days to Next</div></div>
+        <div className="st-item"><div className="st-val">{daysToNext != null ? `${daysToNext}d` : "—"}</div><div className="st-lbl">Next in</div></div>
         <div className="st-item"><div className="st-val">{avgCycle}</div><div className="st-lbl">Avg Cycle</div></div>
         <div className="st-item"><div className="st-val">{periods.length}</div><div className="st-lbl">Logged</div></div>
-        <div className="st-item"><div className="st-val" style={{ color: ph.color, fontSize: "1rem", lineHeight: 1.2, fontFamily: "'Outfit',sans-serif" }}>{ph.name}</div><div className="st-lbl">Phase</div></div>
+        <div className="st-item"><div className="st-val st-val-phase" style={{ color: ph.color, lineHeight: 1.2, fontFamily: "'Outfit',sans-serif" }}>{ph.name}</div><div className="st-lbl">Phase</div></div>
       </div>
 
       {/* BOTTOM DOCK */}
@@ -1842,7 +1915,7 @@ function JourneyApp({ token, email, onLogout }) {
       {overlay === "log" && <LogModal token={token} onClose={() => setOverlay(null)} onSave={() => { setOverlay(null); loadPeriods(); }} />}
       {overlay === "chat" && <ChatDrawer token={token} onClose={() => setOverlay(null)} />}
       {overlay === "analysis" && <AnalysisDrawer token={token} onClose={() => setOverlay(null)} />}
-      {overlay === "profile" && <ProfileDrawer token={token} email={email} onClose={() => { setOverlay(null); setForceQuestionnaire(false); }} onLogout={onLogout} consents={consents} onSetConsent={setConsent} initialView={forceQuestionnaire ? "questionnaire" : "main"} />}
+      {overlay === "profile" && <ProfileDrawer token={token} email={email} onClose={() => { setOverlay(null); setForceQuestionnaire(false); refreshProfileStatus(); }} onLogout={onLogout} consents={consents} onSetConsent={setConsent} initialView={forceQuestionnaire ? "questionnaire" : "main"} />}
       {overlay === "ai-consent" && (
         <AiConsentModal
           onClose={() => { setOverlay(null); setPendingAi(null); }}
@@ -1940,4 +2013,4 @@ export default function App() {
   return <JourneyApp token={token} email={email} onLogout={handleLogout} />;
 }
 
-export { injectStyles, AuthScreen, JourneyApp };
+export { injectStyles, AuthScreen, JourneyApp, ChatDrawer, LogModal, AnalysisDrawer };

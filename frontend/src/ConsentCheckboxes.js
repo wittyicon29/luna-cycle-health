@@ -3,7 +3,8 @@ import React from 'react';
 const row = {
   display: 'flex',
   gap: '.5rem',
-  alignItems: 'flex-start',
+  alignItems: 'center',
+  minHeight: 44,
   fontSize: '.75rem',
   color: 'var(--muted)',
   cursor: 'pointer',
@@ -11,7 +12,7 @@ const row = {
   textTransform: 'none',
   letterSpacing: 0,
 };
-const box = { width: 'auto', marginTop: '.15rem' };
+const box = { width: 'auto', marginTop: 0 };
 
 export default function ConsentCheckboxes({ adult, accepted, onAdultChange, onAcceptedChange }) {
   return (
@@ -23,8 +24,8 @@ export default function ConsentCheckboxes({ adult, accepted, onAdultChange, onAc
       <label style={row}>
         <input type="checkbox" checked={accepted} onChange={e => onAcceptedChange(e.target.checked)} style={box} />
         <span>
-          I agree to the <a href="/terms" target="_blank" rel="noreferrer">Terms</a> and{' '}
-          <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.
+          I agree to the <a className="legal-link" href="/terms" target="_blank" rel="noreferrer">Terms</a> and{' '}
+          <a className="legal-link" href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.
         </span>
       </label>
     </div>

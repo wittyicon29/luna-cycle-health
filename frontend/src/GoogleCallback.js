@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { API } from './api';
 import { injectStyles } from './App';
 import { takeGoogleConsent } from './consentFlags';
+import { takeGoogleState } from './googleState';
 
 const shell = {
   minHeight: '100vh',
@@ -50,6 +51,14 @@ function GoogleCallback() {
     const code = params.get('code');
     if (!code) {
       setState({ status: 'error', message: 'No authorization code received' });
+      return;
+    }
+
+    // Login CSRF check: the returned state must match the one stored before the redirect.
+    const expected = takeGoogleState();
+    const returned = params.get('state');
+    if (!expected || !returned || returned !== expected) {
+      setState({ status: 'error', message: 'Sign-in could not be verified. Please try again.' });
       return;
     }
 

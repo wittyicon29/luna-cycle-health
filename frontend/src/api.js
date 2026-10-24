@@ -124,13 +124,20 @@ export const API = {
     },
   },
   verify: {
-    verify: token => post('/verify/verify', { token }),
+    check: token => post('/verify/check', { token }),
+    complete: (token, password, consents = {}) => post('/verify/complete', {
+      token,
+      password,
+      accepted_privacy_policy: consents.accepted === true,
+      confirmed_18_plus: consents.adult === true,
+    }),
     resend: email => post('/verify/resend', { email }),
   },
   periods: {
     list: t => req('/periods/', {}, t),
     create: (d, t) => post('/periods/', d, t),
     update: (id, d, t) => req(`/periods/${id}`, { method: 'PUT', body: JSON.stringify(d) }, t),
+    remove: (id, t) => req(`/periods/${id}`, { method: 'DELETE' }, t),
   },
   questionnaires: {
     latest: t => req('/questionnaires/latest', {}, t),
