@@ -1,5 +1,6 @@
-import { SUPPORT_EMAIL } from './config';
+import { API_BASE, SUPPORT_EMAIL } from './config';
 
+const accountDeletionUrl = API_BASE.replace(/\/api\/v1$/, '') + '/account-deletion';
 const contact = SUPPORT_EMAIL || 'the support address listed in the app store listing';
 
 export const PRIVACY_POLICY = {
@@ -48,7 +49,7 @@ export const PRIVACY_POLICY = {
       heading: 'Your choices and rights',
       body: [
         'Download: Profile → Privacy & data → Download my data gives you a copy of everything we hold about you.',
-        'Delete: Profile → Privacy & data → Delete my account permanently erases your account and all linked data immediately. You can also request deletion at /account-deletion.',
+        'Delete: Profile → Privacy & data → Delete my account permanently erases your account and all linked data immediately. You can also request deletion at ' + accountDeletionUrl + '.',
         'Withdraw consent: you can withdraw AI-processing consent in the app at any time.',
         'Questions and grievances: contact ' + contact + '. You may also complain to the Data Protection Board of India.',
       ],

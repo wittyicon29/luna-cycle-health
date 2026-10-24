@@ -53,3 +53,11 @@ test('the router serves the password reset page that the email link points to', 
 
   expect(screen.getByText('Reset Your Password')).toBeInTheDocument();
 });
+
+test('the privacy policy links to the backend-hosted account deletion page with its full origin', () => {
+  const text = JSON.stringify(PRIVACY_POLICY);
+
+  expect(text).toMatch(/https?:\/\/[^\s"]+\/account-deletion/);
+  expect(text).not.toMatch(/\/api\/v1\/account-deletion/);
+  expect(text).not.toMatch(/(?<![A-Za-z0-9:.\-\]])\s\/account-deletion|at \/account-deletion/);
+});
