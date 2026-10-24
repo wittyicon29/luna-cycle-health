@@ -6,7 +6,12 @@ import secrets
 from .config import settings
 
 def verify_password(plain_password, hashed_password):
-    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+    if not hashed_password:
+        return False  # e.g. Google-only accounts have no password
+    try:
+        return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+    except ValueError:
+        return False
 
 def get_password_hash(password):
     salt = bcrypt.gensalt()

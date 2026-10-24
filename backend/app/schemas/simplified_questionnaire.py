@@ -32,7 +32,7 @@ class SeverityScale(int, Enum):
 
 # Section A: Basic & Demographic
 class BasicDemographic(BaseModel):
-    age: int = Field(ge=10, le=100)
+    age: int = Field(ge=18, le=100)
     biological_sex: BiologicalSex
     weight_kg: float = Field(gt=0)
     height_cm: float = Field(gt=0)

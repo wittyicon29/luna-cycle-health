@@ -1,128 +1,112 @@
-// Google OAuth Callback Handler
-import React, { useState, useEffect } from 'react';
-import { API } from './App';
+// Google OAuth callback page
+import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { API } from './api';
+import { injectStyles } from './App';
+import { takeGoogleConsent } from './consentFlags';
+
+const shell = {
+  minHeight: '100vh',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: 'var(--bg)',
+  color: 'var(--cream)',
+  flexDirection: 'column',
+  gap: '1.5rem',
+  textAlign: 'center',
+  padding: '1rem',
+};
+
+function Screen({ icon, title, children }) {
+  return (
+    <div style={shell}>
+      <div style={{ fontSize: '3rem' }}>{icon}</div>
+      <div style={{ maxWidth: 420 }}>
+        {title && <h2>{title}</h2>}
+        {children}
+      </div>
+    </div>
+  );
+}
 
 function GoogleCallback() {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
+  const navigate = useNavigate();
+  const [state, setState] = useState({ status: 'loading' });
+  const started = useRef(false);
+  const timer = useRef(null);
 
   useEffect(() => {
-    const handleCallback = async () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const code = urlParams.get('code');
-      const error = urlParams.get('error');
+    injectStyles();
+    // The authorization code is single-use and React StrictMode runs effects twice in development.
+    if (started.current) return;
+    started.current = true;
 
-      if (error) {
-        setError('Google authentication was cancelled or failed');
-        setLoading(false);
-        return;
-      }
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('error')) {
+      setState({ status: 'error', message: 'Google authentication was cancelled or failed' });
+      return;
+    }
+    const code = params.get('code');
+    if (!code) {
+      setState({ status: 'error', message: 'No authorization code received' });
+      return;
+    }
 
-      if (!code) {
-        setError('No authorization code received');
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const response = await API.auth.googleCallback({ code });
-        
-        // Store tokens and redirect to app
+    API.auth
+      .googleCallback(code, takeGoogleConsent())
+      .then(response => {
         localStorage.setItem('access_token', response.access_token);
         localStorage.setItem('refresh_token', response.refresh_token);
         localStorage.setItem('email', response.user.email);
-        
-        setSuccess(true);
-        setTimeout(() => {
-          window.location.href = '/app';
-        }, 2000);
-        
-      } catch (err) {
-        setError(err.message || 'Authentication failed');
-      } finally {
-        setLoading(false);
-      }
-    };
+        setState({ status: 'success' });
+        timer.current = window.setTimeout(() => navigate('/app', { replace: true }), 1500);
+      })
+      .catch(err => {
+        if (err.code === 'consent_required') {
+          setState({ status: 'consent' });
+        } else {
+          setState({ status: 'error', message: err.message || 'Authentication failed' });
+        }
+      });
+  }, [navigate]);
 
-    handleCallback();
-  }, []);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
 
-  if (loading) {
+  if (state.status === 'loading') {
     return (
-      <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'var(--bg)',
-        color: 'var(--cream)',
-        flexDirection: 'column',
-        gap: '2rem'
-      }}>
-        <div style={{ fontSize: '3rem', animation: 'moonFloat 4s ease-in-out infinite' }}>◐</div>
+      <Screen icon={<span style={{ animation: 'moonFloat 4s ease-in-out infinite', display: 'inline-block' }}>◐</span>}>
         <div>Completing authentication...</div>
-      </div>
+      </Screen>
     );
   }
 
-  if (error) {
+  if (state.status === 'success') {
     return (
-      <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'var(--bg)',
-        color: 'var(--cream)',
-        flexDirection: 'column',
-        gap: '2rem'
-      }}>
-        <div style={{ fontSize: '3rem' }}>❌</div>
-        <div style={{ textAlign: 'center', maxWidth: '400px' }}>
-          <h2>Authentication Failed</h2>
-          <p>{error}</p>
-          <button 
-            onClick={() => window.location.href = '/login'}
-            style={{
-              marginTop: '1rem',
-              padding: '0.8rem 1.5rem',
-              background: 'var(--primary)',
-              border: 'none',
-              borderRadius: '6px',
-              color: 'white',
-              cursor: 'pointer'
-            }}
-          >
-            Back to Login
-          </button>
-        </div>
-      </div>
+      <Screen icon="✅" title="Authentication Successful!">
+        <p>Redirecting to your dashboard...</p>
+      </Screen>
     );
   }
 
-  if (success) {
+  if (state.status === 'consent') {
     return (
-      <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'var(--bg)',
-        color: 'var(--cream)',
-        flexDirection: 'column',
-        gap: '2rem'
-      }}>
-        <div style={{ fontSize: '3rem' }}>✅</div>
-        <div style={{ textAlign: 'center' }}>
-          <h2>Authentication Successful!</h2>
-          <p>Redirecting to your dashboard...</p>
-        </div>
-      </div>
+      <Screen icon="🌙" title="Create your account first">
+        <p>
+          We couldn't find a Luna Health account for this Google email. To create one, go to Register, confirm
+          that you are 18 or older and accept the Terms and Privacy Policy, then continue with Google.
+        </p>
+        <button className="btn btn-p" onClick={() => navigate('/register')}>Go to Register</button>
+      </Screen>
     );
   }
 
-  return null;
+  return (
+    <Screen icon="❌" title="Authentication Failed">
+      <p>{state.message}</p>
+      <button className="btn btn-p" onClick={() => navigate('/login')}>Back to Login</button>
+    </Screen>
+  );
 }
 
 export default GoogleCallback;

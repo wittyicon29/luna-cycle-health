@@ -5,6 +5,7 @@ from datetime import datetime
 import uuid
 import enum
 from ..core.database import Base
+from ..core.crypto_types import EncryptedJSON, EncryptedText
 
 class FlowIntensity(str, enum.Enum):
     light = "light"
@@ -31,6 +32,7 @@ class User(Base):
     analyses = relationship("Analysis", back_populates="user", cascade="all, delete-orphan")
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
     chat_messages = relationship("ChatMessage", back_populates="user", cascade="all, delete-orphan")
+    consents = relationship("ConsentRecord", back_populates="user", cascade="all, delete-orphan")
 
 class Period(Base):
     __tablename__ = "periods"
@@ -43,7 +45,7 @@ class Period(Base):
     flow_intensity = Column(SQLEnum(FlowIntensity))
     pain_level = Column(Integer)
     symptoms = Column(JSON, default=list)
-    notes = Column(Text)
+    notes = Column(EncryptedText)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     user = relationship("User", back_populates="periods")
@@ -53,7 +55,7 @@ class Questionnaire(Base):
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    responses = Column(JSON, nullable=False)
+    responses = Column(EncryptedJSON, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     user = relationship("User", back_populates="questionnaires")
@@ -64,8 +66,8 @@ class Analysis(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     analysis_type = Column(String)
-    input_data = Column(JSON)
-    llm_response = Column(Text)
+    input_data = Column(EncryptedJSON)
+    llm_response = Column(EncryptedText)
     predictions = Column(JSON)
     health_insights = Column(JSON)
     risk_flags = Column(JSON)
@@ -97,7 +99,20 @@ class ChatMessage(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     session_id = Column(String, index=True)
     role = Column(String, nullable=False)
-    content = Column(Text, nullable=False)
+    content = Column(EncryptedText, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     user = relationship("User", back_populates="chat_messages")
+
+
+class ConsentRecord(Base):
+    __tablename__ = "consent_records"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    purpose = Column(String, nullable=False)
+    policy_version = Column(String, nullable=False)
+    granted = Column(Boolean, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="consents")

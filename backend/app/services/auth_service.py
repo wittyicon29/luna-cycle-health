@@ -1,86 +1,33 @@
-from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone, timedelta
-from ..models.models import User
+from ..core.config import settings
+from ..models.models import User, RefreshToken
 from ..core.security import get_password_hash
+from . import email_service
 import secrets
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-import os
 
 def generate_verification_token():
     """Generate a secure verification token."""
     return secrets.token_urlsafe(32)
 
-def send_verification_email(to_email: str, token: str):
-    """Send email verification email."""
-    try:
-        # In production, use a proper email service like SendGrid, AWS SES, etc.
-        # For now, we'll use a simple SMTP setup
-        
-        verification_url = f"http://localhost:3000/verify-email?token={token}"
-        
-        subject = "Verify your Luna Health account"
-        body = f"""
-        Hello! 👋
-        
-        Thank you for signing up for Luna Health. Please verify your email address by clicking the link below:
-        
-        {verification_url}
-        
-        This link will expire in 24 hours.
-        
-        If you didn't create this account, you can safely ignore this email.
-        
-        Best wishes,
-        The Luna Health Team 💜
-        """
-        
-        # For development, just print the URL
-        print(f"=== EMAIL VERIFICATION ===")
-        print(f"To: {to_email}")
-        print(f"Verification URL: {verification_url}")
-        print(f"=========================")
-        
-        return True
-        
-    except Exception as e:
-        print(f"Failed to send verification email: {e}")
-        return False
+async def send_password_reset_email(to_email: str, token: str) -> bool:
+    """Send the password reset email."""
+    reset_url = f"{settings.FRONTEND_URL}/reset-password?token={token}"
+    content = f"""Hello,
 
-def send_password_reset_email(to_email: str, token: str):
-    """Send password reset email."""
-    try:
-        reset_url = f"http://localhost:3000/reset-password?token={token}"
-        
-        subject = "Reset your Luna Health password"
-        body = f"""
-        Hello! 🔐
-        
-        You requested to reset your Luna Health password. Click the link below to set a new password:
-        
-        {reset_url}
-        
-        This link will expire in 1 hour for security reasons.
-        
-        If you didn't request this password reset, you can safely ignore this email.
-        
-        Stay secure,
-        The Luna Health Team 💜
-        """
-        
-        # For development, just print the URL
-        print(f"=== PASSWORD RESET ===")
-        print(f"To: {to_email}")
-        print(f"Reset URL: {reset_url}")
-        print(f"===================")
-        
-        return True
-        
-    except Exception as e:
-        print(f"Failed to send password reset email: {e}")
-        return False
+You requested to reset your Luna Health password. Open the link below to set a new one:
+
+{reset_url}
+
+This link expires in 1 hour. If you didn't request it, you can safely ignore this email.
+
+The Luna Health Team
+"""
+    return await email_service.send_email(
+        to_email=to_email,
+        subject="Reset your Luna Health password",
+        content=content,
+    )
 
 def verify_email_token(db: Session, token: str) -> bool:
     """Verify email token and mark email as verified."""
@@ -126,6 +73,7 @@ def reset_password(db: Session, token: str, new_password: str) -> bool:
     user.hashed_password = get_password_hash(new_password)
     user.password_reset_token = None
     user.password_reset_expires = None
+    db.query(RefreshToken).filter(RefreshToken.user_id == user.id).update({"is_revoked": True})
     db.commit()
     
     return True

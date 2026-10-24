@@ -37,7 +37,10 @@ async def send_email(to_email: str, subject: str, content: str, is_html: bool = 
         bool: True if email was sent successfully, False otherwise
     """
     if not validate_email_config():
-        logger.warning(f"Email credentials not configured. Mocking email to {to_email}: {subject}")
+        if settings.APP_ENV not in ("development", "testing"):
+            logger.warning("Email not sent: SMTP not configured")
+            return False
+        logger.warning("Email credentials not configured. Mocking email (development only)")
         print(f"--- MOCK EMAIL ---")
         print(f"To: {to_email}")
         print(f"From: {settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL or settings.SMTP_USER}>")

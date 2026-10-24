@@ -1,29 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import LandingPage from "./LandingPage";
-
-// ─── API ──────────────────────────────────────────────────────────────────────
-const API_BASE = "http://localhost:8000/api/v1";
-async function req(path, opts = {}, token = null) {
-  const headers = { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...opts.headers };
-  const res = await fetch(`${API_BASE}${path}`, { ...opts, headers });
-  if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || `Error ${res.status}`); }
-  return res.json();
-}
-const API = {
-  auth: { 
-    register: d => req("/auth/register", { method: "POST", body: JSON.stringify(d) }), 
-    login: d => req("/auth/login", { method: "POST", body: JSON.stringify(d) }), 
-    status: t => req("/auth/status", {}, t),
-    requestPasswordReset: d => req("/auth/request-password-reset", { method: "POST", body: JSON.stringify(d) }),
-    resetPassword: d => req("/auth/reset-password", { method: "POST", body: JSON.stringify(d) }),
-    getGoogleAuthUrl: () => req("/auth/google/auth-url"),
-    googleCallback: d => req("/auth/google/callback", { method: "POST", body: JSON.stringify(d) })
-  },
-  periods: { list: t => req("/periods/", {}, t), create: (d, t) => req("/periods/", { method: "POST", body: JSON.stringify(d) }, t), update: (id, d, t) => req(`/periods/${id}`, { method: "PUT", body: JSON.stringify(d) }, t) },
-  questionnaires: { latest: t => req("/questionnaires/latest", {}, t), submit: (d, t) => req("/questionnaires/", { method: "POST", body: JSON.stringify(d) }, t) },
-  analysis: { list: t => req("/analysis/", {}, t), generate: (d, t) => req("/analysis/", { method: "POST", body: JSON.stringify(d) }, t), latest: (type, t) => req(`/analysis/latest/${type}`, {}, t) },
-  chat: { send: (d, t) => req("/chat/ask", { method: "POST", body: JSON.stringify(d) }, t), history: t => req("/chat/history", {}, t) },
-};
+import { API } from "./api";
+import ConsentCheckboxes from "./ConsentCheckboxes";
+import { saveGoogleConsent } from "./consentFlags";
+import useConsents from "./useConsents";
+import RequiredConsentScreen from "./RequiredConsentScreen";
+import AiConsentModal from "./AiConsentModal";
+import PrivacyPanel from "./PrivacyPanel";
 
 // ─── PHASE CONFIG ─────────────────────────────────────────────────────────────
 const PHASES = {
@@ -558,11 +541,16 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
   const [message, setMessage] = useState("");
   const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [showResendVerification, setShowResendVerification] = useState(false);
+  const [adult, setAdult] = useState(false);
+  const [accepted, setAccepted] = useState(false);
+  const needsConsent = tab === "register" && !(adult && accepted);
   
   async function submit(e) {
     e.preventDefault(); setErr(""); setMessage(""); setLoading(true);
     try {
-      const d = tab === "login" ? await API.auth.login({ email, password: pass }) : await API.auth.register({ email, password: pass });
+      const d = tab === "login"
+        ? await API.auth.login({ email, password: pass })
+        : await API.auth.register({ email, password: pass, accepted_privacy_policy: accepted, confirmed_18_plus: adult });
       
       if (d.message && d.message.includes("verify")) {
         // Registration successful but email verification required
@@ -579,6 +567,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
   async function handleGoogleSignIn() {
     setLoading(true);
     try {
+      saveGoogleConsent({ accepted, adult });
       const response = await API.auth.getGoogleAuthUrl();
       window.location.href = response.auth_url;
     } catch (e) {
@@ -591,19 +580,9 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
     e.preventDefault();
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/verify/resend`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
-      
-      if (response.ok) {
-        setMessage("Verification email sent! Please check your inbox.");
-        setShowResendVerification(false);
-      } else {
-        const err = await response.json();
-        setErr(err.detail || "Failed to resend verification email");
-      }
+      await API.verify.resend(email);
+      setMessage("Verification email sent! Please check your inbox.");
+      setShowResendVerification(false);
     } catch (e) {
       setErr(e.message);
     } finally {
@@ -691,9 +670,10 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
         <form onSubmit={submit}>
           <div className="f"><label>Email</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@gmail.com" required autoFocus /></div>
           <div className="f"><label>Password</label><input type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="•••••••" required /></div>
+          {tab === "register" && <ConsentCheckboxes adult={adult} accepted={accepted} onAdultChange={setAdult} onAcceptedChange={setAccepted} />}
           <Err msg={err} />
           {message && <div style={{ color: "#5FA87A", fontSize: ".8rem", marginBottom: "1rem", textAlign: "center" }}>{message}</div>}
-          <button className="btn btn-p btn-full" style={{ marginTop: "1.1rem" }} type="submit" disabled={loading}>
+          <button className="btn btn-p btn-full" style={{ marginTop: "1.1rem" }} type="submit" disabled={loading || needsConsent}>
             {loading ? <><Spinner /> Processing…</> : tab === "login" ? "Begin Your Journey" : "Create Account"}
           </button>
         </form>
@@ -706,7 +686,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
           <button 
             className="btn btn-full" 
             onClick={handleGoogleSignIn}
-            disabled={loading}
+            disabled={loading || needsConsent}
             style={{ 
               background: "#4285F4", 
               border: "1px solid #4285F4",
@@ -747,7 +727,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
         
         <p style={{ fontSize: ".65rem", color: "var(--muted)", textAlign: "center", marginTop: "1rem" }}>
           Only Gmail addresses are supported for registration.<br />
-          By continuing, you agree to our Terms & Privacy Policy.
+          Luna Health is for people aged 18 and over.
         </p>
       </div>
     </div>
@@ -1591,7 +1571,7 @@ function AnalysisDrawer({ token, onClose }) {
 }
 
 // ─── PROFILE DRAWER ───────────────────────────────────────────────────────────
-function ProfileDrawer({ token, onClose, email, onLogout, initialView = "main" }) {
+function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent, initialView = "main" }) {
   const [view, setView] = useState(initialView);
   const [saving, setSaving] = useState(false); const [err, setErr] = useState(""); const [done, setDone] = useState(false);
   const [age, setAge] = useState(25); const [sex, setSex] = useState("female"); const [wt, setWt] = useState(60); const [ht, setHt] = useState(165);
@@ -1603,11 +1583,12 @@ function ProfileDrawer({ token, onClose, email, onLogout, initialView = "main" }
   const [ms, setMs] = useState(1); const [sad, setSad] = useState(0); const [ang, setAng] = useState(0); const [anx, setAnx] = useState(1);
   const [conc, setConc] = useState(0); const [bt, setBt] = useState(1); const [bloat, setBloat] = useState(2); const [head, setHead] = useState(1);
   const [interf, setInterf] = useState(false); const [intSev, setIntSev] = useState(3);
-  const [notes, setNotes] = useState(""); const [consent, setConsent] = useState(true);
+  const [notes, setNotes] = useState(""); const [consent, setConsent] = useState(false);
   const [questionnaireAnalysis, setQuestionnaireAnalysis] = useState(null);
 
   async function submitQ(e) {
     e.preventDefault(); if (!lmp) { setErr("Last period date required"); return; }
+    if (!consent) { setErr("Please tick the consent box to save your health profile."); return; }
     setSaving(true); setErr("");
     const payload = { basic_demographic: { age, biological_sex: sex, weight_kg: wt, height_cm: ht }, cycle_pattern: { last_menstrual_period: lmp, typical_cycle_length: cl, cycle_variability_days: cv, typical_bleeding_duration: bd, bleeding_volume: bv, sanitary_products_per_day: prod, passes_large_clots: clots, intermenstrual_bleeding: ib }, pain_symptoms: { has_cramping: cramp, pain_severity: psev, pain_timing: pt, painkiller_effectiveness: pe, has_nausea: nausea, has_vomiting: vomit, has_fainting: faint, has_diarrhea: diarr }, pms_symptoms: { mood_swings: ms, severe_sadness: sad, anger: ang, anxiety: anx, poor_concentration: conc, breast_tenderness: bt, bloating: bloat, headaches: head, interferes_with_daily_activities: interf, interference_severity: interf ? intSev : null }, optional_data: { additional_notes: notes || null, data_consent_given: consent } };
     try {
@@ -1649,6 +1630,8 @@ function ProfileDrawer({ token, onClose, email, onLogout, initialView = "main" }
                 <button className="btn btn-g" style={{ justifyContent: "flex-start", gap: ".6rem" }} onClick={() => setView("questionnaire")}>📋 Update Health Profile</button>
                 <button className="btn btn-g" style={{ justifyContent: "flex-start", gap: ".6rem", color: "#E07070", borderColor: "rgba(224,112,112,.2)" }} onClick={onLogout}>⏻ Sign Out</button>
               </div>
+              <div className="divider" />
+              <PrivacyPanel token={token} consents={consents} onSetConsent={onSetConsent} onAccountDeleted={onLogout} />
             </div>
           )}
           {view === "questionnaire" && (done ? (
@@ -1676,7 +1659,7 @@ function ProfileDrawer({ token, onClose, email, onLogout, initialView = "main" }
                 This is your health questionnaire. It helps Luna understand your body and symptoms. You can always edit these answers later under <strong>Profile → Health Profile</strong>.
               </div>
               <div className="q-sec"><div className="q-sec-title">Basic Info</div>
-                <div className="f-row"><div className="f"><label>Age</label><input type="number" value={age} onChange={e => setAge(Number(e.target.value))} min="10" max="100" required /></div><div className="f"><label>Biological Sex</label><select value={sex} onChange={e => setSex(e.target.value)}><option value="female">Female</option><option value="male">Male</option><option value="other">Other</option></select></div></div>
+                <div className="f-row"><div className="f"><label>Age</label><input type="number" value={age} onChange={e => setAge(Number(e.target.value))} min="18" max="100" required /></div><div className="f"><label>Biological Sex</label><select value={sex} onChange={e => setSex(e.target.value)}><option value="female">Female</option><option value="male">Male</option><option value="other">Other</option></select></div></div>
                 <div className="f-row"><div className="f"><label>Weight (kg)</label><input type="number" value={wt} onChange={e => setWt(Number(e.target.value))} min="30" max="200" /></div><div className="f"><label>Height (cm)</label><input type="number" value={ht} onChange={e => setHt(Number(e.target.value))} min="100" max="250" /></div></div>
               </div>
               <div className="q-sec"><div className="q-sec-title">Cycle Pattern</div>
@@ -1717,6 +1700,8 @@ function JourneyApp({ token, email, onLogout }) {
   const [selectedInfo, setSelectedInfo] = useState(null);
   const [showIntro, setShowIntro] = useState(false);
   const [forceQuestionnaire, setForceQuestionnaire] = useState(false);
+  const { consents, error: consentError, reload: reloadConsents, setConsent } = useConsents(token);
+  const [pendingAi, setPendingAi] = useState(null);
 
   const loadPeriods = useCallback(async () => {
     setLoading(true);
@@ -1724,6 +1709,13 @@ function JourneyApp({ token, email, onLogout }) {
     catch (e) { } finally { setLoading(false); }
   }, [token]);
   useEffect(() => { loadPeriods(); }, [loadPeriods]);
+
+  // The API announces a 403 consent_required (e.g. consent withdrawn elsewhere): refresh our copy and ask again.
+  useEffect(() => {
+    const onConsentRequired = () => { reloadConsents(); setOverlay("ai-consent"); };
+    window.addEventListener("luna:consent-required", onConsentRequired);
+    return () => window.removeEventListener("luna:consent-required", onConsentRequired);
+  }, [reloadConsents]);
 
   useEffect(() => {
     const checkUserStatus = async () => {
@@ -1747,6 +1739,35 @@ function JourneyApp({ token, email, onLogout }) {
     
     checkUserStatus();
   }, [token, email]);
+
+  if (consentError) {
+    return (
+      <div className="auth-wrap">
+        <div className="auth-card">
+          <Err msg={consentError} />
+          <button className="btn btn-p btn-full" style={{ marginTop: "1rem" }} onClick={reloadConsents}>Retry</button>
+          <button className="btn btn-g btn-full" style={{ marginTop: ".5rem" }} onClick={onLogout}>Sign out</button>
+        </div>
+      </div>
+    );
+  }
+  if (!consents) {
+    return <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><LoadingC text="Loading your privacy settings…" /></div>;
+  }
+  if (!consents.terms_privacy || !consents.age_18_plus) {
+    return (
+      <RequiredConsentScreen
+        onSubmit={async () => { await setConsent("age_18_plus", true); await setConsent("terms_privacy", true); }}
+        onLogout={onLogout}
+      />
+    );
+  }
+
+  const openAi = target => {
+    if (consents.ai_processing) { setOverlay(target); return; }
+    setPendingAi(target);
+    setOverlay("ai-consent");
+  };
 
   const sorted = [...periods].sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
   const avgCycle = sorted.length > 1 ? Math.round(sorted.slice(0, -1).reduce((s, p, i) => s + Math.abs((new Date(p.start_date) - new Date(sorted[i + 1].start_date)) / 86400000), 0) / (sorted.length - 1)) : 28;
@@ -1811,9 +1832,9 @@ function JourneyApp({ token, email, onLogout }) {
       {/* BOTTOM DOCK */}
       <div className="dock">
         <button className="dk on"><span className="di">🗺</span><span className="dl">Journey</span></button>
-        <button className="dk" onClick={() => setOverlay("analysis")}><span className="di">✦</span><span className="dl">Insights</span></button>
+        <button className="dk" onClick={() => openAi("analysis")}><span className="di">✦</span><span className="dl">Insights</span></button>
         <button className="dock-log" onClick={() => setOverlay("log")} title="Log period">+</button>
-        <button className="dk" onClick={() => setOverlay("chat")}><span className="di">💬</span><span className="dl">Chat</span></button>
+        <button className="dk" onClick={() => openAi("chat")}><span className="di">💬</span><span className="dl">Chat</span></button>
         <button className="dk" onClick={() => setOverlay("profile")}><span className="di">👤</span><span className="dl">Profile</span></button>
       </div>
 
@@ -1821,7 +1842,13 @@ function JourneyApp({ token, email, onLogout }) {
       {overlay === "log" && <LogModal token={token} onClose={() => setOverlay(null)} onSave={() => { setOverlay(null); loadPeriods(); }} />}
       {overlay === "chat" && <ChatDrawer token={token} onClose={() => setOverlay(null)} />}
       {overlay === "analysis" && <AnalysisDrawer token={token} onClose={() => setOverlay(null)} />}
-      {overlay === "profile" && <ProfileDrawer token={token} email={email} onClose={() => { setOverlay(null); setForceQuestionnaire(false); }} onLogout={onLogout} initialView={forceQuestionnaire ? "questionnaire" : "main"} />}
+      {overlay === "profile" && <ProfileDrawer token={token} email={email} onClose={() => { setOverlay(null); setForceQuestionnaire(false); }} onLogout={onLogout} consents={consents} onSetConsent={setConsent} initialView={forceQuestionnaire ? "questionnaire" : "main"} />}
+      {overlay === "ai-consent" && (
+        <AiConsentModal
+          onClose={() => { setOverlay(null); setPendingAi(null); }}
+          onGrant={async () => { await setConsent("ai_processing", true); setOverlay(pendingAi); setPendingAi(null); }}
+        />
+      )}
       {showIntro && <Onboarding email={email} onClose={() => setShowIntro(false)} />}
     </div>
   );
@@ -1843,6 +1870,21 @@ export default function App() {
       setToken(storedToken);
       setEmail(storedEmail);
     }
+  }, []);
+
+  // api.js refreshes tokens silently (req() always sends the newest stored token, so React state
+  // is deliberately left alone); bounce to login only if the session dies.
+  useEffect(() => {
+    const onExpired = () => {
+      setToken(null);
+      setEmail("");
+      setAuthMode("login");
+      setShowAuth(true);
+    };
+    window.addEventListener("luna:session-expired", onExpired);
+    return () => {
+      window.removeEventListener("luna:session-expired", onExpired);
+    };
   }, []);
 
   // Check if user is accessing auth routes directly
@@ -1897,3 +1939,5 @@ export default function App() {
 
   return <JourneyApp token={token} email={email} onLogout={handleLogout} />;
 }
+
+export { injectStyles, AuthScreen, JourneyApp };

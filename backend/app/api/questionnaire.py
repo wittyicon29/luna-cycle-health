@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session
 from typing import List
 import json
 from ..core.database import get_db
-from ..core.encryption import encryption_service, SENSITIVE_FIELDS
 from ..models.models import User, Questionnaire
 from ..schemas.schemas import QuestionnaireResponse
 from ..schemas.simplified_questionnaire import SimplifiedQuestionnaire
@@ -27,12 +26,6 @@ def create_questionnaire(
         )
     
     questionnaire_dict = questionnaire.to_dict()
-    
-    # Encrypt sensitive fields
-    if questionnaire.optional_data.additional_notes:
-        questionnaire_dict['optional_data']['additional_notes'] = encryption_service.encrypt(
-            questionnaire.optional_data.additional_notes
-        )
     
     # Perform analysis
     analysis = simplified_analysis_service.analyze(questionnaire)

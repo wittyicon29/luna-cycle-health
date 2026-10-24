@@ -4,6 +4,9 @@ import LandingPage from './LandingPage';
 import App from './App';
 import EmailVerification from './EmailVerification';
 import GoogleCallback from './GoogleCallback';
+import LegalPage from './LegalPage';
+import PasswordReset from './PasswordReset';
+import { PRIVACY_POLICY, TERMS } from './legalContent';
 
 function AppRouter() {
   return (
@@ -15,6 +18,13 @@ function AppRouter() {
         
         {/* Email verification */}
         <Route path="/verify-email" element={<EmailVerification />} />
+
+        {/* Password reset link from email */}
+        <Route path="/reset-password" element={<PasswordReset />} />
+
+        {/* Legal pages (the Play Store needs a public Privacy Policy URL) */}
+        <Route path="/privacy" element={<LegalPage doc={PRIVACY_POLICY} />} />
+        <Route path="/terms" element={<LegalPage doc={TERMS} />} />
         
         {/* Google OAuth callback - handles OAuth parameters */}
         <Route path="/auth/google/callback" element={<GoogleCallback />} />

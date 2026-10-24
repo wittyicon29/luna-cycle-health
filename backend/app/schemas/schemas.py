@@ -1,12 +1,14 @@
-from pydantic import BaseModel, EmailStr, Field, validator
-from datetime import date, datetime
-from typing import Optional, List, Dict, Any
+from pydantic import BaseModel, EmailStr, Field, StringConstraints, model_validator, validator
+from datetime import date, datetime, timedelta
+from typing import Annotated, Optional, List, Dict, Any, Literal
 from uuid import UUID
 import re
 
 class UserCreate(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8)
+    accepted_privacy_policy: bool
+    confirmed_18_plus: bool
     
     @validator('email')
     def validate_gmail(cls, v):
@@ -17,6 +19,18 @@ class UserCreate(BaseModel):
         gmail_pattern = r'^[a-zA-Z0-9._%+-]+@gmail\.com$'
         if not re.match(gmail_pattern, v):
             raise ValueError('Invalid Gmail address format')
+        return v
+
+    @validator('accepted_privacy_policy')
+    def must_accept_policy(cls, v):
+        if v is not True:
+            raise ValueError('You must accept the Privacy Policy and Terms to create an account')
+        return v
+
+    @validator('confirmed_18_plus')
+    def must_be_adult(cls, v):
+        if v is not True:
+            raise ValueError('Luna Health is for users aged 18 and over')
         return v
 
 class UserLogin(BaseModel):
@@ -41,13 +55,26 @@ class PasswordResetConfirm(BaseModel):
     token: str
     new_password: str = Field(min_length=8)
 
+Symptom = Annotated[str, StringConstraints(max_length=50)]
+
+
 class PeriodCreate(BaseModel):
     start_date: date
     end_date: Optional[date] = None
-    flow_intensity: Optional[str] = None
+    flow_intensity: Optional[Literal["light", "medium", "heavy"]] = None
     pain_level: Optional[int] = Field(None, ge=0, le=10)
-    symptoms: Optional[List[str]] = []
-    notes: Optional[str] = None
+    symptoms: Optional[List[Symptom]] = Field(default_factory=list, max_length=30)
+    notes: Optional[str] = Field(None, max_length=2000)
+
+    @model_validator(mode="after")
+    def check_dates(self):
+        if self.end_date and self.end_date < self.start_date:
+            raise ValueError("end_date cannot be before start_date")
+        # Allow tomorrow: users in IST are ahead of the server's UTC date.
+        if self.start_date > date.today() + timedelta(days=1):
+            raise ValueError("start_date cannot be in the future")
+        return self
+
 
 class PeriodResponse(BaseModel):
     id: UUID
@@ -97,7 +124,7 @@ class AnalysisResponse(BaseModel):
         from_attributes = True
 
 class ChatRequest(BaseModel):
-    question: str
+    question: str = Field(min_length=1, max_length=1000)
     include_context: bool = True
     session_id: Optional[str] = None
 

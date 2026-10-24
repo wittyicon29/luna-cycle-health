@@ -9,6 +9,7 @@ from ..schemas.schemas import AnalysisRequest, AnalysisResponse
 from ..services.llm_service import llm_service
 from ..services.prediction_service import predict_next_period, get_cycle_summary
 from .auth import get_current_user
+from .consents import require_consent
 
 router = APIRouter(prefix="/analysis", tags=["Analysis"])
 
@@ -24,7 +25,7 @@ async def invalidate_analysis(user_id: str):
     pass  # Redis disabled
 
 @router.post("/", response_model=AnalysisResponse)
-async def create_analysis(request: AnalysisRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+async def create_analysis(request: AnalysisRequest, current_user: User = Depends(require_consent("ai_processing")), db: Session = Depends(get_db)):
     # Check cache first
     cached = await get_cached_analysis(str(current_user.id))
     if cached and request.analysis_type == "cycle_health":

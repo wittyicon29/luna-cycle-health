@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone, timedelta
 from ..core.database import get_db
 from ..models.models import User
 from ..services.email_service import send_email
-from pydantic import BaseModel
+from ..core.config import settings
+from ..core.limiter import limiter
+from pydantic import BaseModel, EmailStr
 import secrets
 
 router = APIRouter(prefix="/verify", tags=["Email Verification"])
@@ -12,13 +14,16 @@ router = APIRouter(prefix="/verify", tags=["Email Verification"])
 class VerifyRequest(BaseModel):
     token: str
 
+class EmailRequest(BaseModel):
+    email: EmailStr
+
 def generate_verification_token() -> str:
     """Generate a secure verification token."""
     return secrets.token_urlsafe(32)
 
 def create_verification_email(token: str, user_email: str) -> str:
     """Create verification email content."""
-    verification_url = f"http://localhost:3000/verify-email?token={token}"
+    verification_url = f"{settings.FRONTEND_URL}/verify-email?token={token}"
     
     return f"""
 Hello,
@@ -46,9 +51,10 @@ The Luna Health Team
 """
 
 @router.post("/send-verification")
-async def send_verification_email(email: str, background_tasks, db: Session = Depends(get_db)):
+@limiter.limit(settings.AUTH_RATE_LIMIT)
+async def send_verification_email(request: Request, payload: EmailRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """Send verification email to user."""
-    user = db.query(User).filter(User.email == email).first()
+    user = db.query(User).filter(User.email == payload.email).first()
     
     if not user:
         # Don't reveal if email exists
@@ -100,9 +106,10 @@ async def verify_email(request: VerifyRequest, db: Session = Depends(get_db)):
     return {"message": "Email verified successfully! You can now log in."}
 
 @router.post("/resend")
-async def resend_verification(email: str, background_tasks, db: Session = Depends(get_db)):
+@limiter.limit(settings.AUTH_RATE_LIMIT)
+async def resend_verification(request: Request, payload: EmailRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """Resend verification email."""
-    user = db.query(User).filter(User.email == email).first()
+    user = db.query(User).filter(User.email == payload.email).first()
     
     if not user:
         return {"message": "If an account with this email exists, a verification email has been sent."}
@@ -112,7 +119,10 @@ async def resend_verification(email: str, background_tasks, db: Session = Depend
     
     # Check if enough time has passed since last email (prevent spam)
     if user.email_verification_expires:
-        time_since_last = datetime.now(timezone.utc) - user.email_verification_expires + timedelta(hours=24)
+        expires = user.email_verification_expires
+        if expires.tzinfo is None:  # the database returns naive UTC datetimes
+            expires = expires.replace(tzinfo=timezone.utc)
+        time_since_last = datetime.now(timezone.utc) - expires + timedelta(hours=24)
         if time_since_last < timedelta(minutes=5):
             raise HTTPException(
                 status_code=429,

@@ -1,11 +1,11 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from .core.database import engine, Base
 from .core.config import settings
-from .api import auth, periods, questionnaire, analysis, chat, email_verification
+from .core.limiter import limiter
+from .api import auth, periods, questionnaire, analysis, chat, email_verification, consents, account, legal
 
 # Create tables (use Alembic in production)
 if settings.APP_ENV == "development":
@@ -19,7 +19,6 @@ app = FastAPI(
 )
 
 # Rate limiting
-limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -39,6 +38,9 @@ app.include_router(questionnaire.router, prefix="/api/v1")
 app.include_router(analysis.router, prefix="/api/v1")
 app.include_router(chat.router, prefix="/api/v1")
 app.include_router(email_verification.router, prefix="/api/v1")
+app.include_router(consents.router, prefix="/api/v1")
+app.include_router(account.router, prefix="/api/v1")
+app.include_router(legal.router)
 
 @app.get("/")
 def root():
