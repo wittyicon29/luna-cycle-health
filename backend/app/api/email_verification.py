@@ -4,6 +4,7 @@ from datetime import datetime, timezone, timedelta
 from ..core.database import get_db
 from ..models.models import User
 from ..services.email_service import send_email
+from ..core.config import settings
 from pydantic import BaseModel
 import secrets
 
@@ -18,7 +19,7 @@ def generate_verification_token() -> str:
 
 def create_verification_email(token: str, user_email: str) -> str:
     """Create verification email content."""
-    verification_url = f"http://localhost:3000/verify-email?token={token}"
+    verification_url = f"{settings.FRONTEND_URL}/verify-email?token={token}"
     
     return f"""
 Hello,

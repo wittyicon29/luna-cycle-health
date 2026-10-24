@@ -13,42 +13,6 @@ def generate_verification_token():
     """Generate a secure verification token."""
     return secrets.token_urlsafe(32)
 
-def send_verification_email(to_email: str, token: str):
-    """Send email verification email."""
-    try:
-        # In production, use a proper email service like SendGrid, AWS SES, etc.
-        # For now, we'll use a simple SMTP setup
-        
-        verification_url = f"http://localhost:3000/verify-email?token={token}"
-        
-        subject = "Verify your Luna Health account"
-        body = f"""
-        Hello! 👋
-        
-        Thank you for signing up for Luna Health. Please verify your email address by clicking the link below:
-        
-        {verification_url}
-        
-        This link will expire in 24 hours.
-        
-        If you didn't create this account, you can safely ignore this email.
-        
-        Best wishes,
-        The Luna Health Team 💜
-        """
-        
-        # For development, just print the URL
-        print(f"=== EMAIL VERIFICATION ===")
-        print(f"To: {to_email}")
-        print(f"Verification URL: {verification_url}")
-        print(f"=========================")
-        
-        return True
-        
-    except Exception as e:
-        print(f"Failed to send verification email: {e}")
-        return False
-
 def send_password_reset_email(to_email: str, token: str):
     """Send password reset email."""
     try:
