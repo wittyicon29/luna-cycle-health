@@ -257,14 +257,15 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 
 /* Marker detail card */
 .mk-card{position:absolute;z-index:25;background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:.95rem 1.1rem;box-shadow:0 8px 32px rgba(0,0,0,.5);min-width:195px;animation:cardIn .2s ease}
-.mk-card-close{position:absolute;top:7px;right:8px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;line-height:1;transition:color .2s}
+.mk-card-close{position:absolute;top:0;right:0;background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;line-height:1;transition:color .2s;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
 .mk-card-close:hover{color:var(--cream)}
 
 /* STATS STRIP */
 .stats-strip{height:58px;flex-shrink:0;border-top:1px solid var(--border);background:#120A22;display:flex;align-items:center;padding:0 1.5rem}
-.st-item{flex:1;display:flex;flex-direction:column;align-items:center;border-right:1px solid var(--border)}
+.st-item{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;border-right:1px solid var(--border)}
 .st-item:last-child{border-right:none}
 .st-val{font-family:'Outfit',sans-serif;font-variant-numeric:lining-nums;font-size:1.4rem;line-height:1;letter-spacing:.01em;color:#FF8FAA}
+.st-val-phase{font-size:.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
 .st-lbl{font-size:.58rem;color:#7A5C90;text-transform:uppercase;letter-spacing:.1em;margin-top:2px;font-weight:500}
 
 /* DOCK */
@@ -289,6 +290,8 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .drawer-title{font-family:'Cormorant Garamond',serif;font-size:1.4rem;font-weight:500;letter-spacing:.01em}
 .drawer-close{background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--muted);transition:color .2s;padding:.2rem;line-height:1;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
 .drawer-close:hover{color:var(--cream)}
+.modal-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.2rem;line-height:1;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
+.new-chat-btn{background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;padding:.2rem .45rem;border-radius:4px;font-size:.72rem;transition:all .2s;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
 :focus-visible{outline:2px solid #E8A09A;outline-offset:2px}
 :focus:not(:focus-visible){outline:none}
 @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;scroll-behavior:auto !important}
@@ -358,8 +361,8 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .modal-foot{display:flex;gap:.65rem;justify-content:flex-end;margin-top:1.4rem;position:sticky;bottom:-2rem;margin-left:-2rem;margin-right:-2rem;margin-bottom:-2rem;padding:1rem 2rem;background:var(--s1);border-top:1px solid var(--border)}
 
 /* CHIPS */
-.chips{display:flex;flex-wrap:wrap;gap:.32rem}
-.chip{padding:.22rem .68rem;font-size:.7rem;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'Outfit',sans-serif;transition:all .15s;border-radius:100px;user-select:none}
+.chips{display:flex;flex-wrap:wrap;gap:.4rem}
+.chip{min-height:40px;padding:.22rem .8rem;font-size:.7rem;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'Outfit',sans-serif;transition:all .15s;border-radius:100px;user-select:none}
 .chip.on{border-color:#C4544A;color:#C4544A;background:rgba(196,84,74,.1)}
 .chip:hover:not(.on){border-color:var(--border-h);color:var(--cream)}
 
@@ -423,7 +426,7 @@ function Modal({ title, onClose, children, footer }) {
       <div className="modal">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.4rem" }}>
           <div className="modal-title">{title}</div>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: "1.2rem", lineHeight: 1 }}>×</button>
+          <button className="modal-close" aria-label="Close" onClick={onClose}>×</button>
         </div>
         {children}
         {footer && <div className="modal-foot">{footer}</div>}
@@ -905,7 +908,7 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
               const cardLeft = Math.max(scrollLeft + 8, selectedInfo.x - 100);
               return (
                 <div className="mk-card" style={{ left: cardLeft, bottom: 14 }} onClick={e => e.stopPropagation()}>
-                  <button className="mk-card-close" onClick={onDismiss}>×</button>
+                  <button className="mk-card-close" aria-label="Close" onClick={onDismiss}>×</button>
                   {d.loggedPeriod ? (
                     <>
                       <div style={{ fontSize: ".62rem", letterSpacing: ".1em", textTransform: "uppercase", color: PHASES.menstrual.color, marginBottom: ".45rem", fontWeight: 500 }}>🩸 Logged Period</div>
@@ -1155,7 +1158,7 @@ function ChatDrawer({ token, onClose }) {
           <div style={{ display: "flex", alignItems: "center", gap: ".75rem" }}>
             <button type="button" className="chat-hist-toggle" aria-label="Conversation history" aria-expanded={histOpen} onClick={() => setHistOpen(o => !o)}>History</button>
             <div style={{ fontSize: ".65rem", color: "var(--muted)", fontFamily: "'Fira Code',monospace" }}>AI companion</div>
-            <button className="drawer-close" onClick={onClose}>×</button>
+            <button className="drawer-close" aria-label="Close" onClick={onClose}>×</button>
           </div>
         </div>
         <div className="chat-layout">
@@ -1163,7 +1166,7 @@ function ChatDrawer({ token, onClose }) {
             <div className="ch-head">
               <span className="ch-lbl">History</span>
               <button type="button" className="chat-hist-back" onClick={() => setHistOpen(false)}>Back to chat</button>
-              <button aria-label="New chat" onClick={() => { setCurrentSessionId(null); setHistOpen(false); setInput(""); taRef.current?.focus(); }} style={{ background: "none", border: "1px solid var(--border)", color: "var(--muted)", cursor: "pointer", padding: ".2rem .45rem", borderRadius: "4px", fontSize: ".72rem", transition: "all .2s" }}>+</button>
+              <button className="new-chat-btn" aria-label="New chat" onClick={() => { setCurrentSessionId(null); setHistOpen(false); setInput(""); taRef.current?.focus(); }}>+</button>
             </div>
             <div className="ch-list">
               {sessions.length === 0 ? <div className="ch-empty">No messages yet.<br />Start a conversation.</div> :
@@ -1457,7 +1460,7 @@ function AnalysisDrawer({ token, onClose }) {
           <div className="drawer-title">AI Analysis</div>
           <div style={{ display: "flex", alignItems: "center", gap: ".75rem" }}>
             <button className="btn btn-p btn-sm" onClick={generate} disabled={generating}>{generating ? <><Spinner />Analysing…</> : "✦ Run Analysis"}</button>
-            <button className="drawer-close" onClick={onClose}>×</button>
+            <button className="drawer-close" aria-label="Close" onClick={onClose}>×</button>
           </div>
         </div>
         <div className="drawer-body">
@@ -1644,7 +1647,7 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
           <div style={{ display: "flex", alignItems: "center", gap: ".75rem" }}>
             {view === "main" && <button className="btn btn-g btn-sm" onClick={() => setView("questionnaire")}>Health Profile →</button>}
             {view === "questionnaire" && <button className="btn btn-g btn-sm" onClick={() => setView("main")}>← Back</button>}
-            <button className="drawer-close" onClick={onClose}>×</button>
+            <button className="drawer-close" aria-label="Close" onClick={onClose}>×</button>
           </div>
         </div>
         <div className="drawer-body">
@@ -1872,7 +1875,7 @@ function JourneyApp({ token, email, onLogout }) {
         <div className="st-item"><div className="st-val">{daysToNext != null ? `${daysToNext}d` : "—"}</div><div className="st-lbl">Next in</div></div>
         <div className="st-item"><div className="st-val">{avgCycle}</div><div className="st-lbl">Avg Cycle</div></div>
         <div className="st-item"><div className="st-val">{periods.length}</div><div className="st-lbl">Logged</div></div>
-        <div className="st-item"><div className="st-val" style={{ color: ph.color, fontSize: "1rem", lineHeight: 1.2, fontFamily: "'Outfit',sans-serif" }}>{ph.name}</div><div className="st-lbl">Phase</div></div>
+        <div className="st-item"><div className="st-val st-val-phase" style={{ color: ph.color, lineHeight: 1.2, fontFamily: "'Outfit',sans-serif" }}>{ph.name}</div><div className="st-lbl">Phase</div></div>
       </div>
 
       {/* BOTTOM DOCK */}

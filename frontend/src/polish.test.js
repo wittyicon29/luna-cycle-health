@@ -44,3 +44,27 @@ test('small controls are at least 44px to tap', () => {
   expect(app).toMatch(/\.avatar-btn\{[^}]*(width:44px|min-width:44px)/);
   expect(app).toMatch(/\.btn-sm\{[^}]*min-height:44px/);
 });
+
+test('close buttons and the new-chat button have a 44px hit area and a label', () => {
+  const app = read('src/App.js');
+
+  expect(app).toMatch(/\.mk-card-close\{[^}]*min-width:44px[^}]*min-height:44px/);
+  expect(app).toMatch(/\.modal-close\{[^}]*min-width:44px[^}]*min-height:44px/);
+  expect(app).toMatch(/\.new-chat-btn\{[^}]*min-width:44px[^}]*min-height:44px/);
+  expect(app).toMatch(/className="modal-close"[^>]*aria-label="Close"|aria-label="Close"[^>]*className="modal-close"/);
+  expect(app).toMatch(/className="mk-card-close"[^>]*aria-label="Close"|aria-label="Close"[^>]*className="mk-card-close"/);
+  expect(app).toMatch(/aria-label="New chat"/);
+  expect(app.match(/className="drawer-close"[^>]*aria-label="Close"/g)).toHaveLength(3);
+});
+
+test('symptom chips are at least 40px tall', () => {
+  expect(read('src/App.js')).toMatch(/\.chip\{[^}]*min-height:40px/);
+});
+
+test('the Phase stat shrinks and truncates instead of overflowing its cell', () => {
+  const app = read('src/App.js');
+
+  expect(app).toMatch(/\.st-item\{[^}]*min-width:0/);
+  expect(app).toMatch(/\.st-val-phase\{[^}]*font-size:\.85rem[^}]*overflow:hidden[^}]*text-overflow:ellipsis[^}]*white-space:nowrap/);
+  expect(app).toMatch(/className="st-val st-val-phase"/);
+});
