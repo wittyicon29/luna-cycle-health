@@ -1583,11 +1583,12 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
   const [ms, setMs] = useState(1); const [sad, setSad] = useState(0); const [ang, setAng] = useState(0); const [anx, setAnx] = useState(1);
   const [conc, setConc] = useState(0); const [bt, setBt] = useState(1); const [bloat, setBloat] = useState(2); const [head, setHead] = useState(1);
   const [interf, setInterf] = useState(false); const [intSev, setIntSev] = useState(3);
-  const [notes, setNotes] = useState(""); const [consent, setConsent] = useState(true);
+  const [notes, setNotes] = useState(""); const [consent, setConsent] = useState(false);
   const [questionnaireAnalysis, setQuestionnaireAnalysis] = useState(null);
 
   async function submitQ(e) {
     e.preventDefault(); if (!lmp) { setErr("Last period date required"); return; }
+    if (!consent) { setErr("Please tick the consent box to save your health profile."); return; }
     setSaving(true); setErr("");
     const payload = { basic_demographic: { age, biological_sex: sex, weight_kg: wt, height_cm: ht }, cycle_pattern: { last_menstrual_period: lmp, typical_cycle_length: cl, cycle_variability_days: cv, typical_bleeding_duration: bd, bleeding_volume: bv, sanitary_products_per_day: prod, passes_large_clots: clots, intermenstrual_bleeding: ib }, pain_symptoms: { has_cramping: cramp, pain_severity: psev, pain_timing: pt, painkiller_effectiveness: pe, has_nausea: nausea, has_vomiting: vomit, has_fainting: faint, has_diarrhea: diarr }, pms_symptoms: { mood_swings: ms, severe_sadness: sad, anger: ang, anxiety: anx, poor_concentration: conc, breast_tenderness: bt, bloating: bloat, headaches: head, interferes_with_daily_activities: interf, interference_severity: interf ? intSev : null }, optional_data: { additional_notes: notes || null, data_consent_given: consent } };
     try {
@@ -1709,12 +1710,12 @@ function JourneyApp({ token, email, onLogout }) {
   }, [token]);
   useEffect(() => { loadPeriods(); }, [loadPeriods]);
 
-  // The API announces a 403 consent_required (e.g. consent withdrawn elsewhere): ask again.
+  // The API announces a 403 consent_required (e.g. consent withdrawn elsewhere): refresh our copy and ask again.
   useEffect(() => {
-    const onConsentRequired = () => setOverlay("ai-consent");
+    const onConsentRequired = () => { reloadConsents(); setOverlay("ai-consent"); };
     window.addEventListener("luna:consent-required", onConsentRequired);
     return () => window.removeEventListener("luna:consent-required", onConsentRequired);
-  }, []);
+  }, [reloadConsents]);
 
   useEffect(() => {
     const checkUserStatus = async () => {
