@@ -50,6 +50,17 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 
 .err{font-size:.75rem;color:#FF6B8A;padding:.55rem .8rem;background:rgba(255,107,138,0.1);border:1px solid rgba(255,107,138,0.3);border-radius:6px;margin-top:.5rem;animation:feedIn .2s ease}
 @keyframes feedIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+
+.vf{margin-bottom:1rem}
+.vf label{display:block;font-size:.7rem;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:.35rem}
+.vf input{width:100%;padding:.7rem .85rem;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);color:var(--cream);font-family:'Outfit',sans-serif;font-size:.9rem}
+.vf input:focus{outline:none;border-color:#FF6B8A}
+.vf input[readonly]{opacity:.7}
+.vpw-wrap{position:relative}
+.vpw-wrap input{padding-right:3rem}
+.vpw-toggle{position:absolute;top:50%;right:0;transform:translateY(-50%);width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1rem;border-radius:var(--r)}
+.vpw-toggle:hover{color:var(--cream)}
+.vpw-toggle:focus-visible{outline:2px solid #FF8A80;outline-offset:-2px}
 `;
 
 function injectStyles() {
@@ -58,127 +69,123 @@ function injectStyles() {
   document.head.appendChild(s);
 }
 
-function EmailVerification() {
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
-
-  const started = useRef(false);
-  const redirectTimer = useRef(null);
-
-  // Clear the redirect timer on unmount.
-  useEffect(() => () => clearTimeout(redirectTimer.current), []);
-
-  useEffect(() => {
-    // The token is single-use; React's dev double effect must not send it twice.
-    if (started.current) return;
-    started.current = true;
-    injectStyles();
-
-    const token = searchParams.get('token');
-    if (!token) {
-      setError('Invalid verification link');
-      setLoading(false);
-      return;
-    }
-
-    verifyEmail(token);
-  }, [searchParams]);
-
-  const verifyEmail = async (token) => {
-    try {
-      await API.verify.verify(token);
-
-      setSuccess(true);
-      setLoading(false);
-      
-      // Redirect to login after 3 seconds
-      redirectTimer.current = setTimeout(() => {
-        navigate('/login');
-      }, 3000);
-
-    } catch (err) {
-      setError(err.message);
-      setLoading(false);
-    }
-  };
-
-  const handleGoToLogin = () => {
-    navigate('/login');
-  };
-
-  if (loading) {
-    return (
-      <div className="verify-wrap">
-        <div className="verify-orb verify-orb-a" />
-        <div className="verify-orb verify-orb-b" />
-        
-        <div className="verify-card">
-          <div className="verify-logo">
-            <span className="verify-moon">◐</span>
-            <h1>Luna Health</h1>
-            <p>Email Verification</p>
-          </div>
-          
-          <div className="loading">
-            <span className="spinner" />
-            <span>Verifying your email...</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="verify-wrap">
-        <div className="verify-orb verify-orb-a" />
-        <div className="verify-orb verify-orb-b" />
-        
-        <div className="verify-card">
-          <div className="verify-logo">
-            <span className="verify-moon">◐</span>
-            <h1>Luna Health</h1>
-            <p>Email Verification</p>
-          </div>
-          
-          <div className="error-icon">❌</div>
-          <h2 className="verify-title">Verification Failed</h2>
-          <p className="verify-message">{error}</p>
-          
-          <button className="btn btn-p btn-full" onClick={handleGoToLogin}>
-            Back to Login
-          </button>
-        </div>
-      </div>
-    );
-  }
-
+function Shell({ children }) {
   return (
     <div className="verify-wrap">
       <div className="verify-orb verify-orb-a" />
       <div className="verify-orb verify-orb-b" />
-      
       <div className="verify-card">
         <div className="verify-logo">
           <span className="verify-moon">◐</span>
           <h1>Luna Health</h1>
           <p>Email Verification</p>
         </div>
-        
-        <div className="success-icon">✓</div>
-        <h2 className="verify-title">Email Verified!</h2>
-        <p className="verify-message">
-          Your email has been successfully verified. You can now log in to your Luna Health account.
-        </p>
-        
-        <p style={{ textAlign: 'center', fontSize: '.75rem', color: 'var(--muted)' }}>
-          Redirecting to login page...
-        </p>
+        {children}
       </div>
     </div>
+  );
+}
+
+function EmailVerification() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const token = searchParams.get('token');
+  const [loading, setLoading] = useState(true);
+  const [fatal, setFatal] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const started = useRef(false);
+
+  useEffect(() => {
+    // Guard against React's dev double effect.
+    if (started.current) return;
+    started.current = true;
+    injectStyles();
+
+    if (!token) {
+      setFatal('Invalid verification link');
+      setLoading(false);
+      return;
+    }
+
+    API.verify.check(token)
+      .then(res => setEmail(res.email))
+      .catch(err => setFatal(err.message))
+      .finally(() => setLoading(false));
+  }, [token]);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setFormError('');
+    if (password.length < 8) { setFormError('Use at least 8 characters'); return; }
+    if (password !== confirm) { setFormError('Passwords do not match'); return; }
+    setSubmitting(true);
+    try {
+      const res = await API.verify.complete(token, password);
+      localStorage.setItem('access_token', res.access_token);
+      localStorage.setItem('refresh_token', res.refresh_token);
+      localStorage.setItem('email', email);
+      navigate('/app', { replace: true });
+    } catch (err) {
+      setFormError(err.message);
+      setSubmitting(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <Shell>
+        <div className="loading">
+          <span className="spinner" />
+          <span>Checking your link...</span>
+        </div>
+      </Shell>
+    );
+  }
+
+  if (fatal) {
+    return (
+      <Shell>
+        <div className="error-icon">❌</div>
+        <h2 className="verify-title">Link problem</h2>
+        <p className="verify-message">{fatal}</p>
+        <button className="btn btn-p btn-full" onClick={() => navigate('/login')}>
+          Back to sign in
+        </button>
+      </Shell>
+    );
+  }
+
+  return (
+    <Shell>
+      <h2 className="verify-title">Choose your password</h2>
+      <form onSubmit={handleSubmit}>
+        <div className="vf">
+          <label htmlFor="verify-email-field">Email</label>
+          <input id="verify-email-field" type="email" value={email} readOnly />
+        </div>
+        <div className="vf">
+          <label htmlFor="verify-new-password">New password</label>
+          <div className="vpw-wrap">
+            <input id="verify-new-password" type={showPassword ? 'text' : 'password'} autoComplete="new-password" minLength={8} value={password} onChange={e => setPassword(e.target.value)} required />
+            <button type="button" className="vpw-toggle" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword(v => !v)}>{showPassword ? '🙈' : '👁'}</button>
+          </div>
+        </div>
+        <div className="vf">
+          <label htmlFor="verify-confirm-password">Confirm password</label>
+          <input id="verify-confirm-password" type={showPassword ? 'text' : 'password'} autoComplete="new-password" minLength={8} value={confirm} onChange={e => setConfirm(e.target.value)} required />
+        </div>
+        {formError && <div className="err" role="alert">{formError}</div>}
+        <button className="btn btn-p btn-full" style={{ marginTop: '1rem' }} type="submit" disabled={submitting}>
+          {submitting ? 'Creating…' : 'Create my account'}
+        </button>
+      </form>
+    </Shell>
   );
 }
 

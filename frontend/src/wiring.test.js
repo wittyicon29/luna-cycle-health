@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 jest.mock('./api', () => ({
   ...jest.requireActual('./api'),
   API: {
-    verify: { verify: jest.fn(), resend: jest.fn() },
+    verify: { check: jest.fn(), complete: jest.fn(), resend: jest.fn() },
     auth: { resetPassword: jest.fn() },
   },
 }));
@@ -22,7 +22,7 @@ test('App.js exposes the pieces other files and tests rely on', () => {
 });
 
 test('EmailVerification uses the shared API client', async () => {
-  API.verify.verify.mockResolvedValue({ message: 'Email verified successfully!' });
+  API.verify.check.mockResolvedValue({ email: 'u@gmail.com' });
   const EmailVerification = require('./EmailVerification').default;
 
   render(
@@ -31,7 +31,7 @@ test('EmailVerification uses the shared API client', async () => {
     </MemoryRouter>
   );
 
-  await waitFor(() => expect(API.verify.verify).toHaveBeenCalledWith('tok-1'));
+  await waitFor(() => expect(API.verify.check).toHaveBeenCalledWith('tok-1'));
 });
 
 test('PasswordReset renders (its API import used to resolve to undefined)', () => {

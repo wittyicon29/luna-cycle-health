@@ -263,6 +263,30 @@ describe('API', () => {
     expect(JSON.parse(opts.body)).toEqual({ confirm: 'DELETE' });
   });
 
+  test('verify.check posts the token to /verify/check', async () => {
+    fetch.mockResolvedValue(reply(200, { email: 'u@gmail.com' }));
+
+    await API.verify.check('tok-1');
+
+    const [url, opts] = fetch.mock.calls[0];
+    expect(url).toMatch(/\/verify\/check$/);
+    expect(JSON.parse(opts.body)).toEqual({ token: 'tok-1' });
+  });
+
+  test('verify.complete posts token and password to /verify/complete', async () => {
+    fetch.mockResolvedValue(reply(200, { access_token: 'a', refresh_token: 'r' }));
+
+    await API.verify.complete('tok-1', 'password123');
+
+    const [url, opts] = fetch.mock.calls[0];
+    expect(url).toMatch(/\/verify\/complete$/);
+    expect(JSON.parse(opts.body)).toEqual({ token: 'tok-1', password: 'password123' });
+  });
+
+  test('verify.verify no longer exists', () => {
+    expect(API.verify.verify).toBeUndefined();
+  });
+
   test('verify.resend posts a JSON email body', async () => {
     fetch.mockResolvedValue(reply(200, {}));
 

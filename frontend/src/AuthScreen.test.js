@@ -29,8 +29,26 @@ function openRegister() {
 
 function fillCredentials() {
   userEvent.type(screen.getByPlaceholderText('your@gmail.com'), 'new@gmail.com');
-  userEvent.type(screen.getByPlaceholderText('•••••••'), 'password123');
 }
+
+test('the register tab has no password field or show-password button', () => {
+  openRegister();
+
+  expect(screen.queryByPlaceholderText('•••••••')).toBeNull();
+  expect(screen.queryByRole('button', { name: /show password/i })).toBeNull();
+  expect(screen.queryByText(/at least 8 characters/i)).toBeNull();
+});
+
+test('register needs an email as well as both boxes', () => {
+  openRegister();
+  const submit = screen.getByRole('button', { name: 'Create Account' });
+  userEvent.click(screen.getByLabelText(/18 years/i));
+  userEvent.click(screen.getByLabelText(/agree to the/i));
+
+  expect(submit).toBeDisabled();
+  userEvent.type(screen.getByPlaceholderText('your@gmail.com'), 'new@gmail.com');
+  expect(submit).toBeEnabled();
+});
 
 test('the login tab shows no consent checkboxes', () => {
   render(<AuthScreen onLogin={jest.fn()} initialMode="login" />);
@@ -62,7 +80,6 @@ test('register sends both consent flags', async () => {
   await waitFor(() =>
     expect(API.auth.register).toHaveBeenCalledWith({
       email: 'new@gmail.com',
-      password: 'password123',
       accepted_privacy_policy: true,
       confirmed_18_plus: true,
     })
@@ -126,10 +143,6 @@ test('the browser is told what each field is for', () => {
   expect(screen.getByPlaceholderText('your@gmail.com')).toHaveAttribute('autocomplete', 'email');
   expect(screen.getByPlaceholderText('•••••••')).toHaveAttribute('autocomplete', 'current-password');
   unmount();
-
-  render(<AuthScreen onLogin={jest.fn()} initialMode="register" />);
-  expect(screen.getByPlaceholderText('•••••••')).toHaveAttribute('autocomplete', 'new-password');
-  expect(screen.getByText(/at least 8 characters/i)).toBeInTheDocument();
 });
 
 test('the password field reserves room for the show/hide button', () => {
@@ -141,13 +154,9 @@ test('the password field reserves room for the show/hide button', () => {
   expect(app).toMatch(/\.f \.pw-wrap input\{[^}]*padding-right:3rem/);
 });
 
-test('only the register password field enforces a minimum length', () => {
-  const { unmount } = render(<AuthScreen onLogin={jest.fn()} initialMode="login" />);
+test('the login password field has no minimum length', () => {
+  render(<AuthScreen onLogin={jest.fn()} initialMode="login" />);
   expect(screen.getByPlaceholderText('•••••••')).not.toHaveAttribute('minlength');
-  unmount();
-
-  render(<AuthScreen onLogin={jest.fn()} initialMode="register" />);
-  expect(screen.getByPlaceholderText('•••••••')).toHaveAttribute('minlength', '8');
 });
 
 test('a register response without tokens shows the message and does not log in', async () => {
@@ -160,7 +169,7 @@ test('a register response without tokens shows the message and does not log in',
 
   userEvent.click(screen.getByRole('button', { name: 'Create Account' }));
 
-  expect(await screen.findByText(/please check your email/i)).toBeInTheDocument();
+  expect(await screen.findByText(/choose your password/i)).toBeInTheDocument();
   expect(onLogin).not.toHaveBeenCalled();
 });
 

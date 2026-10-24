@@ -573,18 +573,19 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
   const [accepted, setAccepted] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const needsConsent = tab === "register" && !(adult && accepted);
+  const registerBlocked = needsConsent || (tab === "register" && !email.trim());
   
   async function submit(e) {
     e.preventDefault(); setErr(""); setMessage(""); setLoading(true);
     try {
       const d = tab === "login"
         ? await API.auth.login({ email, password: pass })
-        : await API.auth.register({ email, password: pass, accepted_privacy_policy: accepted, confirmed_18_plus: adult });
+        : await API.auth.register({ email, accepted_privacy_policy: accepted, confirmed_18_plus: adult });
       
       if (!d.access_token) {
         if (tab === "login") { setErr("Something went wrong. Please try again."); return; }
         // Register: no tokens issued (e.g. email verification required)
-        setMessage(d.message || "Check your email to verify your account.");
+        setMessage("Check your email. Open the link we sent to choose your password and finish signing up.");
         return;
       }
       
@@ -699,17 +700,16 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
         </div>
         <form onSubmit={submit}>
           <div className="f"><label>Email</label><input type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@gmail.com" required autoFocus /></div>
-          <div className="f"><label>Password</label>
+          {tab === "login" && <div className="f"><label>Password</label>
             <div className="pw-wrap">
-              <input type={showPassword ? "text" : "password"} autoComplete={tab === "login" ? "current-password" : "new-password"} minLength={tab === "register" ? 8 : undefined} value={pass} onChange={e => setPass(e.target.value)} placeholder="•••••••" required />
+              <input type={showPassword ? "text" : "password"} autoComplete="current-password" value={pass} onChange={e => setPass(e.target.value)} placeholder="•••••••" required />
               <button type="button" className="pw-toggle" aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword(v => !v)}>{showPassword ? "🙈" : "👁"}</button>
             </div>
-            {tab === "register" && <div className="pw-hint">At least 8 characters</div>}
-          </div>
+          </div>}
           {tab === "register" && <ConsentCheckboxes adult={adult} accepted={accepted} onAdultChange={setAdult} onAcceptedChange={setAccepted} />}
           <Err msg={err} />
           {message && <div style={{ color: "#5FA87A", fontSize: ".8rem", marginBottom: "1rem", textAlign: "center" }}>{message}</div>}
-          <button className="btn btn-p btn-full" style={{ marginTop: "1.1rem" }} type="submit" disabled={loading || needsConsent}>
+          <button className="btn btn-p btn-full" style={{ marginTop: "1.1rem" }} type="submit" disabled={loading || registerBlocked}>
             {loading ? <><Spinner /> Processing…</> : tab === "login" ? "Log in" : "Create Account"}
           </button>
         </form>

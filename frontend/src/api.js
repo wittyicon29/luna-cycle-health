@@ -124,7 +124,8 @@ export const API = {
     },
   },
   verify: {
-    verify: token => post('/verify/verify', { token }),
+    check: token => post('/verify/check', { token }),
+    complete: (token, password) => post('/verify/complete', { token, password }),
     resend: email => post('/verify/resend', { email }),
   },
   periods: {
