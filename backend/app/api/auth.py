@@ -169,8 +169,15 @@ def refresh(request: Request, payload: RefreshTokenRequest, db: Session = Depend
     if not owner or not owner.is_email_verified:
         raise HTTPException(status_code=403, detail="Please verify your email to continue.")
     
-    # Revoke old token
-    db_token.is_revoked = True
+    # Claim the old token atomically: only one request can flip it from
+    # unrevoked to revoked, so a concurrently revoked token is never rotated.
+    claimed = db.query(RefreshToken).filter(
+        RefreshToken.id == db_token.id,
+        RefreshToken.is_revoked == False,  # noqa: E712
+    ).update({"is_revoked": True}, synchronize_session=False)
+    if claimed != 1:
+        db.rollback()
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
     
     # Create new tokens
     access_token = create_access_token({"sub": str(db_token.user_id)})
