@@ -62,4 +62,19 @@ describe('initNativeShell', () => {
     await initNativeShell();
     expect(SplashScreen.hide).toHaveBeenCalledTimes(1);
   });
+
+  test('a rejecting splash hide does not break back-button registration or resolve with error', async () => {
+    isNative.mockReturnValue(true);
+    SplashScreen.hide.mockRejectedValueOnce(new Error('boom'));
+    await expect(initNativeShell()).resolves.toBeUndefined();
+    expect(App.addListener).toHaveBeenCalledTimes(1);
+  });
+
+  test('a rejecting addListener does not skip status bar and splash', async () => {
+    isNative.mockReturnValue(true);
+    App.addListener.mockRejectedValueOnce(new Error('boom'));
+    await initNativeShell();
+    expect(StatusBar.setStyle).toHaveBeenCalled();
+    expect(SplashScreen.hide).toHaveBeenCalledTimes(1);
+  });
 });

@@ -17,17 +17,27 @@ case "$(uname -m)" in
   *) echo "Unsupported arch $(uname -m)" >&2; exit 1 ;;
 esac
 
-# 1. JDK 21
+# 1. JDK 21 (>= 21 required by Capacitor 7)
 find_java() { find "$TOOLS/jdk" -type d -path '*/Contents/Home' -maxdepth 4 2>/dev/null | head -1; }
-if [ -z "$(find_java)" ]; then
+java_major() {
+  "$1/bin/java" -version 2>&1 | sed -n '1s/.*version "\([0-9]*\).*/\1/p'
+}
+CUR="$(find_java)"
+if [ -n "$CUR" ] && [ "$(java_major "$CUR")" -ge 21 ] 2>/dev/null; then
+  echo "JDK $(java_major "$CUR") already present."
+else
+  if [ -d "$TOOLS/jdk" ]; then
+    OLD="$TOOLS/jdk-old-$(date +%Y%m%d%H%M%S)"
+    echo "Moving older/unusable JDK aside to $OLD"
+    mv "$TOOLS/jdk" "$OLD"
+  fi
   echo "Downloading Temurin 21 ($JDK_ARCH)..."
   curl -fSL --retry 3 --no-progress-meter -o "$TOOLS/jdk.tar.gz" \
     "https://api.adoptium.net/v3/binary/latest/21/ga/mac/${JDK_ARCH}/jdk/hotspot/normal/eclipse"
-  rm -rf "$TOOLS/jdk"; mkdir -p "$TOOLS/jdk"
-  tar -xzf "$TOOLS/jdk.tar.gz" -C "$TOOLS/jdk"
+  rm -rf "$TOOLS/jdk-extract"; mkdir -p "$TOOLS/jdk-extract"
+  tar -xzf "$TOOLS/jdk.tar.gz" -C "$TOOLS/jdk-extract"
+  mv "$TOOLS/jdk-extract" "$TOOLS/jdk"
   rm -f "$TOOLS/jdk.tar.gz"
-else
-  echo "JDK already present."
 fi
 export JAVA_HOME="$(find_java)"
 export PATH="$JAVA_HOME/bin:$PATH"

@@ -7,13 +7,17 @@ export async function initNativeShell() {
     import('@capacitor/status-bar'),
     import('@capacitor/splash-screen'),
   ]);
-  App.addListener('backButton', ({ canGoBack }) => {
-    if (canGoBack) window.history.back();
-    else App.minimizeApp();
-  });
+  try {
+    await App.addListener('backButton', ({ canGoBack }) => {
+      if (canGoBack) window.history.back();
+      else App.minimizeApp();
+    });
+  } catch (e) { /* keep going: styling and splash must still run */ }
   try {
     await StatusBar.setStyle({ style: Style.Dark });
     await StatusBar.setBackgroundColor({ color: '#1A0F2E' });
   } catch (e) { /* not supported on this Android version */ }
-  await SplashScreen.hide();
+  try {
+    await SplashScreen.hide();
+  } catch (e) { /* splash auto-hides after launchShowDuration */ }
 }

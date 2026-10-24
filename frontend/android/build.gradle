@@ -27,3 +27,11 @@ allprojects {
 task clean(type: Delete) {
     delete rootProject.buildDir
 }
+
+// @capgo/capacitor-social-login pulls androidx.browser 1.9.0, which needs
+// compileSdk 36 / AGP 8.9.1. Pin to the last release that builds on compileSdk 35.
+subprojects {
+    configurations.configureEach {
+        resolutionStrategy.force 'androidx.browser:browser:1.8.0'
+    }
+}
