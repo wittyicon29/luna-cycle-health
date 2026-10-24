@@ -15,7 +15,7 @@ const STYLES = `
 body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);height:100vh;-webkit-font-smoothing:antialiased;font-size:14px;line-height:1.6}
 #root{min-height:100vh;display:flex;align-items:flex-start;justify-content:center}
 
-.verify-wrap{min-height:100vh;width:100%;background:var(--bg);display:flex;align-items:flex-start;justify-content:center;position:relative;overflow:hidden}
+.verify-wrap{min-height:100vh;width:100%;padding:1rem;box-sizing:border-box;background:var(--bg);display:flex;align-items:flex-start;justify-content:center;position:relative;overflow:hidden}
 .verify-orb{position:absolute;border-radius:50%;filter:blur(120px);pointer-events:none;animation:orbIn 1.5s ease both}
 .verify-orb-a{width:500px;height:500px;background:radial-gradient(circle,rgba(196,84,74,0.18),transparent 70%);top:-100px;right:-100px;animation-delay:.2s}
 .verify-orb-b{width:400px;height:400px;background:radial-gradient(circle,rgba(124,102,192,0.12),transparent 70%);bottom:-80px;left:-80px;animation-delay:.5s}
