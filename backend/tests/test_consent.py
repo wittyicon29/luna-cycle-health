@@ -102,14 +102,14 @@ def test_legacy_questionnaire_schema_rejects_users_under_18():
         BasicDemographic(age=17, biological_sex="female", weight_kg=50, height_cm=160)
 
 
-def _fake_google(monkeypatch, email):
+def _fake_google(monkeypatch, email, verified_email=True):
     from app.services.google_oauth import google_oauth_service
 
     async def fake_exchange(code):
         return {"access_token": "fake"}
 
     async def fake_info(token):
-        return {"email": email}
+        return {"email": email, "verified_email": verified_email}
 
     monkeypatch.setattr(google_oauth_service, "exchange_code_for_token", fake_exchange)
     monkeypatch.setattr(google_oauth_service, "get_user_info", fake_info)

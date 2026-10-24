@@ -82,14 +82,23 @@ def test_create_and_update_responses_include_recomputed_cycle_length(client, mak
     assert response.json()["cycle_length"] == 31
 
 
-def test_period_write_commits_once(client, make_user, monkeypatch):
+def test_period_writes_commit_once(client, make_user, monkeypatch):
     from sqlalchemy.orm import Session
 
     headers = headers_for(make_user())
+    first = create(client, headers, "2026-07-01")
+    second = create(client, headers, "2026-07-29")
     commits = []
     real_commit = Session.commit
     monkeypatch.setattr(Session, "commit", lambda self: (commits.append(1), real_commit(self))[1])
 
-    create(client, headers, "2026-07-01")
+    create(client, headers, "2026-08-28")
+    assert len(commits) == 1
 
+    commits.clear()
+    client.put(f"/api/v1/periods/{second['id']}", json={"start_date": "2026-07-30"}, headers=headers)
+    assert len(commits) == 1
+
+    commits.clear()
+    client.delete(f"/api/v1/periods/{first['id']}", headers=headers)
     assert len(commits) == 1

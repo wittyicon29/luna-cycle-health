@@ -161,6 +161,10 @@ def refresh(request: Request, payload: RefreshTokenRequest, db: Session = Depend
     if not db_token:
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
     
+    owner = db.query(User).filter(User.id == db_token.user_id).first()
+    if not owner or not owner.is_email_verified:
+        raise HTTPException(status_code=403, detail="Please verify your email to continue.")
+    
     # Revoke old token
     db_token.is_revoked = True
     

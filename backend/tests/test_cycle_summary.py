@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 from types import SimpleNamespace
 
-from app.services.prediction_service import get_cycle_summary
+from app.services.prediction_service import cycle_lengths, get_cycle_summary
 
 
 def _periods(*gaps, base=date(2025, 1, 1)):
@@ -28,3 +28,13 @@ def test_summary_excludes_implausible_gap():
 
 def test_summary_with_fewer_than_two_periods_has_no_average():
     assert get_cycle_summary(_periods())["avg_cycle_length"] is None
+
+
+def test_cycle_lengths_falls_back_to_stored_values_in_range():
+    rows = [
+        SimpleNamespace(start_date=date(2025, 1, 1), cycle_length=None),
+        SimpleNamespace(start_date=date(2025, 6, 1), cycle_length=29),   # gap too large to compute
+        SimpleNamespace(start_date=date(2025, 12, 1), cycle_length=90),  # stored out of range
+    ]
+
+    assert cycle_lengths(rows) == [29]

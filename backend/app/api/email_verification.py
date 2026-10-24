@@ -2,7 +2,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request,
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone, timedelta
 from ..core.database import get_db
-from ..models.models import User
+from ..models.models import User, RefreshToken
 from ..services.email_service import send_email
 from ..core.config import settings
 from ..core.limiter import limiter
@@ -101,6 +101,8 @@ async def verify_email(request: VerifyRequest, db: Session = Depends(get_db)):
     # The token is kept (until it expires) so a repeated click, e.g. an email
     # link scanner prefetching the URL first, still gets a success response.
     user.is_email_verified = True
+    # Anything issued before ownership was proven must not survive verification.
+    db.query(RefreshToken).filter(RefreshToken.user_id == user.id).update({"is_revoked": True})
     db.commit()
     
     return {"message": "Email verified successfully! You can now log in."}

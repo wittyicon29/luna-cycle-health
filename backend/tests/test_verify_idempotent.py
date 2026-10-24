@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 from app.models.models import User
 
 
@@ -35,3 +37,45 @@ def test_resend_only_issues_token_for_unverified(client, db, make_user, outbox):
     db.refresh(unverified)
     assert verified.email_verification_token is None
     assert unverified.email_verification_token
+
+
+def _token_user(db, make_user, delta=timedelta(hours=1), verified=False):
+    user = make_user(email="t@gmail.com", verified=verified)
+    user.email_verification_token = "tok-x"
+    user.email_verification_expires = datetime.now(timezone.utc) + delta
+    db.commit()
+    return user
+
+
+def _refresh_token_for(db, user, raw):
+    from app.core.security import hash_token
+    from app.models.models import RefreshToken
+
+    db.add(RefreshToken(user_id=user.id, token_hash=hash_token(raw),
+                        expires_at=datetime.now(timezone.utc) + timedelta(days=30)))
+    db.commit()
+
+
+def test_expired_token_is_rejected(client, db, make_user):
+    _token_user(db, make_user, delta=timedelta(hours=-1))
+
+    assert client.post("/api/v1/verify/verify", json={"token": "tok-x"}).status_code == 400
+
+
+def test_first_verification_revokes_existing_refresh_tokens(client, db, make_user):
+    user = _token_user(db, make_user)
+    _refresh_token_for(db, user, "old-raw")
+
+    assert client.post("/api/v1/verify/verify", json={"token": "tok-x"}).status_code == 200
+
+    assert client.post("/api/v1/auth/refresh", json={"refresh_token": "old-raw"}).status_code == 401
+
+
+def test_repeat_verification_does_not_revoke_tokens(client, db, make_user):
+    user = _token_user(db, make_user)
+    assert client.post("/api/v1/verify/verify", json={"token": "tok-x"}).status_code == 200
+    _refresh_token_for(db, user, "new-raw")
+
+    assert client.post("/api/v1/verify/verify", json={"token": "tok-x"}).status_code == 200
+
+    assert client.post("/api/v1/auth/refresh", json={"refresh_token": "new-raw"}).status_code == 200

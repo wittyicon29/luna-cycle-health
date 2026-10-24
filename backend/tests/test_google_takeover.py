@@ -56,3 +56,60 @@ def test_google_new_user_flow_unchanged(client, db, monkeypatch):
     user = db.query(User).filter(User.email == "fresh@gmail.com").one()
     assert user.is_email_verified is True
     assert user.hashed_password == ""
+
+
+def _refresh_token_for(db, user, raw="known-refresh-token"):
+    from app.core.security import hash_token
+    from app.models.models import RefreshToken
+
+    db.add(RefreshToken(
+        user_id=user.id,
+        token_hash=hash_token(raw),
+        expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+    ))
+    db.commit()
+    return raw
+
+
+def test_takeover_revokes_existing_refresh_tokens(client, db, make_user, monkeypatch):
+    user = make_user(email="victim@gmail.com", verified=False)
+    raw = _refresh_token_for(db, user)
+    _fake_google(monkeypatch, "victim@gmail.com")
+
+    assert client.post(CALLBACK).status_code == 200
+
+    response = client.post("/api/v1/auth/refresh", json={"refresh_token": raw})
+    assert response.status_code == 401
+
+
+def test_unverified_google_email_is_refused(client, db, monkeypatch):
+    from app.models.models import User
+
+    _fake_google(monkeypatch, "fresh@gmail.com", verified_email=False)
+
+    response = client.post(CALLBACK + "&accepted_privacy_policy=true&confirmed_18_plus=true")
+
+    assert response.status_code == 400
+    assert "Your Google email is not verified" in response.json()["detail"]
+    assert db.query(User).count() == 0
+
+
+def test_refresh_refuses_unverified_user_without_rotating(client, db, make_user):
+    from app.models.models import RefreshToken
+
+    user = make_user(email="unv@gmail.com", verified=False)
+    raw = _refresh_token_for(db, user)
+
+    response = client.post("/api/v1/auth/refresh", json={"refresh_token": raw})
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Please verify your email to continue."
+    assert db.query(RefreshToken).count() == 1
+    assert db.query(RefreshToken).one().is_revoked is False
+
+
+def test_refresh_still_works_for_verified_user(client, db, make_user):
+    user = make_user(email="ver@gmail.com", verified=True)
+    raw = _refresh_token_for(db, user)
+
+    assert client.post("/api/v1/auth/refresh", json={"refresh_token": raw}).status_code == 200

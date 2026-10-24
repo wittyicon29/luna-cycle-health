@@ -40,22 +40,7 @@ def calculate_health_score(cycles: List[Any]) -> int:
     
     score = 0
     
-    # Calculate cycle lengths from start dates if not stored
-    calculated_lengths = []
-    sorted_cycles = sorted(cycles, key=lambda c: c.start_date)
-    
-    for i, cycle in enumerate(sorted_cycles):
-        if i > 0:
-            prev_cycle = sorted_cycles[i-1]
-            days_diff = (cycle.start_date - prev_cycle.start_date).days
-            if 18 <= days_diff <= 60:  # Valid cycle length range
-                calculated_lengths.append(days_diff)
-    
-    # Also use any stored cycle lengths
-    stored_lengths = [c.cycle_length for c in cycles if c.cycle_length and 18 <= c.cycle_length <= 60]
-    
-    # Use calculated lengths if available, otherwise stored lengths
-    lengths = calculated_lengths if calculated_lengths else stored_lengths
+    lengths = cycle_lengths(cycles)
     
     if not lengths:
         return 50
@@ -169,22 +154,7 @@ def predict_next_period(cycles: List[Any], default_length: int = 28) -> Dict[str
     if not cycles:
         return {"error": "No cycle data available"}
     
-    # Calculate cycle lengths from start dates if not stored
-    calculated_lengths = []
-    sorted_cycles = sorted(cycles, key=lambda c: c.start_date)
-    
-    for i, cycle in enumerate(sorted_cycles):
-        if i > 0:
-            prev_cycle = sorted_cycles[i-1]
-            days_diff = (cycle.start_date - prev_cycle.start_date).days
-            if 18 <= days_diff <= 60:  # Valid cycle length range
-                calculated_lengths.append(days_diff)
-    
-    # Also use any stored cycle lengths
-    stored_lengths = [c.cycle_length for c in cycles if c.cycle_length and 18 <= c.cycle_length <= 60]
-    
-    # Use calculated lengths if available, otherwise stored lengths
-    all_lengths = calculated_lengths if calculated_lengths else stored_lengths
+    all_lengths = cycle_lengths(cycles)
     
     if not all_lengths:
         return {
@@ -334,22 +304,7 @@ def get_health_score_breakdown(cycles: List[Any]) -> Dict[str, int]:
         "symptom_score": 0,
     }
     
-    # Calculate cycle lengths from start dates if not stored
-    calculated_lengths = []
-    sorted_cycles = sorted(cycles, key=lambda c: c.start_date)
-    
-    for i, cycle in enumerate(sorted_cycles):
-        if i > 0:
-            prev_cycle = sorted_cycles[i-1]
-            days_diff = (cycle.start_date - prev_cycle.start_date).days
-            if 18 <= days_diff <= 60:  # Valid cycle length range
-                calculated_lengths.append(days_diff)
-    
-    # Also use any stored cycle lengths
-    stored_lengths = [c.cycle_length for c in cycles if c.cycle_length and 18 <= c.cycle_length <= 60]
-    
-    # Use calculated lengths if available, otherwise stored lengths
-    lengths = calculated_lengths if calculated_lengths else stored_lengths
+    lengths = cycle_lengths(cycles)
     
     # Regularity breakdown
     if lengths:

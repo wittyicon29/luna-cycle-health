@@ -29,22 +29,6 @@ The Luna Health Team
         content=content,
     )
 
-def verify_email_token(db: Session, token: str) -> bool:
-    """Verify email token and mark email as verified."""
-    user = db.query(User).filter(
-        User.email_verification_token == token,
-        User.email_verification_expires > datetime.now(timezone.utc)
-    ).first()
-    
-    if not user:
-        return False
-    
-    user.is_email_verified = True
-    user.email_verification_token = None
-    user.email_verification_expires = None
-    db.commit()
-    
-    return True
 
 def create_password_reset_token(db: Session, email: str) -> str:
     """Create password reset token for user."""
