@@ -54,7 +54,7 @@ expect_fail() {
 echo "== Section 1: release guards =="
 A="$TMP/a"; make_copy "$A"
 touch "$TMP/ks.p12"
-GOOD=(JAVA_HOME="$TMP/jdk21" REACT_APP_API_BASE=https://api.example.org LUNA_KEYSTORE="$TMP/ks.p12" LUNA_KEYSTORE_PASSWORD=x LUNA_KEY_ALIAS=k LUNA_KEY_PASSWORD=y)
+GOOD=(JAVA_HOME="$TMP/jdk21" REACT_APP_API_BASE=https://api.example.org LUNA_KEYSTORE="$TMP/ks.p12" LUNA_KEYSTORE_PASSWORD=x LUNA_KEY_ALIAS=k LUNA_KEY_PASSWORD=y REACT_APP_GOOGLE_WEB_CLIENT_ID=web-client)
 
 expect_fail "placeholder appId rejected" "appId is still the placeholder" "$A" "${GOOD[@]}"
 
@@ -74,6 +74,17 @@ out="$(env -i HOME="$HOME" PATH="$PATH" LUNA_ROOT="$A" "${GOOD[@]}" bash "$A/scr
 if [ $rc -ne 0 ] && printf '%s' "$out" | grep -q "Unknown argument"; then pass "unknown argument rejected"; else fail "unknown argument rejected ($out)"; fi
 expect_fail "missing keystore file rejected" "signing keystore settings missing" "$A" \
   JAVA_HOME="$TMP/jdk21" REACT_APP_API_BASE=https://api.example.org LUNA_KEYSTORE="$TMP/nope.p12" LUNA_KEYSTORE_PASSWORD=x LUNA_KEY_ALIAS=k LUNA_KEY_PASSWORD=y
+
+NOGOOGLE=(JAVA_HOME="$TMP/jdk21" REACT_APP_API_BASE=https://api.example.org LUNA_KEYSTORE="$TMP/ks.p12" LUNA_KEYSTORE_PASSWORD=x LUNA_KEY_ALIAS=k LUNA_KEY_PASSWORD=y)
+expect_fail "empty Google client id rejected" "REACT_APP_GOOGLE_WEB_CLIENT_ID is empty" "$A" "${NOGOOGLE[@]}"
+out="$(run_release "$A" "${NOGOOGLE[@]}" LUNA_ALLOW_NO_GOOGLE=1)"; rc=$?
+if [ $rc -eq 0 ]; then pass "LUNA_ALLOW_NO_GOOGLE=1 bypasses the Google guard"; else fail "LUNA_ALLOW_NO_GOOGLE bypass ($out)"; fi
+for bad in 0 -1 abc 1.5 01 "" 12345678901; do
+  expect_fail "bad LUNA_VERSION_CODE '$bad' rejected" "LUNA_VERSION_CODE" "$A" "${GOOD[@]}" LUNA_VERSION_CODE="$bad"
+done
+expect_fail "bad LUNA_VERSION_NAME rejected" "LUNA_VERSION_NAME" "$A" "${GOOD[@]}" 'LUNA_VERSION_NAME=1 0;x'
+out="$(run_release "$A" "${GOOD[@]}" LUNA_VERSION_CODE=42 LUNA_VERSION_NAME=2.1.0)"; rc=$?
+if [ $rc -eq 0 ]; then pass "valid version code and name accepted"; else fail "valid version ($out)"; fi
 
 cp "$A/frontend/capacitor.config.json" "$TMP/good-config.json"
 sed 's/org\.example\.luna/com.example.luna/' "$TMP/good-config.json" > "$A/frontend/capacitor.config.json"

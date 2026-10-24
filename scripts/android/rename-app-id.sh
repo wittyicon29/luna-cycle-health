@@ -42,4 +42,4 @@ if [ -d "$OLD_DIR" ] && [ "$OLD_DIR" != "$NEW_DIR" ]; then
 fi
 
 echo "App id set to $NEW. Rebuild with: cd frontend && npm run android:sync"
-echo "Remember to create the Android OAuth client with this id and your signing SHA-1."
+echo "Remember to create the Android OAuth client with this id and the SHA-1s listed in frontend/android/README.md (Play app-signing key for Play installs; upload and debug keys for local testing)."

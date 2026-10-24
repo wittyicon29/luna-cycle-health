@@ -2,7 +2,9 @@
 # Guarded release build: produces frontend/android/app/build/outputs/bundle/release/app-release.aab
 # Usage: bash scripts/android/release.sh [--check-only]
 # Needs: REACT_APP_API_BASE (https://...), LUNA_KEYSTORE, LUNA_KEYSTORE_PASSWORD,
-#        LUNA_KEY_ALIAS, LUNA_KEY_PASSWORD. Passwords are never printed or written to disk.
+#        LUNA_KEY_ALIAS, LUNA_KEY_PASSWORD, REACT_APP_GOOGLE_WEB_CLIENT_ID (or LUNA_ALLOW_NO_GOOGLE=1).
+# Optional: LUNA_VERSION_CODE (positive integer, default 1), LUNA_VERSION_NAME (default 1.0).
+# Passwords are never printed or written to disk.
 set -euo pipefail
 
 ROOT="${LUNA_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
@@ -45,6 +47,22 @@ if ! [ "${JAVA_MAJOR:-0}" -ge 21 ] 2>/dev/null; then
   exit 1
 fi
 
+if [ -z "${REACT_APP_GOOGLE_WEB_CLIENT_ID:-}" ] && [ "${LUNA_ALLOW_NO_GOOGLE:-}" != "1" ]; then
+  echo "Refusing to build: REACT_APP_GOOGLE_WEB_CLIENT_ID is empty — native Google sign-in would always fail (set LUNA_ALLOW_NO_GOOGLE=1 to build without it)" >&2
+  exit 1
+fi
+
+# Play rejects re-used versionCodes, so bump LUNA_VERSION_CODE for every upload.
+VC="${LUNA_VERSION_CODE-1}"
+case "$VC" in
+  ''|*[!0-9]*|0|0[0-9]*) echo "Refusing to build: LUNA_VERSION_CODE must be a positive integer (got '$VC')" >&2; exit 1 ;;
+esac
+[ "${#VC}" -le 9 ] || { echo "Refusing to build: LUNA_VERSION_CODE is too large (got '$VC')" >&2; exit 1; }
+VN="${LUNA_VERSION_NAME-1.0}"
+case "$VN" in
+  ''|*[!A-Za-z0-9._-]*) echo "Refusing to build: LUNA_VERSION_NAME may only contain letters, digits, '.', '_' and '-' (got '$VN')" >&2; exit 1 ;;
+esac
+
 if [ "$CHECK_ONLY" = 1 ]; then
   echo "Release guards passed for $APP_ID"
   exit 0
@@ -55,5 +73,6 @@ REACT_APP_API_BASE="$REACT_APP_API_BASE" npm run android:sync
 cd android
 # Signing config is read by app/build.gradle from the exported LUNA_* variables.
 export LUNA_KEYSTORE LUNA_KEYSTORE_PASSWORD LUNA_KEY_ALIAS LUNA_KEY_PASSWORD
+export LUNA_VERSION_CODE="$VC" LUNA_VERSION_NAME="$VN"
 ./gradlew bundleRelease
 echo "Built: $ROOT/frontend/android/app/build/outputs/bundle/release/app-release.aab"

@@ -1,5 +1,12 @@
 apply plugin: 'com.android.application'
 
+// Play rejects re-used versionCodes: pass LUNA_VERSION_CODE (positive integer) per upload.
+def lunaVersionCodeRaw = System.getenv("LUNA_VERSION_CODE") != null ? System.getenv("LUNA_VERSION_CODE") : "1"
+if (!(lunaVersionCodeRaw ==~ /[1-9][0-9]{0,8}/)) {
+    throw new GradleException("LUNA_VERSION_CODE must be a positive integer, got '" + lunaVersionCodeRaw + "'")
+}
+def lunaVersionName = System.getenv("LUNA_VERSION_NAME") != null ? System.getenv("LUNA_VERSION_NAME") : "1.0"
+
 android {
     namespace "app.placeholder.luna"
     compileSdk rootProject.ext.compileSdkVersion
@@ -7,8 +14,8 @@ android {
         applicationId "app.placeholder.luna"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode Integer.parseInt(lunaVersionCodeRaw)
+        versionName lunaVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

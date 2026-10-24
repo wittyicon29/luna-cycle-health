@@ -85,10 +85,19 @@ REACT_APP_GOOGLE_WEB_CLIENT_ID=<web-client-id> \
 bash scripts/android/release.sh
 ```
 
+Optional version settings (environment variables, read by `release.sh` and `app/build.gradle`):
+
+| Variable | Meaning |
+| --- | --- |
+| `LUNA_VERSION_CODE` | positive integer, default `1`. **Play rejects a re-used versionCode, so increase it for every upload.** Anything else fails the build. |
+| `LUNA_VERSION_NAME` | user-visible version, default `1.0` |
+
 Output: `frontend/android/app/build/outputs/bundle/release/app-release.aab`.
 
 `release.sh` refuses to build when the app id is still the placeholder, when
-`REACT_APP_API_BASE` is not an `https://` URL, or when the signing settings are missing.
+`REACT_APP_API_BASE` is not an `https://` URL, when the signing settings are missing, or when
+`REACT_APP_GOOGLE_WEB_CLIENT_ID` is empty (native Google sign-in would always fail; set
+`LUNA_ALLOW_NO_GOOGLE=1` to build without it).
 `bash scripts/android/release.sh --check-only` runs only the guards, and
 `bash scripts/android/test-release-guards.sh` tests them (and the rename script) on temp copies.
 
@@ -104,8 +113,17 @@ GOOGLE_ID_TOKEN_AUDIENCES=<web-client-id>
 ## Google sign-in
 
 In Google Cloud Console create a **Web** OAuth client and an **Android** OAuth client (with the
-final application id and the signing SHA-1). The **Web client ID** is the value of both
+final application id and the SHA-1 of the certificate that signs the installed app, see below). The **Web client ID** is the value of both
 `GOOGLE_ID_TOKEN_AUDIENCES` (backend) and `REACT_APP_GOOGLE_WEB_CLIENT_ID` (web build).
+
+Which SHA-1 to register on the Android client (register all that apply, one client per id or
+several fingerprints as Google Cloud allows):
+
+- Installs from Google Play are re-signed with Google's key when Play App Signing is on, so register the
+  **app-signing key certificate SHA-1** shown in Play Console under *Test and release > App integrity*.
+- For sideloaded or locally built release builds, register the **upload key** SHA-1
+  (`keytool -list -v -keystore <keystore>`).
+- For debug builds, register the **debug keystore** SHA-1 (`keytool -list -v -keystore ~/.android/debug.keystore -storepass android`).
 
 ## Email links
 
@@ -124,4 +142,18 @@ cd frontend && npm run android:sync
 The script validates the id, then updates `capacitor.config.json`, `applicationId` and
 `namespace` in `android/app/build.gradle`, the string resources, and the `MainActivity` package
 line and directory. Documentation (including this file) is not modified. Afterwards the old placeholder id no longer appears in
-any non-Markdown file under `frontend/android` or in `capacitor.config.json` (build outputs excluded). Create the Android OAuth client with the same id and your signing SHA-1.
+any non-Markdown file under `frontend/android` or in `capacitor.config.json` (build outputs excluded). Create the Android OAuth client with the same id and the SHA-1 fingerprints described under "Google sign-in".
+
+## Third-party licences
+
+The Google sign-in plugin `@capgo/capacitor-social-login` is licensed under MPL-2.0. It is used
+unmodified; keep its licence notices when redistributing the app. Other Capacitor plugins are MIT.
+
+## Known behaviours
+
+- If the app process is killed in the middle of a token refresh, the next launch may require one
+  fresh login.
+- The onboarding flag key in `localStorage` contains the user's email address. It is app-private
+  (backups are disabled) and is removed when the account is deleted.
+- Data export on Android opens the system share sheet (the file is written to the app cache first
+  and removed about a minute later); there is no direct "Downloads" write.
