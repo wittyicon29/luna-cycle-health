@@ -15,7 +15,7 @@ import { localDateString } from "./localDate";
 const PHASES = {
   menstrual: { name: "Menstrual", territory: "The Valley", days: "Days 1–5", color: "#F28BA0", bg: "#2A1020", glow: "rgba(242, 130, 160, 0.12)", border: "#FF5C7A", muted: "#FFAFC0", icon: "🩸", tip: "Rest, warmth & gentle movement. Your body is releasing and renewing." },
   follicular: { name: "Follicular", territory: "The Ascent", days: "Days 6–13", color: "#64DCB4", bg: "#0E2420", glow: "rgba(100, 220, 180, 0.10)", border: "#2EC4A0", muted: "#A0F0D8", icon: "🌱", tip: "Energy rises. Perfect for new projects, social activities and bold decisions." },
-  ovulation: { name: "Ovulation", territory: "The Summit", days: "Day 14±", color: "#FFC84A", bg: "#221800", glow: "rgba(255, 200, 80, 0.10)", border: "#FFAA00", muted: "#FFE0A0", icon: "✨", tip: "Peak energy & confidence. Magnetic, communicative, most fertile window." },
+  ovulation: { name: "Ovulation", territory: "The Summit", days: "Day 14±", color: "#FFC84A", bg: "#221800", glow: "rgba(255, 200, 80, 0.10)", border: "#FFAA00", muted: "#FFE0A0", icon: "✨", tip: "Energy and confidence often peak around now. Notice how your body feels." },
   luteal: { name: "Luteal", territory: "The Return", days: "Days 15–28", color: "#AA8CF0", bg: "#180F30", glow: "rgba(170, 140, 240, 0.12)", border: "#8860E0", muted: "#D0C0FF", icon: "🌙", tip: "Turn inward. Good for reflection, creative depth, and completing things." },
   unknown: { name: "Uncharted", territory: "Uncharted", days: "—", color: "#A889C0", bg: "#241539", glow: "rgba(168, 137, 192, 0.15)", border: "#3D2860", muted: "#7A5C90", icon: "·", tip: "Log a period to calibrate your journey map." },
 };
@@ -438,7 +438,7 @@ function Onboarding({ onClose, email }) {
   const steps = [
     {
       title: "Set up your health profile",
-      body: "Start by filling a quick health questionnaire so Luna understands your body, symptoms and cycle history. It’s not a diagnosis, just context to make future insights more personal.",
+      body: "Optional: add your health profile from the banner or Profile → Health Profile so insights can feel more personal. It’s context, not a diagnosis.",
       badge: "Health Profile",
     },
     {

@@ -26,7 +26,7 @@ const PHASES = [
     color: '#D4A040', glow: 'rgba(212,160,64,0.5)',
     bg: 'rgba(212,160,64,0.10)', border: 'rgba(212,160,64,0.28)',
     desc: 'Energy and confidence often peak around now. Notice how your body feels.',
-    traits: ['Peak confidence', 'Magnetic energy', 'Social energy', 'High performance'],
+    traits: ['Peak confidence', 'Clear thinking', 'Social energy', 'Steady focus'],
   },
   {
     id: 'luteal', name: 'Luteal', territory: 'The Return',
@@ -40,16 +40,16 @@ const PHASES = [
 
 const FEATURES = [
   { icon: '🗺', title: 'Journey Map', color: '#C4554B', desc: 'Navigate your entire cycle history on a living scrollable terrain — hover phases, click period markers, and always see exactly where you are today.' },
-  { icon: '🧠', title: 'AI Analysis', color: '#4A9E6E', desc: 'MedGemma-powered insights calibrated to your patterns. Cycle health scores, regularity metrics, and personalised recommendations.' },
-  { icon: '💬', title: 'Luna AI Chat', color: '#7ECECE', desc: 'Ask anything about your cycle, symptoms, or reproductive health. Your private AI health companion, always available.' },
-  { icon: '📋', title: 'Health Profile', color: '#D4A040', desc: 'A comprehensive questionnaire builds your health fingerprint — informing every prediction and insight Luna generates for you.' },
+  { icon: '🧠', title: 'AI Analysis', color: '#4A9E6E', desc: 'AI-assisted insights based on your logged cycles. Estimates, not medical advice.' },
+  { icon: '💬', title: 'Luna AI Chat', color: '#7ECECE', desc: 'An AI companion for questions about your cycle. Opt-in, and not a substitute for a doctor.' },
+  { icon: '📋', title: 'Health Profile', color: '#D4A040', desc: 'A comprehensive questionnaire builds your health fingerprint — helping Luna tailor your insights.' },
   { icon: '🔮', title: 'Smart Predictions', color: '#7C66C0', desc: 'Luna learns your rhythms to forecast your next period and where you are in your cycle.' },
   { icon: '🔒', title: 'Private by Design', color: '#5FA87A', desc: 'Your notes, chats and health profile are encrypted at rest. We never sell your data, and AI features are opt-in.' },
 ];
 
 const STEPS = [
   { num: '1', label: 'Sign Up', desc: 'Create your free account in seconds — no credit card needed.', color: '#C4554B', icon: '◐' },
-  { num: '2', label: 'Build Your Profile', desc: 'Complete a health questionnaire so Luna understands your unique body.', color: '#4A9E6E', icon: '📋' },
+  { num: '2', label: 'Build Your Profile', desc: 'Optionally share a few health details so insights feel more personal.', color: '#4A9E6E', icon: '📋' },
   { num: '3', label: 'Log Your Cycle', desc: 'Add your first period to the journey map and watch it come alive.', color: '#D4A040', icon: '🗺' },
   { num: '4', label: 'Discover Insights', desc: 'Let Luna AI analyse your patterns and guide your wellness journey.', color: '#7C66C0', icon: '✦' },
 ];
