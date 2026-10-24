@@ -163,3 +163,17 @@ test('a register response without tokens shows the message and does not log in',
   expect(await screen.findByText(/please check your email/i)).toBeInTheDocument();
   expect(onLogin).not.toHaveBeenCalled();
 });
+
+test('a login response with no tokens shows an error, not a verify-email message', async () => {
+  API.auth.login.mockResolvedValue({});
+  const onLogin = jest.fn();
+  render(<AuthScreen onLogin={onLogin} initialMode="login" />);
+  userEvent.type(screen.getByPlaceholderText('your@gmail.com'), 'a@gmail.com');
+  userEvent.type(screen.getByPlaceholderText('•••••••'), 'password123');
+
+  userEvent.click(screen.getByRole('button', { name: 'Log in' }));
+
+  expect(await screen.findByText(/something went wrong/i)).toBeInTheDocument();
+  expect(screen.queryByText(/check your email/i)).not.toBeInTheDocument();
+  expect(onLogin).not.toHaveBeenCalled();
+});

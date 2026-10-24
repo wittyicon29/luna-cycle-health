@@ -14,6 +14,8 @@ test.each([
   ['an always-available claim', /always available/i],
   ['a MedGemma-powered claim', /MedGemma-powered/],
   ['a claim that the questionnaire informs every prediction', /informing every prediction/i],
+  ['a comprehensive-questionnaire claim', /comprehensive questionnaire/i],
+  ['a health-fingerprint claim', /health fingerprint/i],
   ['dead footer items', /Data Security|Help Centre|'FAQ'|Community/],
 ])('the landing page has no %s', (_name, pattern) => {
   expect(source).not.toMatch(pattern);

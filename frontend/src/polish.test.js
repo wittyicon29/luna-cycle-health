@@ -68,3 +68,17 @@ test('the Phase stat shrinks and truncates instead of overflowing its cell', () 
   expect(app).toMatch(/\.st-val-phase\{[^}]*font-size:\.85rem[^}]*overflow:hidden[^}]*text-overflow:ellipsis[^}]*white-space:nowrap/);
   expect(app).toMatch(/className="st-val st-val-phase"/);
 });
+
+test('marker card first rows leave room for the close button', () => {
+  const app = read('src/App.js');
+
+  expect(app).toMatch(/\.mk-card-head\{[^}]*padding-right:48px/);
+  expect(app.match(/className="mk-card-head"/g).length).toBeGreaterThanOrEqual(2);
+});
+
+test('the chat header hides the AI companion label on narrow screens', () => {
+  const app = read('src/App.js');
+
+  expect(app).toMatch(/@media\(max-width:400px\)\{[^}]*\.chat-ai-label\{display:none/);
+  expect(app).toMatch(/className="chat-ai-label"/);
+});

@@ -259,6 +259,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .mk-card{position:absolute;z-index:25;background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:.95rem 1.1rem;box-shadow:0 8px 32px rgba(0,0,0,.5);min-width:195px;animation:cardIn .2s ease}
 .mk-card-close{position:absolute;top:0;right:0;background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;line-height:1;transition:color .2s;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
 .mk-card-close:hover{color:var(--cream)}
+.mk-card-head{padding-right:48px}
 
 /* STATS STRIP */
 .stats-strip{height:58px;flex-shrink:0;border-top:1px solid var(--border);background:#120A22;display:flex;align-items:center;padding:0 1.5rem}
@@ -407,6 +408,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .chat-hist-toggle,.chat-hist-back{display:none;min-height:44px;min-width:44px;padding:0 .8rem;background:none;border:1px solid var(--border);color:var(--muted);border-radius:var(--r);cursor:pointer;font-size:.75rem;font-family:inherit}
 .chat-disclaimer{padding:.35rem 1.2rem .6rem;font-size:.68rem;color:var(--muted);background:var(--s2);line-height:1.4}
 @media(max-width:640px){.chat-hist-toggle,.chat-hist-back{display:inline-flex;align-items:center;justify-content:center}.chat-hist-panel{display:none}.chat-hist-panel.open{display:flex;position:absolute;inset:0;width:100%;z-index:5;border-right:none}.ch-item{min-height:44px;display:flex;align-items:center}.f-row{grid-template-columns:1fr}}
+@media(max-width:400px){.chat-ai-label{display:none}}
 `;
 
 function injectStyles() {
@@ -575,7 +577,8 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
         : await API.auth.register({ email, password: pass, accepted_privacy_policy: accepted, confirmed_18_plus: adult });
       
       if (!d.access_token) {
-        // No tokens issued (e.g. email verification required): show the server message
+        if (tab === "login") { setErr("Something went wrong. Please try again."); return; }
+        // Register: no tokens issued (e.g. email verification required)
         setMessage(d.message || "Check your email to verify your account.");
         return;
       }
@@ -911,7 +914,7 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
                   <button className="mk-card-close" aria-label="Close" onClick={onDismiss}>×</button>
                   {d.loggedPeriod ? (
                     <>
-                      <div style={{ fontSize: ".62rem", letterSpacing: ".1em", textTransform: "uppercase", color: PHASES.menstrual.color, marginBottom: ".45rem", fontWeight: 500 }}>🩸 Logged Period</div>
+                      <div className="mk-card-head" style={{ fontSize: ".62rem", letterSpacing: ".1em", textTransform: "uppercase", color: PHASES.menstrual.color, marginBottom: ".45rem", fontWeight: 500 }}>🩸 Logged Period</div>
                       <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.05rem", marginBottom: ".35rem" }}>{new Date(d.loggedPeriod.start_date).toLocaleDateString("en", { month: "long", day: "numeric", year: "numeric" })}</div>
                       {d.loggedPeriod.end_date && <div style={{ fontSize: ".7rem", color: "var(--muted)" }}>Ended: {new Date(d.loggedPeriod.end_date).toLocaleDateString()}</div>}
                       {d.loggedPeriod.flow_intensity && <div style={{ marginTop: ".45rem" }}><span className="badge b-r">{d.loggedPeriod.flow_intensity} flow</span></div>}
@@ -919,7 +922,7 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
                       {(d.loggedPeriod.symptoms || []).length > 0 && <div style={{ marginTop: ".5rem", display: "flex", flexWrap: "wrap", gap: ".22rem" }}>{d.loggedPeriod.symptoms.slice(0, 4).map(s => <span key={s} className="badge b-m">{s}</span>)}</div>}
                       <PeriodDelete period={d.loggedPeriod} token={token} onDeleted={onPeriodDeleted} />
                     </>
-                  ) : <div style={{ fontSize: ".77rem", color: "var(--muted)" }}>Predicted period start</div>}
+                  ) : <div className="mk-card-head" style={{ fontSize: ".77rem", color: "var(--muted)" }}>Predicted period start</div>}
                 </div>
               );
             })()}
@@ -1160,7 +1163,7 @@ function ChatDrawer({ token, onClose }) {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: ".75rem" }}>
             <button type="button" className="chat-hist-toggle" aria-label="Conversation history" aria-expanded={histOpen} onClick={() => setHistOpen(o => !o)}>History</button>
-            <div style={{ fontSize: ".65rem", color: "var(--muted)", fontFamily: "'Fira Code',monospace" }}>AI companion</div>
+            <div className="chat-ai-label" style={{ fontSize: ".65rem", color: "var(--muted)", fontFamily: "'Fira Code',monospace" }}>AI companion</div>
             <button className="drawer-close" aria-label="Close" onClick={onClose}>×</button>
           </div>
         </div>

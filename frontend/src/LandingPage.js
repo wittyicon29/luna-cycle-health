@@ -42,7 +42,7 @@ const FEATURES = [
   { icon: '🗺', title: 'Journey Map', color: '#C4554B', desc: 'Navigate your entire cycle history on a living scrollable terrain — hover phases, click period markers, and always see exactly where you are today.' },
   { icon: '🧠', title: 'AI Analysis', color: '#4A9E6E', desc: 'AI-assisted insights based on your logged cycles. Estimates, not medical advice.' },
   { icon: '💬', title: 'Luna AI Chat', color: '#7ECECE', desc: 'An AI companion for questions about your cycle. Opt-in, and not a substitute for a doctor.' },
-  { icon: '📋', title: 'Health Profile', color: '#D4A040', desc: 'A comprehensive questionnaire builds your health fingerprint — helping Luna tailor your insights.' },
+  { icon: '📋', title: 'Health Profile', color: '#D4A040', desc: 'An optional health questionnaire gives Luna context to make your insights more personal. It\'s not a diagnosis.' },
   { icon: '🔮', title: 'Smart Predictions', color: '#7C66C0', desc: 'Luna learns your rhythms to forecast your next period and where you are in your cycle.' },
   { icon: '🔒', title: 'Private by Design', color: '#5FA87A', desc: 'Your notes, chats and health profile are encrypted at rest. We never sell your data, and AI features are opt-in.' },
 ];
