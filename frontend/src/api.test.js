@@ -243,6 +243,26 @@ describe('API', () => {
     expect(parsed.searchParams.get('confirmed_18_plus')).toBe('false');
   });
 
+  test('googleIdToken posts the token and flags with no Authorization header', async () => {
+    fetch.mockResolvedValue(reply(200, {}));
+
+    await API.auth.googleIdToken('idtok', { accepted: true, adult: true });
+
+    const [url, opts] = fetch.mock.calls[0];
+    expect(url).toMatch(/\/auth\/google\/id-token$/);
+    expect(opts.method).toBe('POST');
+    expect(JSON.parse(opts.body)).toEqual({ id_token: 'idtok', accepted_privacy_policy: true, confirmed_18_plus: true });
+    expect((opts.headers || {}).Authorization).toBeUndefined();
+  });
+
+  test('googleIdToken defaults both flags to false', async () => {
+    fetch.mockResolvedValue(reply(200, {}));
+
+    await API.auth.googleIdToken('idtok');
+
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({ id_token: 'idtok', accepted_privacy_policy: false, confirmed_18_plus: false });
+  });
+
   test('consents.set posts purpose and granted', async () => {
     fetch.mockResolvedValue(reply(200, {}));
 

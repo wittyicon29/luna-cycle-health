@@ -122,6 +122,11 @@ export const API = {
       });
       return req(`/auth/google/callback?${query}`, { method: 'POST' });
     },
+    googleIdToken: (idToken, { accepted = false, adult = false } = {}) => post('/auth/google/id-token', {
+      id_token: idToken,
+      accepted_privacy_policy: accepted,
+      confirmed_18_plus: adult,
+    }),
   },
   verify: {
     check: token => post('/verify/check', { token }),

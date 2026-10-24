@@ -3,6 +3,8 @@ import LandingPage from "./LandingPage";
 import { API } from "./api";
 import ConsentCheckboxes from "./ConsentCheckboxes";
 import { saveGoogleConsent } from "./consentFlags";
+import { isNative } from "./platform";
+import { signInWithGoogleNative } from "./nativeGoogle";
 import { newGoogleState, buildGoogleRedirect } from "./googleState";
 import useConsents from "./useConsents";
 import RequiredConsentScreen from "./RequiredConsentScreen";
@@ -599,6 +601,19 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
   
   async function handleGoogleSignIn() {
     setLoading(true);
+    if (isNative()) {
+      try {
+        const idToken = await signInWithGoogleNative();
+        const res = await API.auth.googleIdToken(idToken, { accepted, adult });
+        onLogin(res.access_token, res.refresh_token, res.user.email);
+      } catch (e) {
+        if (e && e.message !== "Google sign-in was cancelled") {
+          setErr(e.code === "consent_required" || e.name === "ApiError" ? e.message : "Failed to sign in with Google");
+        }
+        setLoading(false);
+      }
+      return;
+    }
     try {
       saveGoogleConsent({ accepted, adult });
       const response = await API.auth.getGoogleAuthUrl();

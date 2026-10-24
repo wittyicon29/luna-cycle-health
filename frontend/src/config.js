@@ -6,3 +6,4 @@ if (!fromEnv && process.env.NODE_ENV === 'production') {
 
 export const API_BASE = (fromEnv || 'http://localhost:8000/api/v1').replace(/\/+$/, '');
 export const SUPPORT_EMAIL = process.env.REACT_APP_SUPPORT_EMAIL || '';
+export const GOOGLE_WEB_CLIENT_ID = process.env.REACT_APP_GOOGLE_WEB_CLIENT_ID || '';
