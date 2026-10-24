@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installs JDK 17 + Android SDK + emulator image in user space under .android-tooling/.
+# Installs JDK 21 + Android SDK + emulator image in user space under .android-tooling/.
 set -euo pipefail
 
 if [ "${ANDROID_ACCEPT_LICENSES:-}" != "yes" ]; then
@@ -17,12 +17,12 @@ case "$(uname -m)" in
   *) echo "Unsupported arch $(uname -m)" >&2; exit 1 ;;
 esac
 
-# 1. JDK 17
+# 1. JDK 21
 find_java() { find "$TOOLS/jdk" -type d -path '*/Contents/Home' -maxdepth 4 2>/dev/null | head -1; }
 if [ -z "$(find_java)" ]; then
-  echo "Downloading Temurin 17 ($JDK_ARCH)..."
+  echo "Downloading Temurin 21 ($JDK_ARCH)..."
   curl -fSL --retry 3 --no-progress-meter -o "$TOOLS/jdk.tar.gz" \
-    "https://api.adoptium.net/v3/binary/latest/17/ga/mac/${JDK_ARCH}/jdk/hotspot/normal/eclipse"
+    "https://api.adoptium.net/v3/binary/latest/21/ga/mac/${JDK_ARCH}/jdk/hotspot/normal/eclipse"
   rm -rf "$TOOLS/jdk"; mkdir -p "$TOOLS/jdk"
   tar -xzf "$TOOLS/jdk.tar.gz" -C "$TOOLS/jdk"
   rm -f "$TOOLS/jdk.tar.gz"

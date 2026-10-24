@@ -1,0 +1,65 @@
+import { initNativeShell } from './nativeShell';
+import { isNative } from './platform';
+import { App } from '@capacitor/app';
+import { StatusBar, Style } from '@capacitor/status-bar';
+import { SplashScreen } from '@capacitor/splash-screen';
+
+jest.mock('./platform', () => ({ isNative: jest.fn() }));
+jest.mock('@capacitor/app', () => ({
+  App: { addListener: jest.fn(), minimizeApp: jest.fn() },
+}));
+jest.mock('@capacitor/status-bar', () => ({
+  StatusBar: { setStyle: jest.fn(), setBackgroundColor: jest.fn() },
+  Style: { Dark: 'DARK', Light: 'LIGHT' },
+}));
+jest.mock('@capacitor/splash-screen', () => ({
+  SplashScreen: { hide: jest.fn() },
+}));
+
+describe('initNativeShell', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  test('is a no-op on web', async () => {
+    isNative.mockReturnValue(false);
+    await initNativeShell();
+    expect(App.addListener).not.toHaveBeenCalled();
+    expect(StatusBar.setStyle).not.toHaveBeenCalled();
+    expect(SplashScreen.hide).not.toHaveBeenCalled();
+  });
+
+  test('registers one backButton listener on native', async () => {
+    isNative.mockReturnValue(true);
+    await initNativeShell();
+    expect(App.addListener).toHaveBeenCalledTimes(1);
+    expect(App.addListener.mock.calls[0][0]).toBe('backButton');
+  });
+
+  test('back button goes back in history when possible, else minimizes', async () => {
+    isNative.mockReturnValue(true);
+    const back = jest.spyOn(window.history, 'back').mockImplementation(() => {});
+    await initNativeShell();
+    const handler = App.addListener.mock.calls[0][1];
+    handler({ canGoBack: true });
+    expect(back).toHaveBeenCalledTimes(1);
+    expect(App.minimizeApp).not.toHaveBeenCalled();
+    handler({ canGoBack: false });
+    expect(App.minimizeApp).toHaveBeenCalledTimes(1);
+    expect(back).toHaveBeenCalledTimes(1);
+    back.mockRestore();
+  });
+
+  test('styles the status bar and hides the splash', async () => {
+    isNative.mockReturnValue(true);
+    await initNativeShell();
+    expect(StatusBar.setStyle).toHaveBeenCalledWith({ style: Style.Dark });
+    expect(StatusBar.setBackgroundColor).toHaveBeenCalledWith({ color: '#1A0F2E' });
+    expect(SplashScreen.hide).toHaveBeenCalledTimes(1);
+  });
+
+  test('still hides splash if status bar is unsupported', async () => {
+    isNative.mockReturnValue(true);
+    StatusBar.setStyle.mockRejectedValueOnce(new Error('unsupported'));
+    await initNativeShell();
+    expect(SplashScreen.hide).toHaveBeenCalledTimes(1);
+  });
+});
