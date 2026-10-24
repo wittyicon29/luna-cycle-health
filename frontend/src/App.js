@@ -291,7 +291,8 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .drawer-close:hover{color:var(--cream)}
 :focus-visible{outline:2px solid #E8A09A;outline-offset:2px}
 :focus:not(:focus-visible){outline:none}
-@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;scroll-behavior:auto !important}}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;scroll-behavior:auto !important}
+.spinner{animation-duration:.6s !important;animation-iteration-count:infinite !important}}
 .drawer-body{flex:1;overflow-y:auto;padding:1.25rem 1.5rem}
 
 /* CHAT */
@@ -314,6 +315,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .bubble.user .bname{color:rgba(196,84,74,.7)}
 .chat-in{padding:.8rem 1.2rem;border-top:1px solid var(--border);background:var(--s2);display:flex;gap:.6rem;align-items:flex-end}
 .chat-in textarea{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--cream);padding:.62rem .9rem;font-family:'Outfit',sans-serif;font-size:.82rem;resize:none;height:44px;min-height:44px;max-height:150px;outline:none;border-radius:var(--r);transition:border-color .2s,box-shadow .2s;line-height:1.5}
+.f input:focus-visible,.f select:focus-visible,.f textarea:focus-visible,.chat-in textarea:focus-visible{outline:2px solid #E8A09A;outline-offset:2px}
 .chat-in textarea:focus{border-color:rgba(255,107,138,0.4);box-shadow:0 0 3px rgba(255,107,138,0.15)}
 .tdots{display:flex;gap:4px;align-items:center;padding:.32rem 0}
 .tdots span{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:td 1.4s ease-in-out infinite}
@@ -1840,7 +1842,7 @@ function JourneyApp({ token, email, onLogout }) {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: ".65rem" }}>
           {cycleDay && <div className="cday-badge">Day {cycleDay} · {ph.name}</div>}
-          <button className="avatar-btn" onClick={() => setOverlay("profile")} style={{ background: `linear-gradient(135deg,${ph.color},#7C66C0)` }}>{email[0]?.toUpperCase()}</button>
+          <button className="avatar-btn" aria-label="Open profile" onClick={() => setOverlay("profile")} style={{ background: `linear-gradient(135deg,${ph.color},#7C66C0)` }}>{email[0]?.toUpperCase()}</button>
         </div>
       </div>
 

@@ -24,7 +24,17 @@ test('the web manifest is branded', () => {
 test('interactive elements keep a visible keyboard focus ring', () => {
   const app = read('src/App.js');
 
-  expect(app).toMatch(/:focus-visible\s*\{[^}]*outline:\s*2px solid/);
+  expect(app).toMatch(/(^|\n):focus-visible\s*\{[^}]*outline:\s*2px solid #E8A09A/);
+  expect(app).toMatch(/:focus:not\(:focus-visible\)\s*\{[^}]*outline:\s*none/);
+  expect(app).toMatch(/\.f input:focus-visible[^{]*\{[^}]*outline:\s*2px solid/);
+  expect(app).toMatch(/\.chat-in textarea:focus-visible[^{]*\{[^}]*outline:\s*2px solid/);
+});
+
+test('reduced motion keeps the loading spinner moving and the avatar is labelled', () => {
+  const app = read('src/App.js');
+
+  expect(app).toMatch(/prefers-reduced-motion[\s\S]*\.spinner\{[^}]*animation-duration:\.6s/);
+  expect(app).toMatch(/className="avatar-btn"[^>]*aria-label="Open profile"|aria-label="Open profile"[^>]*className="avatar-btn"/);
 });
 
 test('small controls are at least 44px to tap', () => {
