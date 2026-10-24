@@ -574,9 +574,9 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
         ? await API.auth.login({ email, password: pass })
         : await API.auth.register({ email, password: pass, accepted_privacy_policy: accepted, confirmed_18_plus: adult });
       
-      if (d.message && d.message.includes("verify")) {
-        // Registration successful but email verification required
-        setMessage(d.message);
+      if (!d.access_token) {
+        // No tokens issued (e.g. email verification required): show the server message
+        setMessage(d.message || "Check your email to verify your account.");
         return;
       }
       
@@ -962,6 +962,9 @@ function LogModal({ token, onClose, onSave }) {
   }, [token]);
   async function save() {
     if (!startDate) { setErr("Start date required"); return; }
+    const todayNow = localDateString();
+    if (endDate && endDate < startDate) { setErr("The end date can't be before the start date."); return; }
+    if (startDate > todayNow || (endDate && endDate > todayNow)) { setErr("Dates can't be in the future."); return; }
     setSaving(true); setErr("");
     try { await API.periods.create({ start_date: startDate, end_date: endDate || null, flow_intensity: flow, pain_level: pain, symptoms, notes }, token); onSave(); }
     catch (e) { setErr(e.message); } finally { setSaving(false); }

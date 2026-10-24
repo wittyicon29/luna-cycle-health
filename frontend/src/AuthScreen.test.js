@@ -149,3 +149,17 @@ test('only the register password field enforces a minimum length', () => {
   render(<AuthScreen onLogin={jest.fn()} initialMode="register" />);
   expect(screen.getByPlaceholderText('•••••••')).toHaveAttribute('minlength', '8');
 });
+
+test('a register response without tokens shows the message and does not log in', async () => {
+  API.auth.register.mockResolvedValue({ message: 'Registration successful! Please check your email.' });
+  const onLogin = jest.fn();
+  render(<AuthScreen onLogin={onLogin} initialMode="register" />);
+  fillCredentials();
+  userEvent.click(screen.getByLabelText(/18 years/i));
+  userEvent.click(screen.getByLabelText(/agree to the/i));
+
+  userEvent.click(screen.getByRole('button', { name: 'Create Account' }));
+
+  expect(await screen.findByText(/please check your email/i)).toBeInTheDocument();
+  expect(onLogin).not.toHaveBeenCalled();
+});
