@@ -30,6 +30,8 @@ Notes on the project configuration:
 - Screenshots and the recents thumbnail are blocked (`FLAG_SECURE`). Verify on the emulator via
   WebView DevTools or `adb logcat`, not screenshots.
 
+Capacitor logging is off (`"loggingBehavior": "none"` in `capacitor.config.json`) so session tokens never reach logcat; keep it that way.
+
 ## Debug build on the emulator
 
 The app page is served from `https://localhost`, so Chromium treats `http://10.0.2.2` (the

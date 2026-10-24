@@ -2,6 +2,7 @@
   "appId": "app.placeholder.luna",
   "appName": "Luna Health",
   "webDir": "build",
+  "loggingBehavior": "none",
   "android": {
     "allowMixedContent": false,
     "adjustMarginsForEdgeToEdge": "auto"
