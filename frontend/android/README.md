@@ -32,17 +32,21 @@ Notes on the project configuration:
 
 ## Debug build on the emulator
 
-The emulator reaches the host machine at `10.0.2.2`.
+The app page is served from `https://localhost`, so Chromium treats `http://10.0.2.2` (the
+emulator's alias for the host) as Mixed Content and blocks it ("Failed to fetch"). Loopback
+`http://localhost` is exempt, so forward the emulator's port 8000 to the host with
+`adb reverse` and point the app at `localhost`. Real deployments must use an https API.
 
 ```bash
 source scripts/android/env.sh
 cd frontend
-REACT_APP_API_BASE=http://10.0.2.2:8000 \
+REACT_APP_API_BASE=http://localhost:8000/api/v1 \
 REACT_APP_GOOGLE_WEB_CLIENT_ID=<web-client-id> npm run android:debug
 
 # start the emulator headless
 emulator -avd luna_test -no-window -no-audio -no-snapshot -gpu swiftshader_indirect &
 adb wait-for-device
+adb reverse tcp:8000 tcp:8000   # lets the app reach the host API at http://localhost:8000
 adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 adb shell am start -n <app-id>/.MainActivity
 ```

@@ -11,9 +11,15 @@ function enqueue(task) {
   return chain;
 }
 
+// The plugin object is a Capacitor Proxy whose `then` throws on native. Never return it from an
+// async function (promise resolution reads `.then`); resolve with a plain wrapper instead.
 async function secureStorage() {
-  const mod = await import('@aparajita/capacitor-secure-storage');
-  return mod.SecureStorage;
+  const { SecureStorage: plugin } = await import('@aparajita/capacitor-secure-storage');
+  return {
+    get: key => plugin.get(key),
+    set: (key, value) => plugin.set(key, value),
+    remove: key => plugin.remove(key),
+  };
 }
 
 function readLocal(key) {
