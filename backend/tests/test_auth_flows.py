@@ -112,7 +112,9 @@ def test_signup_requires_email_verification_before_login(client, db, outbox, reg
     client.post("/api/v1/auth/register", json=register_payload)
     credentials = {"email": register_payload["email"], "password": "password123"}
 
-    assert client.post("/api/v1/auth/login", json=credentials).status_code in (401, 403)
+    blocked = client.post("/api/v1/auth/login", json=credentials)
+    assert blocked.status_code == 403
+    assert blocked.json()["detail"].startswith("Please verify your email")
 
     token = db.query(User).filter(User.email == register_payload["email"]).one().email_verification_token
     complete = client.post("/api/v1/verify/complete", json={"token": token, "password": "password123"})

@@ -4,6 +4,8 @@ from app.core.security import hash_token
 from app.models.models import RefreshToken, User
 
 EMAIL = "new@gmail.com"
+VERIFY_FIRST = "Please verify your email before logging in. Check your inbox for the verification link."
+DEAD_LINK = "This link is invalid, expired or already used. If you already chose a password, please log in."
 
 
 def register(client, **extra):
@@ -28,7 +30,8 @@ def test_a_password_sent_by_an_old_client_is_ignored(client, db, outbox):
     user = db.query(User).filter(User.email == EMAIL).one()
     assert user.hashed_password == ""
     login = client.post("/api/v1/auth/login", json={"email": EMAIL, "password": "attacker-chosen-1"})
-    assert login.status_code in (401, 403)
+    assert login.status_code == 403
+    assert login.json()["detail"] == VERIFY_FIRST
 
 
 def test_check_reports_the_email_and_changes_nothing(client, db, outbox):
@@ -46,8 +49,10 @@ def test_check_reports_the_email_and_changes_nothing(client, db, outbox):
 
 
 def test_unknown_token_is_rejected(client, outbox):
-    assert client.post("/api/v1/verify/check", json={"token": "nope"}).status_code == 400
-    assert client.post("/api/v1/verify/complete", json={"token": "nope", "password": "longenough1"}).status_code == 400
+    check = client.post("/api/v1/verify/check", json={"token": "nope"})
+    complete = client.post("/api/v1/verify/complete", json={"token": "nope", "password": "longenough1"})
+    assert check.status_code == complete.status_code == 400
+    assert check.json()["detail"] == complete.json()["detail"] == DEAD_LINK
 
 
 def test_expired_token_is_rejected(client, db, outbox):
@@ -86,6 +91,8 @@ def test_complete_is_single_use(client, db, outbox):
     again = client.post("/api/v1/verify/complete", json={"token": token, "password": "someone-elses-1"})
 
     assert again.status_code == 400
+    assert again.json()["detail"] == DEAD_LINK
+    assert client.post("/api/v1/verify/check", json={"token": token}).json()["detail"] == DEAD_LINK
     assert client.post("/api/v1/auth/login", json={"email": EMAIL, "password": "someone-elses-1"}).status_code == 401
 
 
@@ -124,3 +131,71 @@ def test_the_pre_registration_attack_gets_the_attacker_nothing(client, db, outbo
 
     assert client.post("/api/v1/auth/login", json={"email": EMAIL, "password": "attacker-knows-this"}).status_code == 401
     assert client.post("/api/v1/auth/login", json={"email": EMAIL, "password": "victims-own-secret-1"}).status_code == 200
+
+
+def test_unverified_account_with_a_password_gets_403_or_401(client, make_user):
+    make_user(email="p@gmail.com", password="password123", verified=False)
+
+    right = client.post("/api/v1/auth/login", json={"email": "p@gmail.com", "password": "password123"})
+    wrong = client.post("/api/v1/auth/login", json={"email": "p@gmail.com", "password": "wrong-pass-1"})
+
+    assert right.status_code == 403 and right.json()["detail"] == VERIFY_FIRST
+    assert wrong.status_code == 401
+
+
+def test_a_token_consumed_between_validation_and_claim_is_rejected(client, db, outbox, monkeypatch):
+    from app.api import email_verification
+    from app.core.database import SessionLocal
+
+    register(client)
+    token = token_of(db)
+    original = email_verification._unverified_user_for_token
+
+    def consumed_after_validation(session, tok):
+        user = original(session, tok)
+        other = SessionLocal()
+        other.query(User).filter(User.id == user.id).update({"email_verification_token": None})
+        other.commit()
+        other.close()
+        return user
+
+    monkeypatch.setattr(email_verification, "_unverified_user_for_token", consumed_after_validation)
+
+    response = client.post("/api/v1/verify/complete", json={"token": token, "password": "racer-pass-1"})
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == DEAD_LINK
+    db.expire_all()
+    assert db.query(RefreshToken).count() == 0
+    assert db.query(User).filter(User.email == EMAIL).one().is_email_verified is False
+
+
+def test_a_rejected_second_complete_keeps_the_first_session_usable(client, db, outbox):
+    register(client)
+    token = token_of(db)
+    first = client.post("/api/v1/verify/complete", json={"token": token, "password": "my-new-pass-1"}).json()
+
+    second = client.post("/api/v1/verify/complete", json={"token": token, "password": "someone-elses-1"})
+
+    assert second.status_code == 400
+    refreshed = client.post("/api/v1/auth/refresh", json={"refresh_token": first["refresh_token"]})
+    assert refreshed.status_code == 200
+
+
+def test_completing_a_password_reset_verifies_an_unverified_account(client, db, make_user):
+    user = make_user(email="r@gmail.com", verified=False)
+    user.password_reset_token = "reset-tok"
+    user.password_reset_expires = datetime.now(timezone.utc) + timedelta(hours=1)
+    user.email_verification_token = "ver-tok"
+    user.email_verification_expires = datetime.now(timezone.utc) + timedelta(hours=1)
+    db.commit()
+
+    reset = client.post("/api/v1/auth/reset-password", json={"token": "reset-tok", "new_password": "brandnewpass1"})
+
+    assert reset.status_code == 200
+    assert client.post("/api/v1/auth/login", json={"email": "r@gmail.com", "password": "brandnewpass1"}).status_code == 200
+    db.expire_all()
+    fresh = db.query(User).filter(User.email == "r@gmail.com").one()
+    assert fresh.is_email_verified is True
+    assert fresh.email_verification_token is None
+    assert fresh.email_verification_expires is None

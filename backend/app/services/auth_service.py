@@ -57,6 +57,10 @@ def reset_password(db: Session, token: str, new_password: str) -> bool:
     user.hashed_password = get_password_hash(new_password)
     user.password_reset_token = None
     user.password_reset_expires = None
+    # Receiving the reset email proves the person owns the mailbox.
+    user.is_email_verified = True
+    user.email_verification_token = None
+    user.email_verification_expires = None
     db.query(RefreshToken).filter(RefreshToken.user_id == user.id).update({"is_revoked": True})
     db.commit()
     

@@ -80,6 +80,12 @@ def register(request: Request, user: UserCreate, background_tasks: BackgroundTas
 @limiter.limit(settings.AUTH_RATE_LIMIT)
 def login(request: Request, user: UserLogin, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.email == user.email).first()
+    if db_user and not db_user.is_email_verified and not db_user.hashed_password:
+        # Registered but the person has not chosen a password yet.
+        raise HTTPException(
+            status_code=403,
+            detail="Please verify your email before logging in. Check your inbox for the verification link."
+        )
     if not db_user or not verify_password(user.password, db_user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     

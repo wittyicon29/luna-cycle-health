@@ -85,15 +85,17 @@ async def send_verification_email(request: Request, payload: EmailRequest, backg
     
     return {"message": "Verification email sent successfully."}
 
+DEAD_LINK = "This link is invalid, expired or already used. If you already chose a password, please log in."
+
 def _unverified_user_for_token(db: Session, token: str) -> User:
     user = db.query(User).filter(
         User.email_verification_token == token,
         User.email_verification_expires > datetime.now(timezone.utc)
     ).first()
     if not user:
-        raise HTTPException(status_code=400, detail="Invalid or expired verification link.")
+        raise HTTPException(status_code=400, detail=DEAD_LINK)
     if user.is_email_verified:
-        raise HTTPException(status_code=400, detail="This link has already been used. Please log in.")
+        raise HTTPException(status_code=400, detail=DEAD_LINK)
     return user
 
 @router.post("/check")
@@ -109,10 +111,20 @@ def complete_verification(request: Request, payload: CompleteVerificationRequest
     """Choose a password, verify the email and sign in. Single use."""
     user = _unverified_user_for_token(db, payload.token)
 
-    user.hashed_password = get_password_hash(payload.password)
-    user.is_email_verified = True
-    user.email_verification_token = None
-    user.email_verification_expires = None
+    # Claim the token atomically: only one concurrent request can win.
+    claimed = db.query(User).filter(
+        User.id == user.id,
+        User.email_verification_token == payload.token,
+        User.is_email_verified == False,  # noqa: E712
+    ).update({
+        "hashed_password": get_password_hash(payload.password),
+        "is_email_verified": True,
+        "email_verification_token": None,
+        "email_verification_expires": None,
+    }, synchronize_session=False)
+    if claimed != 1:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=DEAD_LINK)
     # Anything issued before ownership was proven must not survive verification.
     db.query(RefreshToken).filter(RefreshToken.user_id == user.id).update({"is_revoked": True})
 
