@@ -29,7 +29,7 @@ export default function PeriodDelete({ period, token, onDeleted }) {
   const busy = step === 'busy';
   return (
     <div style={{ marginTop: '.7rem' }}>
-      <div style={{ fontSize: '.72rem', color: 'var(--muted)', marginBottom: '.5rem' }}>
+      <div style={{ fontSize: '.72rem', color: 'var(--muted)', marginBottom: '.5rem', whiteSpace: 'normal', overflowWrap: 'anywhere' }}>
         This entry will be removed from your journey. This can't be undone.
       </div>
       <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>

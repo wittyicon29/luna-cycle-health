@@ -9,7 +9,7 @@ import AiConsentModal from "./AiConsentModal";
 import PrivacyPanel from "./PrivacyPanel";
 import PeriodDelete from "./PeriodDelete";
 import ProfileBanner from "./ProfileBanner";
-import { localDateString } from "./localDate";
+import { localDateString, formatLongDate } from "./localDate";
 
 // ─── PHASE CONFIG ─────────────────────────────────────────────────────────────
 const PHASES = {
@@ -136,7 +136,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:2px}
 
 /* AUTH */
-.auth-wrap{min-height:100vh;background:var(--bg);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.auth-wrap{min-height:100vh;background:var(--bg);display:flex;align-items:center;justify-content:center;position:relative;padding:1rem;overflow:hidden;overflow:clip}
 .auth-orb{position:absolute;border-radius:50%;filter:blur(120px);pointer-events:none;animation:orbIn 1.5s ease both}
 .auth-orb-a{width:500px;height:500px;background:radial-gradient(circle,rgba(196,84,74,0.18),transparent 70%);top:-100px;right:-100px;animation-delay:.2s}
 .auth-orb-b{width:400px;height:400px;background:radial-gradient(circle,rgba(124,102,192,0.12),transparent 70%);bottom:-80px;left:-80px;animation-delay:.5s}
@@ -201,6 +201,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .btn-g:hover:not(:disabled){border-color:var(--border-h);color:var(--cream);background:var(--s2)}
 .btn-g:disabled{opacity:.4;cursor:not-allowed}
 .btn-full{width:100%}
+.btn-ico{margin-right:.6rem}
 .btn-sm{padding:.4rem .85rem;font-size:.72rem;min-height:44px}
 .err{font-size:.75rem;color:#FF6B8A;padding:.55rem .8rem;background:rgba(255,107,138,0.1);border:1px solid rgba(255,107,138,0.3);border-radius:6px;margin-top:.5rem;animation:feedIn .2s ease}
 @keyframes feedIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
@@ -220,6 +221,8 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 /* JOURNEY CANVAS */
 .j-canvas{flex:1;overflow:hidden;position:relative;background:var(--bg)}
 .j-scroll{width:100%;height:100%;overflow-x:auto;overflow-y:hidden;cursor:grab;user-select:none}
+.j-empty{position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;padding:1rem;text-align:center;pointer-events:none;font-family:'Cormorant Garamond',serif;font-size:1.3rem;color:var(--cream)}
+.j-empty .btn{pointer-events:auto;min-height:44px}
 .j-scroll:active{cursor:grabbing}
 .j-inner{height:100%;position:relative;display:flex;flex-direction:column}
 
@@ -235,6 +238,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .week-sep{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.03);pointer-events:none;z-index:1}
 .road{position:absolute;left:0;right:0;height:2px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.05);z-index:1}
 .p-dot{position:absolute;border-radius:50%;z-index:10;top:50%;transform:translate(-50%,-50%);cursor:pointer;transition:transform .2s,box-shadow .2s}
+.p-dot::before{content:"";position:absolute;inset:-16px;border-radius:50%}
 .p-dot:hover{transform:translate(-50%,-50%) scale(1.6)}
 
 /* Today beacon */
@@ -256,7 +260,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .ph-card-tip{font-size:.77rem;color:var(--cream);line-height:1.6;opacity:.85}
 
 /* Marker detail card */
-.mk-card{position:absolute;z-index:25;background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:.95rem 1.1rem;box-shadow:0 8px 32px rgba(0,0,0,.5);min-width:195px;animation:cardIn .2s ease}
+.mk-card{position:absolute;z-index:25;background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:.95rem 1.1rem;box-shadow:0 8px 32px rgba(0,0,0,.5);min-width:195px;width:max-content;max-width:min(280px,calc(100vw - 16px));white-space:normal;overflow-wrap:anywhere;animation:cardIn .2s ease}
 .mk-card-close{position:absolute;top:0;right:0;background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;line-height:1;transition:color .2s;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
 .mk-card-close:hover{color:var(--cream)}
 .mk-card-head{padding-right:48px}
@@ -353,7 +357,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .sbar-fill{height:3px;background:linear-gradient(90deg,#C4544A,#E8A09A);transition:width 1.2s cubic-bezier(.4,0,.2,1);border-radius:2px}
 .pred-tile{padding:.75rem 1rem;background:rgba(255,255,255,.03);border:1px solid var(--border);flex:1;min-width:120px;border-radius:var(--r)}
 .pred-lbl{font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:.3rem;font-weight:500}
-.pred-val{font-family:'Cormorant Garamond',serif;font-size:1rem;color:#E8A09A}
+.pred-val{font-family:'Outfit',sans-serif;font-variant-numeric:lining-nums;font-size:1rem;color:#E8A09A}
 
 /* MODAL */
 .modal-ov{position:fixed;inset:0;background:rgba(7,8,12,.85);backdrop-filter:blur(6px);z-index:60;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s ease}
@@ -481,12 +485,12 @@ function Onboarding({ onClose, email }) {
   return (
     <div className="modal-ov" style={{ zIndex: 70 }} onClick={e => e.target === e.currentTarget && finish()}>
       <div className="modal" style={{ maxWidth: 520, animationDuration: ".35s" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.2rem" }}>
-          <div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: ".5rem", marginBottom: "1.2rem" }}>
+          <div style={{ flex: "1 1 200px", minWidth: 0 }}>
             <div className="intro-pill"><span style={{ fontSize: "0.8rem" }}>◐</span>Welcome tour</div>
             <div className="modal-title" style={{ marginBottom: 0 }}>Meet your Luna journey</div>
           </div>
-          <button onClick={finish} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: "1.2rem", lineHeight: 1 }}>Skip</button>
+          <button type="button" className="btn btn-g btn-sm" onClick={finish}>Skip</button>
         </div>
         <div style={{ fontSize: ".86rem", color: "var(--muted)", marginBottom: "1.1rem" }}>
           {active.badge && <span className="badge b-m" style={{ marginBottom: ".5rem", display: "inline-flex" }}>{active.badge}</span>}
@@ -769,7 +773,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
 const SYMPTOMS_LIST = ["cramps", "bloating", "headache", "fatigue", "mood swings", "acne", "back pain", "nausea", "tender breasts", "insomnia"];
 const DAY_W = 34, BACK = 90, FWD = 60, TOTAL = BACK + FWD;
 
-function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss, token, onPeriodDeleted }) {
+function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss, token, onPeriodDeleted, onLogPeriod }) {
   const scrollRef = useRef(null);
   const [hoveredPhase, setHoveredPhase] = useState(null);
   const [phaseCardX, setPhaseCardX] = useState(0);
@@ -816,6 +820,12 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
 
   return (
     <div className="j-canvas" onClick={onDismiss}>
+      {periods.length === 0 && onLogPeriod && (
+        <div className="j-empty">
+          <p>Your journey starts with your first period.</p>
+          <button type="button" className="btn btn-p" onClick={e => { e.stopPropagation(); onLogPeriod(); }}>Log a period</button>
+        </div>
+      )}
       <div ref={scrollRef} className="j-scroll" onMouseDown={onMD} onMouseMove={onMM} onMouseUp={onMU} onMouseLeave={onMU}>
         <div className="j-inner" style={{ width: canvasW }}>
 
@@ -897,7 +907,7 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
               const clampedLeft = phaseCardX - (relX + cardW > viewW ? cardW + 8 : 0);
               return (
                 <div className="ph-card" style={{ left: Math.max(scrollLeft + 8, clampedLeft - 20) }}>
-                  <div className="ph-card-title" style={{ color: ph.color }}>{ph.icon} {ph.name} · {ph.territory}</div>
+                  <div className="ph-card-title" style={{ color: ph.color }}>{hoveredPhase === "unknown" || ph === PHASES.unknown ? ph.name : `${ph.icon} ${ph.name} · ${ph.territory}`}</div>
                   <div className="ph-card-sub">{ph.days}</div>
                   <div className="ph-card-tip">{ph.tip}</div>
                 </div>
@@ -908,15 +918,17 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
             {selectedInfo && (() => {
               const d = selectedInfo.day;
               const scrollLeft = scrollRef.current?.scrollLeft || 0;
-              const cardLeft = Math.max(scrollLeft + 8, selectedInfo.x - 100);
+              const visW = scrollRef.current?.clientWidth || 0;
+              const cardMaxW = Math.min(280, (visW || 390) - 16);
+              const cardLeft = Math.max(scrollLeft + 8, Math.min(selectedInfo.x - 100, scrollLeft + (visW || 390) - cardMaxW - 8));
               return (
                 <div className="mk-card" style={{ left: cardLeft, bottom: 14 }} onClick={e => e.stopPropagation()}>
                   <button className="mk-card-close" aria-label="Close" onClick={onDismiss}>×</button>
                   {d.loggedPeriod ? (
                     <>
                       <div className="mk-card-head" style={{ fontSize: ".62rem", letterSpacing: ".1em", textTransform: "uppercase", color: PHASES.menstrual.color, marginBottom: ".45rem", fontWeight: 500 }}>🩸 Logged Period</div>
-                      <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.05rem", marginBottom: ".35rem" }}>{new Date(d.loggedPeriod.start_date).toLocaleDateString("en", { month: "long", day: "numeric", year: "numeric" })}</div>
-                      {d.loggedPeriod.end_date && <div style={{ fontSize: ".7rem", color: "var(--muted)" }}>Ended: {new Date(d.loggedPeriod.end_date).toLocaleDateString()}</div>}
+                      <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.05rem", marginBottom: ".35rem" }}>{formatLongDate(d.loggedPeriod.start_date)}</div>
+                      {d.loggedPeriod.end_date && <div style={{ fontSize: ".7rem", color: "var(--muted)" }}>Ended: {formatLongDate(d.loggedPeriod.end_date)}</div>}
                       {d.loggedPeriod.flow_intensity && <div style={{ marginTop: ".45rem" }}><span className="badge b-r">{d.loggedPeriod.flow_intensity} flow</span></div>}
                       {d.loggedPeriod.pain_level != null && <div style={{ fontSize: ".7rem", color: "var(--muted)", marginTop: ".35rem", fontFamily: "'Fira Code',monospace" }}>Pain: {d.loggedPeriod.pain_level}/10</div>}
                       {(d.loggedPeriod.symptoms || []).length > 0 && <div style={{ marginTop: ".5rem", display: "flex", flexWrap: "wrap", gap: ".22rem" }}>{d.loggedPeriod.symptoms.slice(0, 4).map(s => <span key={s} className="badge b-m">{s}</span>)}</div>}
@@ -1452,7 +1464,7 @@ function AnalysisDrawer({ token, onClose }) {
 
   const active = selected || latest;
   const score = active?.cycle_health_score ?? null;
-  const ScoreRing = ({ score = 0 }) => { const r = 44, c = 2 * Math.PI * r, off = c - (score / 100) * c; return (<div className="score-ring"><svg width="108" height="108" viewBox="0 0 108 108"><circle cx="54" cy="54" r={r} fill="none" stroke="rgba(255,255,255,.05)" strokeWidth="7" /><circle cx="54" cy="54" r={r} fill="none" stroke="url(#rg2)" strokeWidth="7" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={off} style={{ transition: "stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1)" }} /><defs><linearGradient id="rg2" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#C4544A" /><stop offset="100%" stopColor="#7ECECE" /></linearGradient></defs></svg><div className="score-num"><span className="n">{score}</span><span className="s">/ 100</span></div></div>); };
+  const ScoreRing = ({ score = null }) => { const hasScore = typeof score === "number" && Number.isFinite(score); const r = 44, c = 2 * Math.PI * r, off = c - ((hasScore ? score : 0) / 100) * c; return (<div className="score-ring"><svg width="108" height="108" viewBox="0 0 108 108"><circle cx="54" cy="54" r={r} fill="none" stroke="rgba(255,255,255,.05)" strokeWidth="7" /><circle cx="54" cy="54" r={r} fill="none" stroke="url(#rg2)" strokeWidth="7" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={off} style={{ transition: "stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1)" }} /><defs><linearGradient id="rg2" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#C4544A" /><stop offset="100%" stopColor="#7ECECE" /></linearGradient></defs></svg><div className="score-num"><span className="n">{hasScore ? score : "—"}</span>{hasScore ? <span className="s">/ 100</span> : null}</div></div>); };
 
   const fmt = d => { try { return new Date(d + "T00:00:00").toLocaleDateString("en", { month: "short", day: "numeric" }); } catch { return d; } };
   const fmtDT = d => { try { return new Date(d).toLocaleString("en", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }); } catch { return d; } };
@@ -1503,7 +1515,10 @@ function AnalysisDrawer({ token, onClose }) {
               active ? (
                 <>
                   <div style={{ display: "flex", gap: "1.5rem", alignItems: "flex-start", flexWrap: "wrap", marginBottom: "1.2rem" }}>
-                    {score != null && <ScoreRing score={score} />}
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: ".4rem" }}>
+                      <ScoreRing score={score} />
+                      {score == null && <div style={{ fontSize: ".66rem", color: "var(--muted)", textAlign: "center", maxWidth: 120 }}>Needs 3+ cycles for a score</div>}
+                    </div>
                     <div style={{ flex: 1, minWidth: 180 }}>
                       {active.avg_cycle_length && <div className="sbar"><div className="sbar-lbl"><span>Avg Cycle</span><span style={{ fontFamily: "'Fira Code',monospace", color: "#E8A09A" }}>{active.avg_cycle_length}d</span></div><div className="sbar-track"><div className="sbar-fill" style={{ width: `${Math.min((active.avg_cycle_length / 35) * 100, 100)}%` }} /></div></div>}
                       {active.cycle_std_deviation != null && <div className="sbar"><div className="sbar-lbl"><span>Regularity</span><span style={{ fontFamily: "'Fira Code',monospace", color: "#E8A09A" }}>σ={active.cycle_std_deviation}</span></div><div className="sbar-track"><div className="sbar-fill" style={{ width: `${Math.max(0, 100 - active.cycle_std_deviation * 10)}%`, background: "linear-gradient(90deg,#4A9E6E,#7ECECE)" }} /></div></div>}
@@ -1665,8 +1680,8 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
               </div>
               <div className="divider" />
               <div style={{ display: "flex", flexDirection: "column", gap: ".45rem" }}>
-                <button className="btn btn-g" style={{ justifyContent: "flex-start", gap: ".6rem" }} onClick={() => setView("questionnaire")}>📋 Update Health Profile</button>
-                <button className="btn btn-g" style={{ justifyContent: "flex-start", gap: ".6rem", color: "#E07070", borderColor: "rgba(224,112,112,.2)" }} onClick={onLogout}>⏻ Sign Out</button>
+                <button className="btn btn-g" style={{ justifyContent: "flex-start", gap: ".6rem" }} onClick={() => setView("questionnaire")}><span aria-hidden="true" className="btn-ico">📋</span>Update Health Profile</button>
+                <button className="btn btn-g" style={{ justifyContent: "flex-start", gap: ".6rem", color: "#E07070", borderColor: "rgba(224,112,112,.2)" }} onClick={onLogout}><span aria-hidden="true" className="btn-ico">⏻</span>Sign Out</button>
               </div>
               <div className="divider" />
               <PrivacyPanel token={token} consents={consents} onSetConsent={onSetConsent} onAccountDeleted={onLogout} />
@@ -1865,6 +1880,7 @@ function JourneyApp({ token, email, onLogout }) {
           onSelectMarker={(day, x) => setSelectedInfo({ day, x })}
           onDismiss={() => setSelectedInfo(null)}
           token={token} onPeriodDeleted={() => { setSelectedInfo(null); loadPeriods(); }}
+          onLogPeriod={() => setOverlay("log")}
         />
       )}
 

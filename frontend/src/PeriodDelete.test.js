@@ -56,3 +56,15 @@ test('a server error is shown and the parent is not told', async () => {
   expect(await screen.findByText(/Period not found/)).toBeInTheDocument();
   expect(onDeleted).not.toHaveBeenCalled();
 });
+
+test('the confirmation text and buttons can wrap inside a narrow card', () => {
+  const { render: r, screen: s } = require('@testing-library/react');
+  const userEvent = require('@testing-library/user-event').default;
+  r(<PeriodDelete period={{ id: 1 }} token="t" onDeleted={() => {}} />);
+  userEvent.click(s.getByRole('button', { name: /delete this entry/i }));
+
+  const text = s.getByText(/can't be undone/i);
+  expect(text.style.whiteSpace).not.toBe('nowrap');
+  expect(text.style.whiteSpace).toBe('normal');
+  expect(s.getByRole('button', { name: 'Yes, delete' }).parentElement.style.flexWrap).toBe('wrap');
+});

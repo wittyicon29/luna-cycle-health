@@ -82,3 +82,56 @@ test('the chat header hides the AI companion label on narrow screens', () => {
   expect(app).toMatch(/@media\(max-width:400px\)\{[^}]*\.chat-ai-label\{display:none/);
   expect(app).toMatch(/className="chat-ai-label"/);
 });
+
+const rule = (css, selector) => {
+  const esc = selector.replace(/[.]/g, '\\.');
+  const m = css.match(new RegExp('(^|\\n)' + esc + '\\{([^}]*)\\}'));
+  return m ? m[2] : '';
+};
+
+test('auth wrapper cannot scroll sideways, has a gutter, and the card is fluid', () => {
+  const app = read('src/App.js');
+  const wrap = rule(app, '.auth-wrap');
+
+  expect(wrap).toMatch(/overflow:\s*hidden/);
+  expect(wrap).toMatch(/overflow:\s*clip/);
+  expect(wrap).toMatch(/padding:\s*1rem/);
+  expect(rule(app, '.auth-card')).toMatch(/width:\s*100%/);
+});
+
+test('marker card is width-limited and wraps its text', () => {
+  const card = rule(read('src/App.js'), '.mk-card');
+
+  expect(card).toMatch(/max-width:\s*min\(280px,\s*calc\(100vw - 16px\)\)/);
+  expect(card).toMatch(/overflow-wrap:\s*anywhere/);
+  expect(card).toMatch(/white-space:\s*normal/);
+});
+
+test('period markers have a 44px hit area without changing the dot', () => {
+  const app = read('src/App.js');
+
+  expect(rule(app, '.p-dot')).toMatch(/position:\s*absolute/);
+  expect(app).toMatch(/\.p-dot::before\{[^}]*content:""[^}]*position:absolute[^}]*inset:-16px/);
+});
+
+test('Insights tiles use lining numerals in the sans font', () => {
+  const val = rule(read('src/App.js'), '.pred-val');
+
+  expect(val).toMatch(/font-family:'Outfit',sans-serif/);
+  expect(val).toMatch(/font-variant-numeric:\s*lining-nums/);
+});
+
+test('welcome tour Skip is a real ghost button and the header row can wrap', () => {
+  const app = read('src/App.js');
+
+  expect(app).toMatch(/<button[^>]*className="btn btn-g btn-sm"[^>]*onClick=\{finish\}[^>]*>Skip<\/button>/);
+  expect(app).toMatch(/justifyContent: "space-between", alignItems: "center", flexWrap: "wrap"/);
+});
+
+test('profile buttons separate the emoji from the label', () => {
+  const app = read('src/App.js');
+
+  expect(app).toMatch(/<span aria-hidden="true" className="btn-ico">📋<\/span>/);
+  expect(app).toMatch(/<span aria-hidden="true" className="btn-ico">⏻<\/span>/);
+  expect(rule(app, '.btn-ico')).toMatch(/margin-right:\s*\.6rem/);
+});
