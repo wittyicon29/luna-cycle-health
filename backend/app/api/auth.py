@@ -12,7 +12,7 @@ from ..core.security import (
 from ..models.models import User, RefreshToken
 from ..schemas.schemas import (
     UserCreate, UserLogin, Token, RegisterResponse, RefreshTokenRequest,
-    PasswordResetRequest, PasswordResetConfirm
+    PasswordResetRequest, PasswordResetConfirm, GoogleIdTokenRequest
 )
 from ..services.auth_service import (
     send_password_reset_email,
@@ -262,3 +262,16 @@ async def google_oauth_callback(
             status_code=400,
             detail=f"Google authentication failed: {str(e)}"
         )
+
+
+@router.post("/google/id-token")
+@limiter.limit(settings.AUTH_RATE_LIMIT)
+async def google_id_token_sign_in(
+    request: Request,
+    payload: GoogleIdTokenRequest,
+    db: Session = Depends(get_db),
+):
+    """Sign in with a Google ID token obtained by the native Android app."""
+    return await google_oauth_service.authenticate_google_id_token(
+        payload.id_token, db, payload.accepted_privacy_policy, payload.confirmed_18_plus
+    )

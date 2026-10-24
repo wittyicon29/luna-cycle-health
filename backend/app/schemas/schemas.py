@@ -156,3 +156,9 @@ class ChatMessageResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+
+class GoogleIdTokenRequest(BaseModel):
+    id_token: str = Field(min_length=20, max_length=4096)
+    accepted_privacy_policy: bool = False
+    confirmed_18_plus: bool = False
