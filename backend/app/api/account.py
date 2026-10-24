@@ -81,5 +81,8 @@ def export_account_data(
     }
     return JSONResponse(
         content=data,
-        headers={"Content-Disposition": 'attachment; filename="luna-health-export.json"'},
+        headers={
+            "Content-Disposition": 'attachment; filename="luna-health-export.json"',
+            "Cache-Control": "no-store",
+        },
     )
