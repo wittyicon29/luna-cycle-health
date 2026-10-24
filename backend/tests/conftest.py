@@ -55,3 +55,22 @@ def auth_headers(make_user):
     user = make_user()
     token = create_access_token({"sub": str(user.id)})
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def outbox(monkeypatch):
+    sent = []
+
+    async def fake_send_email(to_email, subject, content, is_html=False):
+        sent.append({"to": to_email, "subject": subject, "content": content})
+        return True
+
+    monkeypatch.setattr("app.services.email_service.send_email", fake_send_email)
+    monkeypatch.setattr("app.api.auth.send_email", fake_send_email)
+    monkeypatch.setattr("app.api.email_verification.send_email", fake_send_email)
+    return sent
+
+
+@pytest.fixture
+def register_payload():
+    return {"email": "new@gmail.com", "password": "password123"}

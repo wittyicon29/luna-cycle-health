@@ -14,8 +14,10 @@ from ..schemas.schemas import (
 )
 from ..services.auth_service import (
     send_password_reset_email,
-    create_password_reset_token, reset_password
+    create_password_reset_token,
+    reset_password as apply_password_reset,
 )
+from ..services.email_service import send_email
 from ..services.google_oauth import google_oauth_service
 from pydantic import BaseModel
 
@@ -125,24 +127,24 @@ def login(user: UserLogin, background_tasks: BackgroundTasks, db: Session = Depe
     }
 
 @router.post("/request-password-reset")
-def request_password_reset(request: PasswordResetRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+def request_password_reset(payload: PasswordResetRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """Request password reset."""
-    token = create_password_reset_token(db, request.email)
-    
+    token = create_password_reset_token(db, payload.email)
+
     if token:
         background_tasks.add_task(
             send_password_reset_email,
-            to_email=request.email,
+            to_email=payload.email,
             token=token
         )
-    
+
     # Always return success to prevent email enumeration
     return {"message": "If an account with this email exists, a password reset link has been sent."}
 
 @router.post("/reset-password")
-def reset_password(request: PasswordResetConfirm, db: Session = Depends(get_db)):
+def reset_password(payload: PasswordResetConfirm, db: Session = Depends(get_db)):
     """Reset password with token."""
-    if reset_password(db, request.token, request.new_password):
+    if apply_password_reset(db, payload.token, payload.new_password):
         return {"message": "Password reset successfully! You can now log in."}
     else:
         raise HTTPException(status_code=400, detail="Invalid or expired reset token")
