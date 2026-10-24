@@ -6,6 +6,7 @@ import { saveGoogleConsent } from "./consentFlags";
 import useConsents from "./useConsents";
 import RequiredConsentScreen from "./RequiredConsentScreen";
 import AiConsentModal from "./AiConsentModal";
+import PrivacyPanel from "./PrivacyPanel";
 
 // ─── PHASE CONFIG ─────────────────────────────────────────────────────────────
 const PHASES = {
@@ -1570,7 +1571,7 @@ function AnalysisDrawer({ token, onClose }) {
 }
 
 // ─── PROFILE DRAWER ───────────────────────────────────────────────────────────
-function ProfileDrawer({ token, onClose, email, onLogout, initialView = "main" }) {
+function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent, initialView = "main" }) {
   const [view, setView] = useState(initialView);
   const [saving, setSaving] = useState(false); const [err, setErr] = useState(""); const [done, setDone] = useState(false);
   const [age, setAge] = useState(25); const [sex, setSex] = useState("female"); const [wt, setWt] = useState(60); const [ht, setHt] = useState(165);
@@ -1628,6 +1629,8 @@ function ProfileDrawer({ token, onClose, email, onLogout, initialView = "main" }
                 <button className="btn btn-g" style={{ justifyContent: "flex-start", gap: ".6rem" }} onClick={() => setView("questionnaire")}>📋 Update Health Profile</button>
                 <button className="btn btn-g" style={{ justifyContent: "flex-start", gap: ".6rem", color: "#E07070", borderColor: "rgba(224,112,112,.2)" }} onClick={onLogout}>⏻ Sign Out</button>
               </div>
+              <div className="divider" />
+              <PrivacyPanel token={token} consents={consents} onSetConsent={onSetConsent} onAccountDeleted={onLogout} />
             </div>
           )}
           {view === "questionnaire" && (done ? (
