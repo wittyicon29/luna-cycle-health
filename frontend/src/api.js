@@ -1,4 +1,5 @@
 import { API_BASE } from './config';
+import { clearSession, getAccessToken, getRefreshToken, setTokens } from './tokenStore';
 
 // Endpoints where a 401 means "wrong credentials", not "expired session".
 const NO_REFRESH_PREFIXES = [
@@ -37,7 +38,7 @@ function emit(name, detail) {
 }
 
 function expireSession() {
-  ['access_token', 'refresh_token', 'email'].forEach(key => localStorage.removeItem(key));
+  clearSession();
   emit('luna:session-expired');
 }
 
@@ -58,7 +59,7 @@ let refreshing = null;
 // the refresh token (or there is none), or { rejected: false, status } for a transient failure.
 function refreshTokens() {
   if (refreshing) return refreshing;
-  const refreshToken = localStorage.getItem('refresh_token');
+  const refreshToken = getRefreshToken();
   if (!refreshToken) return Promise.resolve({ rejected: true });
 
   refreshing = (async () => {
@@ -71,8 +72,7 @@ function refreshTokens() {
       if (res.status === 400 || res.status === 401) return { rejected: true };
       if (!res.ok) return { rejected: false, status: res.status };
       const data = await res.json();
-      localStorage.setItem('access_token', data.access_token);
-      localStorage.setItem('refresh_token', data.refresh_token);
+      await setTokens({ accessToken: data.access_token, refreshToken: data.refresh_token });
       emit('luna:tokens-refreshed', { accessToken: data.access_token });
       return { token: data.access_token };
     } catch (e) {
@@ -86,7 +86,7 @@ function refreshTokens() {
 
 export async function req(path, opts = {}, token = null, retried = false) {
   // Prefer the freshest stored token so callers holding a stale one don't trigger needless refreshes.
-  const bearer = token ? localStorage.getItem('access_token') || token : null;
+  const bearer = token ? getAccessToken() || token : null;
   const headers = {
     'Content-Type': 'application/json',
     ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),

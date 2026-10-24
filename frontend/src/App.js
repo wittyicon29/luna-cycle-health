@@ -11,6 +11,7 @@ import PrivacyPanel from "./PrivacyPanel";
 import PeriodDelete from "./PeriodDelete";
 import ProfileBanner from "./ProfileBanner";
 import { localDateString, formatLongDate } from "./localDate";
+import { getAccessToken, getEmail, setSession, clearSession } from "./tokenStore";
 
 // ─── PHASE CONFIG ─────────────────────────────────────────────────────────────
 const PHASES = {
@@ -1937,8 +1938,8 @@ export default function App() {
 
   // Check for token in localStorage on mount
   useEffect(() => {
-    const storedToken = localStorage.getItem('access_token');
-    const storedEmail = localStorage.getItem('email');
+    const storedToken = getAccessToken();
+    const storedEmail = getEmail();
     if (storedToken && storedEmail) {
       setToken(storedToken);
       setEmail(storedEmail);
@@ -1977,9 +1978,7 @@ export default function App() {
   const handleLogin = (accessToken, refreshToken, userEmail) => {
     setToken(accessToken);
     setEmail(userEmail);
-    localStorage.setItem('access_token', accessToken);
-    localStorage.setItem('refresh_token', refreshToken);
-    localStorage.setItem('email', userEmail);
+    setSession({ accessToken, refreshToken, email: userEmail });
     setShowAuth(false);
     
     // Redirect to app after successful login
@@ -1989,9 +1988,7 @@ export default function App() {
   const handleLogout = () => {
     setToken(null);
     setEmail("");
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('email');
+    clearSession();
     
     // Redirect to login page after logout
     window.history.pushState({}, '', '/login');
