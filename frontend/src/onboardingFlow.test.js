@@ -71,6 +71,7 @@ test('a completed profile shows no banner', async () => {
   API.auth.status.mockResolvedValue({ has_completed_questionnaire: true });
   renderJourney();
 
+  await waitFor(() => expect(API.auth.status).toHaveBeenCalled());
   await screen.findByRole('button', { name: /chat/i });
   expect(screen.queryByText(/Complete your health profile/i)).not.toBeInTheDocument();
 });
