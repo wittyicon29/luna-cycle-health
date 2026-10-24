@@ -13,15 +13,15 @@ const STYLES = `
   --cta:#FF6B8A;--cta-hover:#FF4D70;
 }
 body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);height:100vh;-webkit-font-smoothing:antialiased;font-size:14px;line-height:1.6}
-#root{height:100vh;display:flex;align-items:center;justify-content:center}
+#root{min-height:100vh;display:flex;align-items:flex-start;justify-content:center}
 
-.verify-wrap{min-height:100vh;background:var(--bg);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.verify-wrap{min-height:100vh;width:100%;background:var(--bg);display:flex;align-items:flex-start;justify-content:center;position:relative;overflow:hidden}
 .verify-orb{position:absolute;border-radius:50%;filter:blur(120px);pointer-events:none;animation:orbIn 1.5s ease both}
 .verify-orb-a{width:500px;height:500px;background:radial-gradient(circle,rgba(196,84,74,0.18),transparent 70%);top:-100px;right:-100px;animation-delay:.2s}
 .verify-orb-b{width:400px;height:400px;background:radial-gradient(circle,rgba(124,102,192,0.12),transparent 70%);bottom:-80px;left:-80px;animation-delay:.5s}
 @keyframes orbIn{from{opacity:0}to{opacity:1}}
 
-.verify-card{position:relative;z-index:1;width:100%;max-width:420px;background:var(--s1);border:1px solid var(--border);padding:2.5rem;border-radius:12px;box-shadow:0 24px 80px rgba(0,0,0,0.5);animation:cardIn .5s cubic-bezier(.4,0,.2,1) both}
+.verify-card{margin:auto;position:relative;z-index:1;width:100%;max-width:420px;background:var(--s1);border:1px solid var(--border);padding:2.5rem;border-radius:12px;box-shadow:0 24px 80px rgba(0,0,0,0.5);animation:cardIn .5s cubic-bezier(.4,0,.2,1) both}
 @keyframes cardIn{from{opacity:0;transform:translateY(20px) scale(.98)}to{opacity:1;transform:none}}
 
 .verify-logo{text-align:center;margin-bottom:2rem}
@@ -164,7 +164,7 @@ function EmailVerification() {
   return (
     <Shell>
       <h2 className="verify-title">Choose your password</h2>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} noValidate>
         <div className="vf">
           <label htmlFor="verify-email-field">Email</label>
           <input id="verify-email-field" type="email" value={email} readOnly />
