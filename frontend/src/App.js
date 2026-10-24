@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import LandingPage from "./LandingPage";
 import { API } from "./api";
+import ConsentCheckboxes from "./ConsentCheckboxes";
+import { saveGoogleConsent } from "./consentFlags";
 
 // ─── PHASE CONFIG ─────────────────────────────────────────────────────────────
 const PHASES = {
@@ -535,11 +537,16 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
   const [message, setMessage] = useState("");
   const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [showResendVerification, setShowResendVerification] = useState(false);
+  const [adult, setAdult] = useState(false);
+  const [accepted, setAccepted] = useState(false);
+  const needsConsent = tab === "register" && !(adult && accepted);
   
   async function submit(e) {
     e.preventDefault(); setErr(""); setMessage(""); setLoading(true);
     try {
-      const d = tab === "login" ? await API.auth.login({ email, password: pass }) : await API.auth.register({ email, password: pass });
+      const d = tab === "login"
+        ? await API.auth.login({ email, password: pass })
+        : await API.auth.register({ email, password: pass, accepted_privacy_policy: accepted, confirmed_18_plus: adult });
       
       if (d.message && d.message.includes("verify")) {
         // Registration successful but email verification required
@@ -556,6 +563,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
   async function handleGoogleSignIn() {
     setLoading(true);
     try {
+      saveGoogleConsent({ accepted, adult });
       const response = await API.auth.getGoogleAuthUrl();
       window.location.href = response.auth_url;
     } catch (e) {
@@ -658,9 +666,10 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
         <form onSubmit={submit}>
           <div className="f"><label>Email</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@gmail.com" required autoFocus /></div>
           <div className="f"><label>Password</label><input type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="•••••••" required /></div>
+          {tab === "register" && <ConsentCheckboxes adult={adult} accepted={accepted} onAdultChange={setAdult} onAcceptedChange={setAccepted} />}
           <Err msg={err} />
           {message && <div style={{ color: "#5FA87A", fontSize: ".8rem", marginBottom: "1rem", textAlign: "center" }}>{message}</div>}
-          <button className="btn btn-p btn-full" style={{ marginTop: "1.1rem" }} type="submit" disabled={loading}>
+          <button className="btn btn-p btn-full" style={{ marginTop: "1.1rem" }} type="submit" disabled={loading || needsConsent}>
             {loading ? <><Spinner /> Processing…</> : tab === "login" ? "Begin Your Journey" : "Create Account"}
           </button>
         </form>
@@ -673,7 +682,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
           <button 
             className="btn btn-full" 
             onClick={handleGoogleSignIn}
-            disabled={loading}
+            disabled={loading || needsConsent}
             style={{ 
               background: "#4285F4", 
               border: "1px solid #4285F4",
@@ -714,7 +723,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
         
         <p style={{ fontSize: ".65rem", color: "var(--muted)", textAlign: "center", marginTop: "1rem" }}>
           Only Gmail addresses are supported for registration.<br />
-          By continuing, you agree to our Terms & Privacy Policy.
+          Luna Health is for people aged 18 and over.
         </p>
       </div>
     </div>
@@ -1643,7 +1652,7 @@ function ProfileDrawer({ token, onClose, email, onLogout, initialView = "main" }
                 This is your health questionnaire. It helps Luna understand your body and symptoms. You can always edit these answers later under <strong>Profile → Health Profile</strong>.
               </div>
               <div className="q-sec"><div className="q-sec-title">Basic Info</div>
-                <div className="f-row"><div className="f"><label>Age</label><input type="number" value={age} onChange={e => setAge(Number(e.target.value))} min="10" max="100" required /></div><div className="f"><label>Biological Sex</label><select value={sex} onChange={e => setSex(e.target.value)}><option value="female">Female</option><option value="male">Male</option><option value="other">Other</option></select></div></div>
+                <div className="f-row"><div className="f"><label>Age</label><input type="number" value={age} onChange={e => setAge(Number(e.target.value))} min="18" max="100" required /></div><div className="f"><label>Biological Sex</label><select value={sex} onChange={e => setSex(e.target.value)}><option value="female">Female</option><option value="male">Male</option><option value="other">Other</option></select></div></div>
                 <div className="f-row"><div className="f"><label>Weight (kg)</label><input type="number" value={wt} onChange={e => setWt(Number(e.target.value))} min="30" max="200" /></div><div className="f"><label>Height (cm)</label><input type="number" value={ht} onChange={e => setHt(Number(e.target.value))} min="100" max="250" /></div></div>
               </div>
               <div className="q-sec"><div className="q-sec-title">Cycle Pattern</div>
