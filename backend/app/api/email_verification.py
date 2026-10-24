@@ -98,9 +98,9 @@ async def verify_email(request: VerifyRequest, db: Session = Depends(get_db)):
         return {"message": "Email is already verified."}
     
     # Mark email as verified
+    # The token is kept (until it expires) so a repeated click, e.g. an email
+    # link scanner prefetching the URL first, still gets a success response.
     user.is_email_verified = True
-    user.email_verification_token = None
-    user.email_verification_expires = None
     db.commit()
     
     return {"message": "Email verified successfully! You can now log in."}
