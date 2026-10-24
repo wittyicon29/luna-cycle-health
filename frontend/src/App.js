@@ -3,6 +3,9 @@ import LandingPage from "./LandingPage";
 import { API } from "./api";
 import ConsentCheckboxes from "./ConsentCheckboxes";
 import { saveGoogleConsent } from "./consentFlags";
+import useConsents from "./useConsents";
+import RequiredConsentScreen from "./RequiredConsentScreen";
+import AiConsentModal from "./AiConsentModal";
 
 // ─── PHASE CONFIG ─────────────────────────────────────────────────────────────
 const PHASES = {
@@ -1693,6 +1696,8 @@ function JourneyApp({ token, email, onLogout }) {
   const [selectedInfo, setSelectedInfo] = useState(null);
   const [showIntro, setShowIntro] = useState(false);
   const [forceQuestionnaire, setForceQuestionnaire] = useState(false);
+  const { consents, error: consentError, reload: reloadConsents, setConsent } = useConsents(token);
+  const [pendingAi, setPendingAi] = useState(null);
 
   const loadPeriods = useCallback(async () => {
     setLoading(true);
@@ -1700,6 +1705,13 @@ function JourneyApp({ token, email, onLogout }) {
     catch (e) { } finally { setLoading(false); }
   }, [token]);
   useEffect(() => { loadPeriods(); }, [loadPeriods]);
+
+  // The API announces a 403 consent_required (e.g. consent withdrawn elsewhere): ask again.
+  useEffect(() => {
+    const onConsentRequired = () => setOverlay("ai-consent");
+    window.addEventListener("luna:consent-required", onConsentRequired);
+    return () => window.removeEventListener("luna:consent-required", onConsentRequired);
+  }, []);
 
   useEffect(() => {
     const checkUserStatus = async () => {
@@ -1723,6 +1735,35 @@ function JourneyApp({ token, email, onLogout }) {
     
     checkUserStatus();
   }, [token, email]);
+
+  if (consentError) {
+    return (
+      <div className="auth-wrap">
+        <div className="auth-card">
+          <Err msg={consentError} />
+          <button className="btn btn-p btn-full" style={{ marginTop: "1rem" }} onClick={reloadConsents}>Retry</button>
+          <button className="btn btn-g btn-full" style={{ marginTop: ".5rem" }} onClick={onLogout}>Sign out</button>
+        </div>
+      </div>
+    );
+  }
+  if (!consents) {
+    return <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><LoadingC text="Loading your privacy settings…" /></div>;
+  }
+  if (!consents.terms_privacy || !consents.age_18_plus) {
+    return (
+      <RequiredConsentScreen
+        onSubmit={async () => { await setConsent("age_18_plus", true); await setConsent("terms_privacy", true); }}
+        onLogout={onLogout}
+      />
+    );
+  }
+
+  const openAi = target => {
+    if (consents.ai_processing) { setOverlay(target); return; }
+    setPendingAi(target);
+    setOverlay("ai-consent");
+  };
 
   const sorted = [...periods].sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
   const avgCycle = sorted.length > 1 ? Math.round(sorted.slice(0, -1).reduce((s, p, i) => s + Math.abs((new Date(p.start_date) - new Date(sorted[i + 1].start_date)) / 86400000), 0) / (sorted.length - 1)) : 28;
@@ -1787,9 +1828,9 @@ function JourneyApp({ token, email, onLogout }) {
       {/* BOTTOM DOCK */}
       <div className="dock">
         <button className="dk on"><span className="di">🗺</span><span className="dl">Journey</span></button>
-        <button className="dk" onClick={() => setOverlay("analysis")}><span className="di">✦</span><span className="dl">Insights</span></button>
+        <button className="dk" onClick={() => openAi("analysis")}><span className="di">✦</span><span className="dl">Insights</span></button>
         <button className="dock-log" onClick={() => setOverlay("log")} title="Log period">+</button>
-        <button className="dk" onClick={() => setOverlay("chat")}><span className="di">💬</span><span className="dl">Chat</span></button>
+        <button className="dk" onClick={() => openAi("chat")}><span className="di">💬</span><span className="dl">Chat</span></button>
         <button className="dk" onClick={() => setOverlay("profile")}><span className="di">👤</span><span className="dl">Profile</span></button>
       </div>
 
@@ -1797,7 +1838,13 @@ function JourneyApp({ token, email, onLogout }) {
       {overlay === "log" && <LogModal token={token} onClose={() => setOverlay(null)} onSave={() => { setOverlay(null); loadPeriods(); }} />}
       {overlay === "chat" && <ChatDrawer token={token} onClose={() => setOverlay(null)} />}
       {overlay === "analysis" && <AnalysisDrawer token={token} onClose={() => setOverlay(null)} />}
-      {overlay === "profile" && <ProfileDrawer token={token} email={email} onClose={() => { setOverlay(null); setForceQuestionnaire(false); }} onLogout={onLogout} initialView={forceQuestionnaire ? "questionnaire" : "main"} />}
+      {overlay === "profile" && <ProfileDrawer token={token} email={email} onClose={() => { setOverlay(null); setForceQuestionnaire(false); }} onLogout={onLogout} consents={consents} onSetConsent={setConsent} initialView={forceQuestionnaire ? "questionnaire" : "main"} />}
+      {overlay === "ai-consent" && (
+        <AiConsentModal
+          onClose={() => { setOverlay(null); setPendingAi(null); }}
+          onGrant={async () => { await setConsent("ai_processing", true); setOverlay(pendingAi); setPendingAi(null); }}
+        />
+      )}
       {showIntro && <Onboarding email={email} onClose={() => setShowIntro(false)} />}
     </div>
   );
