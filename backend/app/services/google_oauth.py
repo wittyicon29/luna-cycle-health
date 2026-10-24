@@ -126,6 +126,17 @@ class GoogleOAuthService:
                 db.rollback()
                 raise
             db.refresh(user)
+        elif not user.is_email_verified:
+            # Google just proved ownership of this address. Any password set on an
+            # unverified account was chosen by someone who never proved it, so drop it.
+            user.is_email_verified = True
+            user.hashed_password = ""
+            user.email_verification_token = None
+            user.email_verification_expires = None
+            user.password_reset_token = None
+            user.password_reset_expires = None
+            db.commit()
+            db.refresh(user)
         
         # Create JWT tokens
         jwt_access_token = create_access_token({"sub": str(user.id)})
