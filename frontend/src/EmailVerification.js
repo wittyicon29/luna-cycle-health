@@ -1,19 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-
-// API
-const API_BASE = "http://localhost:8000/api/v1";
-async function req(path, opts = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json", ...opts.headers },
-    ...opts
-  });
-  if (!res.ok) { 
-    const err = await res.json().catch(() => ({})); 
-    throw new Error(err.detail || `Error ${res.status}`); 
-  }
-  return res.json();
-}
+import { API } from './api';
 
 // Styles
 const STYLES = `
@@ -93,10 +80,7 @@ function EmailVerification() {
 
   const verifyEmail = async (token) => {
     try {
-      const response = await req('/verify/verify', {
-        method: 'POST',
-        body: JSON.stringify({ token })
-      });
+      await API.verify.verify(token);
 
       setSuccess(true);
       setLoading(false);

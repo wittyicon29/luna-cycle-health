@@ -1,29 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import LandingPage from "./LandingPage";
-
-// ─── API ──────────────────────────────────────────────────────────────────────
-const API_BASE = "http://localhost:8000/api/v1";
-async function req(path, opts = {}, token = null) {
-  const headers = { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...opts.headers };
-  const res = await fetch(`${API_BASE}${path}`, { ...opts, headers });
-  if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || `Error ${res.status}`); }
-  return res.json();
-}
-const API = {
-  auth: { 
-    register: d => req("/auth/register", { method: "POST", body: JSON.stringify(d) }), 
-    login: d => req("/auth/login", { method: "POST", body: JSON.stringify(d) }), 
-    status: t => req("/auth/status", {}, t),
-    requestPasswordReset: d => req("/auth/request-password-reset", { method: "POST", body: JSON.stringify(d) }),
-    resetPassword: d => req("/auth/reset-password", { method: "POST", body: JSON.stringify(d) }),
-    getGoogleAuthUrl: () => req("/auth/google/auth-url"),
-    googleCallback: d => req("/auth/google/callback", { method: "POST", body: JSON.stringify(d) })
-  },
-  periods: { list: t => req("/periods/", {}, t), create: (d, t) => req("/periods/", { method: "POST", body: JSON.stringify(d) }, t), update: (id, d, t) => req(`/periods/${id}`, { method: "PUT", body: JSON.stringify(d) }, t) },
-  questionnaires: { latest: t => req("/questionnaires/latest", {}, t), submit: (d, t) => req("/questionnaires/", { method: "POST", body: JSON.stringify(d) }, t) },
-  analysis: { list: t => req("/analysis/", {}, t), generate: (d, t) => req("/analysis/", { method: "POST", body: JSON.stringify(d) }, t), latest: (type, t) => req(`/analysis/latest/${type}`, {}, t) },
-  chat: { send: (d, t) => req("/chat/ask", { method: "POST", body: JSON.stringify(d) }, t), history: t => req("/chat/history", {}, t) },
-};
+import { API } from "./api";
 
 // ─── PHASE CONFIG ─────────────────────────────────────────────────────────────
 const PHASES = {
@@ -591,19 +568,9 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
     e.preventDefault();
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/verify/resend`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
-      
-      if (response.ok) {
-        setMessage("Verification email sent! Please check your inbox.");
-        setShowResendVerification(false);
-      } else {
-        const err = await response.json();
-        setErr(err.detail || "Failed to resend verification email");
-      }
+      await API.verify.resend(email);
+      setMessage("Verification email sent! Please check your inbox.");
+      setShowResendVerification(false);
     } catch (e) {
       setErr(e.message);
     } finally {
@@ -1845,6 +1812,23 @@ export default function App() {
     }
   }, []);
 
+  // api.js refreshes tokens silently; keep React state in sync, and bounce to login if the session dies.
+  useEffect(() => {
+    const onRefreshed = e => setToken(e.detail.accessToken);
+    const onExpired = () => {
+      setToken(null);
+      setEmail("");
+      setAuthMode("login");
+      setShowAuth(true);
+    };
+    window.addEventListener("luna:tokens-refreshed", onRefreshed);
+    window.addEventListener("luna:session-expired", onExpired);
+    return () => {
+      window.removeEventListener("luna:tokens-refreshed", onRefreshed);
+      window.removeEventListener("luna:session-expired", onExpired);
+    };
+  }, []);
+
   // Check if user is accessing auth routes directly
   useEffect(() => {
     const path = window.location.pathname;
@@ -1897,3 +1881,5 @@ export default function App() {
 
   return <JourneyApp token={token} email={email} onLogout={handleLogout} />;
 }
+
+export { injectStyles, AuthScreen, JourneyApp };

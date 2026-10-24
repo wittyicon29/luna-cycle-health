@@ -1,6 +1,6 @@
 // Google OAuth Callback Handler
 import React, { useState, useEffect } from 'react';
-import { API } from './App';
+import { API } from './api';
 
 function GoogleCallback() {
   const [loading, setLoading] = useState(true);

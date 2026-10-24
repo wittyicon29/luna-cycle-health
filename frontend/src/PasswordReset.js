@@ -1,8 +1,10 @@
 // Password Reset Component
-import React, { useState } from 'react';
-import { API } from './App';
+import React, { useState, useEffect } from 'react';
+import { API } from './api';
+import { injectStyles } from './App';
 
 function PasswordReset() {
+  useEffect(() => { injectStyles(); }, []);
   const [token, setToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
