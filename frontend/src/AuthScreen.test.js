@@ -93,3 +93,41 @@ test('Google sign-in on the login tab works without ticking anything', async () 
   await waitFor(() => expect(API.auth.getGoogleAuthUrl).toHaveBeenCalled());
   expect(JSON.parse(sessionStorage.getItem('luna_google_consent'))).toEqual({ accepted: false, adult: false });
 });
+
+test('the login submit button says what it does', () => {
+  render(<AuthScreen onLogin={jest.fn()} initialMode="login" />);
+
+  expect(screen.getByRole('button', { name: 'Log in' })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Begin Your Journey' })).not.toBeInTheDocument();
+});
+
+test('the Gmail-only note appears on the register tab only', () => {
+  const { unmount } = render(<AuthScreen onLogin={jest.fn()} initialMode="login" />);
+  expect(screen.queryByText(/Only Gmail addresses/)).not.toBeInTheDocument();
+  unmount();
+
+  render(<AuthScreen onLogin={jest.fn()} initialMode="register" />);
+  expect(screen.getByText(/Only Gmail addresses/)).toBeInTheDocument();
+});
+
+test('the password can be shown and hidden', () => {
+  render(<AuthScreen onLogin={jest.fn()} initialMode="login" />);
+  const input = screen.getByPlaceholderText('•••••••');
+
+  expect(input).toHaveAttribute('type', 'password');
+  userEvent.click(screen.getByRole('button', { name: /show password/i }));
+  expect(input).toHaveAttribute('type', 'text');
+  userEvent.click(screen.getByRole('button', { name: /hide password/i }));
+  expect(input).toHaveAttribute('type', 'password');
+});
+
+test('the browser is told what each field is for', () => {
+  const { unmount } = render(<AuthScreen onLogin={jest.fn()} initialMode="login" />);
+  expect(screen.getByPlaceholderText('your@gmail.com')).toHaveAttribute('autocomplete', 'email');
+  expect(screen.getByPlaceholderText('•••••••')).toHaveAttribute('autocomplete', 'current-password');
+  unmount();
+
+  render(<AuthScreen onLogin={jest.fn()} initialMode="register" />);
+  expect(screen.getByPlaceholderText('•••••••')).toHaveAttribute('autocomplete', 'new-password');
+  expect(screen.getByText(/at least 8 characters/i)).toBeInTheDocument();
+});

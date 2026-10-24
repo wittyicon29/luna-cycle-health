@@ -147,8 +147,16 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .auth-logo p{font-size:.7rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-top:.3rem}
 .auth-tabs{display:flex;gap:.3rem;margin-bottom:1.8rem}
 .auth-tab{flex:1;padding:.55rem;background:transparent;border:1px solid transparent;color:var(--muted);font-family:'Outfit',sans-serif;font-size:.75rem;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;border-radius:6px;transition:all .2s}
-.auth-tab.on{color:#C4544A;border-color:rgba(196,84,74,.3);background:rgba(196,84,74,.07)}
+.auth-tab.on{color:#FF8A80;border-color:rgba(196,84,74,.3);background:rgba(196,84,74,.07)}
 .auth-tab:not(.on):hover{color:var(--cream)}
+.pw-wrap{position:relative}
+.pw-wrap input{padding-right:3rem}
+.pw-toggle{position:absolute;top:50%;right:0;transform:translateY(-50%);width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1rem;border-radius:var(--r)}
+.pw-toggle:hover{color:var(--cream)}
+.pw-toggle:focus-visible{outline:2px solid #FF8A80;outline-offset:-2px}
+.pw-hint{font-size:.65rem;color:var(--muted);margin-top:.3rem}
+.legal-link{color:#E8A09A;text-decoration:underline}
+.legal-link:hover{color:#FFC1BB}
 
 /* FORM */
 .f{margin-bottom:1rem}
@@ -543,6 +551,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
   const [showResendVerification, setShowResendVerification] = useState(false);
   const [adult, setAdult] = useState(false);
   const [accepted, setAccepted] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const needsConsent = tab === "register" && !(adult && accepted);
   
   async function submit(e) {
@@ -668,13 +677,19 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
           <button className={`auth-tab ${tab === "register" ? "on" : ""}`} onClick={() => { setTab("register"); setErr(""); setMessage(""); }}>Register</button>
         </div>
         <form onSubmit={submit}>
-          <div className="f"><label>Email</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@gmail.com" required autoFocus /></div>
-          <div className="f"><label>Password</label><input type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="•••••••" required /></div>
+          <div className="f"><label>Email</label><input type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@gmail.com" required autoFocus /></div>
+          <div className="f"><label>Password</label>
+            <div className="pw-wrap">
+              <input type={showPassword ? "text" : "password"} autoComplete={tab === "login" ? "current-password" : "new-password"} minLength={tab === "register" ? 8 : undefined} value={pass} onChange={e => setPass(e.target.value)} placeholder="•••••••" required />
+              <button type="button" className="pw-toggle" aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword(v => !v)}>{showPassword ? "🙈" : "👁"}</button>
+            </div>
+            {tab === "register" && <div className="pw-hint">At least 8 characters</div>}
+          </div>
           {tab === "register" && <ConsentCheckboxes adult={adult} accepted={accepted} onAdultChange={setAdult} onAcceptedChange={setAccepted} />}
           <Err msg={err} />
           {message && <div style={{ color: "#5FA87A", fontSize: ".8rem", marginBottom: "1rem", textAlign: "center" }}>{message}</div>}
           <button className="btn btn-p btn-full" style={{ marginTop: "1.1rem" }} type="submit" disabled={loading || needsConsent}>
-            {loading ? <><Spinner /> Processing…</> : tab === "login" ? "Begin Your Journey" : "Create Account"}
+            {loading ? <><Spinner /> Processing…</> : tab === "login" ? "Log in" : "Create Account"}
           </button>
         </form>
         
@@ -726,7 +741,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
         )}
         
         <p style={{ fontSize: ".65rem", color: "var(--muted)", textAlign: "center", marginTop: "1rem" }}>
-          Only Gmail addresses are supported for registration.<br />
+          {tab === "register" && <>Only Gmail addresses are supported for registration.<br /></>}
           Luna Health is for people aged 18 and over.
         </p>
       </div>

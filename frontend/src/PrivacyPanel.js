@@ -97,9 +97,9 @@ export default function PrivacyPanel({ token, consents, onSetConsent, onAccountD
       {msg && <div style={{ color: '#5FA87A', fontSize: '.78rem' }}>{msg}</div>}
 
       <div style={{ fontSize: '.7rem', marginTop: '.4rem' }}>
-        <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>
+        <a className="legal-link" href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>
         {' · '}
-        <a href="/terms" target="_blank" rel="noreferrer">Terms</a>
+        <a className="legal-link" href="/terms" target="_blank" rel="noreferrer">Terms</a>
       </div>
     </div>
   );

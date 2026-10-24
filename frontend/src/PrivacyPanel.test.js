@@ -31,6 +31,8 @@ test('links to the policies', () => {
 
   expect(screen.getByRole('link', { name: /privacy policy/i })).toHaveAttribute('href', '/privacy');
   expect(screen.getByRole('link', { name: /terms/i })).toHaveAttribute('href', '/terms');
+  expect(screen.getByRole('link', { name: /privacy policy/i })).toHaveClass('legal-link');
+  expect(screen.getByRole('link', { name: /terms/i })).toHaveClass('legal-link');
 });
 
 test('AI consent can be withdrawn and granted again', async () => {

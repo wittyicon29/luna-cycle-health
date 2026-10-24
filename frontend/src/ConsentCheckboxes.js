@@ -23,8 +23,8 @@ export default function ConsentCheckboxes({ adult, accepted, onAdultChange, onAc
       <label style={row}>
         <input type="checkbox" checked={accepted} onChange={e => onAcceptedChange(e.target.checked)} style={box} />
         <span>
-          I agree to the <a href="/terms" target="_blank" rel="noreferrer">Terms</a> and{' '}
-          <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.
+          I agree to the <a className="legal-link" href="/terms" target="_blank" rel="noreferrer">Terms</a> and{' '}
+          <a className="legal-link" href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.
         </span>
       </label>
     </div>
