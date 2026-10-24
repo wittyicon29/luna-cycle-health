@@ -10,10 +10,17 @@ jest.mock('./api', () => ({
 
 const { API, ApiError } = require('./api');
 const { saveGoogleConsent } = require('./consentFlags');
+const { newGoogleState } = require('./googleState');
 const GoogleCallback = require('./GoogleCallback').default;
 
 function open(search) {
   window.history.pushState({}, '', `/auth/google/callback${search}`);
+}
+
+// Simulates the redirect round trip: the stored state is returned in the URL.
+function openWithState(search = '?code=abc') {
+  const state = newGoogleState();
+  open(`${search}${search ? '&' : '?'}state=${state}`);
 }
 
 function renderPage(wrapper = children => children) {
@@ -27,7 +34,7 @@ beforeEach(() => {
 });
 
 test('exchanges the code with the saved consent flags and stores the session', async () => {
-  open('?code=abc');
+  openWithState();
   saveGoogleConsent({ accepted: true, adult: true });
   API.auth.googleCallback.mockResolvedValue({
     access_token: 'a1',
@@ -45,7 +52,7 @@ test('exchanges the code with the saved consent flags and stores the session', a
 });
 
 test('the single-use code is exchanged once even under React StrictMode', async () => {
-  open('?code=abc');
+  openWithState();
   API.auth.googleCallback.mockResolvedValue({
     access_token: 'a1',
     refresh_token: 'r1',
@@ -58,8 +65,21 @@ test('the single-use code is exchanged once even under React StrictMode', async 
   expect(API.auth.googleCallback).toHaveBeenCalledTimes(1);
 });
 
+test.each([
+  ['a mismatching state', () => { newGoogleState(); open('?code=abc&state=WRONG'); }],
+  ['a missing state', () => { newGoogleState(); open('?code=abc'); }],
+  ['no stored state', () => open('?code=abc&state=GOOD')],
+])('%s is rejected without calling the server', async (_name, setup) => {
+  setup();
+
+  renderPage();
+
+  expect(await screen.findByText('Sign-in could not be verified. Please try again.')).toBeInTheDocument();
+  expect(API.auth.googleCallback).not.toHaveBeenCalled();
+});
+
 test('a new Google user who has not consented is sent to register', async () => {
-  open('?code=abc');
+  openWithState();
   API.auth.googleCallback.mockRejectedValue(
     new ApiError('Please review and accept the required consent to continue.', {
       status: 400,
@@ -75,7 +95,7 @@ test('a new Google user who has not consented is sent to register', async () => 
 });
 
 test('other failures show the message and a way back to login', async () => {
-  open('?code=abc');
+  openWithState();
   API.auth.googleCallback.mockRejectedValue(new ApiError('Failed to exchange authorization code', { status: 400 }));
 
   renderPage();

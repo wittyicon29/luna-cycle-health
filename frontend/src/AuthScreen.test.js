@@ -99,6 +99,7 @@ test('Google sign-up needs the boxes and remembers them across the redirect', as
 
   await waitFor(() => expect(API.auth.getGoogleAuthUrl).toHaveBeenCalled());
   expect(JSON.parse(sessionStorage.getItem('luna_google_consent'))).toEqual({ accepted: true, adult: true });
+  expect((sessionStorage.getItem('luna_google_state') || '').length).toBeGreaterThanOrEqual(16);
 });
 
 test('Google sign-in on the login tab works without ticking anything', async () => {

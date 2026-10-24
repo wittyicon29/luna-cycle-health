@@ -3,6 +3,7 @@ import LandingPage from "./LandingPage";
 import { API } from "./api";
 import ConsentCheckboxes from "./ConsentCheckboxes";
 import { saveGoogleConsent } from "./consentFlags";
+import { newGoogleState, buildGoogleRedirect } from "./googleState";
 import useConsents from "./useConsents";
 import RequiredConsentScreen from "./RequiredConsentScreen";
 import AiConsentModal from "./AiConsentModal";
@@ -600,7 +601,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
     try {
       saveGoogleConsent({ accepted, adult });
       const response = await API.auth.getGoogleAuthUrl();
-      window.location.href = response.auth_url;
+      window.location.href = buildGoogleRedirect(response.auth_url, newGoogleState());
     } catch (e) {
       setErr("Failed to initiate Google Sign-In");
       setLoading(false);
