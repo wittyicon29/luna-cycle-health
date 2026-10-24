@@ -151,3 +151,50 @@ def test_google_login_for_existing_user_needs_no_flags(client, auth_headers, mon
     response = client.post("/api/v1/auth/google/callback?code=abc")
 
     assert response.status_code == 200
+
+
+def _fail_on_second_call(real):
+    calls = {"n": 0}
+
+    def flaky(*args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 2:
+            raise RuntimeError("simulated failure")
+        return real(*args, **kwargs)
+
+    return flaky
+
+
+def test_registration_is_atomic_when_consent_insert_fails(db, monkeypatch, register_payload):
+    from fastapi.testclient import TestClient
+
+    from app.api import auth
+    from app.main import app
+    from app.models.models import User
+
+    monkeypatch.setattr(auth, "add_consent", _fail_on_second_call(auth.add_consent))
+    quiet_client = TestClient(app, raise_server_exceptions=False)
+
+    response = quiet_client.post("/api/v1/auth/register", json=register_payload)
+
+    assert response.status_code >= 500
+    assert db.query(User).count() == 0
+
+
+def test_google_signup_is_atomic_when_consent_insert_fails(db, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+    from app.models.models import User
+    from app.services import google_oauth
+
+    _fake_google(monkeypatch, "gnew@gmail.com")
+    monkeypatch.setattr(google_oauth, "add_consent", _fail_on_second_call(google_oauth.add_consent))
+    quiet_client = TestClient(app, raise_server_exceptions=False)
+
+    response = quiet_client.post(
+        "/api/v1/auth/google/callback?code=abc&accepted_privacy_policy=true&confirmed_18_plus=true"
+    )
+
+    assert response.status_code >= 400
+    assert db.query(User).count() == 0

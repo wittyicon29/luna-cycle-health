@@ -2,7 +2,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone, timedelta
 from ..models.models import User, RefreshToken
-from .consent_service import record_consent
+from .consent_service import add_consent
 from ..core.security import create_access_token, create_refresh_token, hash_token
 import httpx
 import os
@@ -115,11 +115,17 @@ class GoogleOAuthService:
                 default_cycle_length=28,
                 has_completed_questionnaire=False
             )
-            db.add(user)
-            db.commit()
+            try:
+                # User and both consent records are committed together or not at all.
+                db.add(user)
+                db.flush()
+                add_consent(db, user.id, "terms_privacy", True)
+                add_consent(db, user.id, "age_18_plus", True)
+                db.commit()
+            except Exception:
+                db.rollback()
+                raise
             db.refresh(user)
-            record_consent(db, user.id, "terms_privacy", True)
-            record_consent(db, user.id, "age_18_plus", True)
         
         # Create JWT tokens
         jwt_access_token = create_access_token({"sub": str(user.id)})

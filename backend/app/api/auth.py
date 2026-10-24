@@ -20,7 +20,7 @@ from ..services.auth_service import (
     reset_password as apply_password_reset,
 )
 from ..services.email_service import send_email
-from ..services.consent_service import record_consent
+from ..services.consent_service import add_consent
 from ..services.google_oauth import google_oauth_service
 from pydantic import BaseModel
 
@@ -54,11 +54,17 @@ def register(request: Request, user: UserCreate, background_tasks: BackgroundTas
         email_verification_expires=datetime.now(timezone.utc) + timedelta(hours=24),
         default_cycle_length=28
     )
-    db.add(new_user)
-    db.commit()
+    try:
+        # User and both consent records are committed together or not at all.
+        db.add(new_user)
+        db.flush()
+        add_consent(db, new_user.id, "terms_privacy", True)
+        add_consent(db, new_user.id, "age_18_plus", True)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     db.refresh(new_user)
-    record_consent(db, new_user.id, "terms_privacy", True)
-    record_consent(db, new_user.id, "age_18_plus", True)
     
     # Send verification email
     from ..api.email_verification import create_verification_email

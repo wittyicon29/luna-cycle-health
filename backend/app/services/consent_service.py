@@ -9,7 +9,8 @@ from ..models.models import ConsentRecord
 CONSENT_PURPOSES = ("terms_privacy", "age_18_plus", "health_data_processing", "ai_processing")
 
 
-def record_consent(db: Session, user_id: UUID, purpose: str, granted: bool) -> ConsentRecord:
+def add_consent(db: Session, user_id: UUID, purpose: str, granted: bool) -> ConsentRecord:
+    """Stage a consent record in the current transaction without committing."""
     record = ConsentRecord(
         user_id=user_id,
         purpose=purpose,
@@ -17,6 +18,11 @@ def record_consent(db: Session, user_id: UUID, purpose: str, granted: bool) -> C
         policy_version=settings.PRIVACY_POLICY_VERSION,
     )
     db.add(record)
+    return record
+
+
+def record_consent(db: Session, user_id: UUID, purpose: str, granted: bool) -> ConsentRecord:
+    record = add_consent(db, user_id, purpose, granted)
     db.commit()
     db.refresh(record)
     return record
