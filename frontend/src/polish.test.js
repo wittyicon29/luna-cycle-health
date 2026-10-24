@@ -96,6 +96,9 @@ test('auth wrapper cannot scroll sideways, has a gutter, and the card is fluid',
   expect(wrap).toMatch(/overflow:\s*hidden/);
   expect(wrap).toMatch(/overflow:\s*clip/);
   expect(wrap).toMatch(/padding:\s*1rem/);
+  expect(wrap).toMatch(/overflow-y:\s*auto/);
+  expect(wrap).toMatch(/overflow-x:\s*clip/);
+  expect(rule(app, '.auth-card')).toMatch(/margin:\s*auto/);
   expect(rule(app, '.auth-card')).toMatch(/width:\s*100%/);
 });
 
@@ -111,7 +114,7 @@ test('period markers have a 44px hit area without changing the dot', () => {
   const app = read('src/App.js');
 
   expect(rule(app, '.p-dot')).toMatch(/position:\s*absolute/);
-  expect(app).toMatch(/\.p-dot::before\{[^}]*content:""[^}]*position:absolute[^}]*inset:-16px/);
+  expect(app).toMatch(/\.p-dot::before\{[^}]*content:""[^}]*position:absolute[^}]*inset:-20px/);
 });
 
 test('Insights tiles use lining numerals in the sans font', () => {

@@ -136,12 +136,12 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:2px}
 
 /* AUTH */
-.auth-wrap{min-height:100vh;background:var(--bg);display:flex;align-items:center;justify-content:center;position:relative;padding:1rem;overflow:hidden;overflow:clip}
+.auth-wrap{height:100%;min-height:0;background:var(--bg);display:flex;align-items:flex-start;justify-content:center;position:relative;padding:1rem;overflow:hidden;overflow:clip;overflow-x:clip;overflow-y:auto}
 .auth-orb{position:absolute;border-radius:50%;filter:blur(120px);pointer-events:none;animation:orbIn 1.5s ease both}
 .auth-orb-a{width:500px;height:500px;background:radial-gradient(circle,rgba(196,84,74,0.18),transparent 70%);top:-100px;right:-100px;animation-delay:.2s}
 .auth-orb-b{width:400px;height:400px;background:radial-gradient(circle,rgba(124,102,192,0.12),transparent 70%);bottom:-80px;left:-80px;animation-delay:.5s}
 @keyframes orbIn{from{opacity:0}to{opacity:1}}
-.auth-card{position:relative;z-index:1;width:100%;max-width:380px;background:var(--s1);border:1px solid var(--border);padding:2.5rem;border-radius:12px;box-shadow:0 24px 80px rgba(0,0,0,0.5);animation:cardIn .5s cubic-bezier(.4,0,.2,1) both}
+.auth-card{margin:auto;position:relative;z-index:1;width:100%;max-width:380px;background:var(--s1);border:1px solid var(--border);padding:2.5rem;border-radius:12px;box-shadow:0 24px 80px rgba(0,0,0,0.5);animation:cardIn .5s cubic-bezier(.4,0,.2,1) both}
 @keyframes cardIn{from{opacity:0;transform:translateY(20px) scale(.98)}to{opacity:1;transform:none}}
 .auth-logo{text-align:center;margin-bottom:2rem}
 .auth-moon{display:block;font-size:2.2rem;margin-bottom:.5rem;animation:moonFloat 4s ease-in-out infinite}
@@ -222,6 +222,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .j-canvas{flex:1;overflow:hidden;position:relative;background:var(--bg)}
 .j-scroll{width:100%;height:100%;overflow-x:auto;overflow-y:hidden;cursor:grab;user-select:none}
 .j-empty{position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;padding:1rem;text-align:center;pointer-events:none;font-family:'Cormorant Garamond',serif;font-size:1.3rem;color:var(--cream)}
+.j-empty p{background:rgba(26,15,46,.85);background:color-mix(in srgb,var(--bg) 85%,transparent);padding:.6rem 1rem;border-radius:12px;max-width:100%}
 .j-empty .btn{pointer-events:auto;min-height:44px}
 .j-scroll:active{cursor:grabbing}
 .j-inner{height:100%;position:relative;display:flex;flex-direction:column}
@@ -238,7 +239,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .week-sep{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.03);pointer-events:none;z-index:1}
 .road{position:absolute;left:0;right:0;height:2px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.05);z-index:1}
 .p-dot{position:absolute;border-radius:50%;z-index:10;top:50%;transform:translate(-50%,-50%);cursor:pointer;transition:transform .2s,box-shadow .2s}
-.p-dot::before{content:"";position:absolute;inset:-16px;border-radius:50%}
+.p-dot::before{content:"";position:absolute;inset:-20px;border-radius:50%}
 .p-dot:hover{transform:translate(-50%,-50%) scale(1.6)}
 
 /* Today beacon */
@@ -898,7 +899,7 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
             </div>
 
             {/* Phase hover card */}
-            {hoveredPhase && (() => {
+            {hoveredPhase && !(periods.length === 0 && hoveredPhase === "unknown") && (() => {
               const ph = PHASES[hoveredPhase] || PHASES.unknown;
               const scrollLeft = scrollRef.current?.scrollLeft || 0;
               const viewW = scrollRef.current?.clientWidth || 800;

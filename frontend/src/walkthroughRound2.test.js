@@ -70,6 +70,9 @@ describe('first-run empty state', () => {
     renderJourney();
 
     expect(await screen.findByText('Your journey starts with your first period.')).toBeInTheDocument();
+    const bg = document.querySelector('.phase-bg');
+    userEvent.hover(bg);
+    expect(screen.queryByText('Log a period to calibrate your journey map.')).not.toBeInTheDocument();
     userEvent.click(screen.getByRole('button', { name: 'Log a period' }));
     expect(await screen.findByText('Log New Period')).toBeInTheDocument();
   });
