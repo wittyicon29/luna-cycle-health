@@ -8,6 +8,7 @@ import RequiredConsentScreen from "./RequiredConsentScreen";
 import AiConsentModal from "./AiConsentModal";
 import PrivacyPanel from "./PrivacyPanel";
 import PeriodDelete from "./PeriodDelete";
+import ProfileBanner from "./ProfileBanner";
 import { localDateString } from "./localDate";
 
 // ─── PHASE CONFIG ─────────────────────────────────────────────────────────────
@@ -1524,7 +1525,7 @@ function AnalysisDrawer({ token, onClose }) {
                   {active.llm_response && <Insights raw={active.llm_response} medicalAnalysis={active.medical_analysis} userReport={active.user_report} />}
                 </>
               ) : (
-                <div className="empty"><div className="ei">🔮</div><p>No analyses yet.<br />Add period data then click <strong style={{ color: "#7ECECE" }}>Run Analysis</strong>.</p></div>
+                <div className="empty"><div className="ei">🔮</div><p>No insights yet.<br />Log at least two periods (about a month apart), then tap <strong style={{ color: "#7ECECE" }}>Run Analysis</strong>.</p></div>
               )
             )}
             {tab === "history" && (
@@ -1723,6 +1724,10 @@ function JourneyApp({ token, email, onLogout }) {
   const [selectedInfo, setSelectedInfo] = useState(null);
   const [showIntro, setShowIntro] = useState(false);
   const [forceQuestionnaire, setForceQuestionnaire] = useState(false);
+  const [profileIncomplete, setProfileIncomplete] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(() => {
+    try { return window.sessionStorage.getItem("luna_profile_banner_dismissed") === "1"; } catch (e) { return false; }
+  });
   const { consents, error: consentError, reload: reloadConsents, setConsent } = useConsents(token);
   const [pendingAi, setPendingAi] = useState(null);
 
@@ -1740,6 +1745,14 @@ function JourneyApp({ token, email, onLogout }) {
     return () => window.removeEventListener("luna:consent-required", onConsentRequired);
   }, [reloadConsents]);
 
+  const refreshProfileStatus = useCallback(async () => {
+    if (!token) return;
+    try {
+      const userStatus = await API.auth.status(token);
+      setProfileIncomplete(!userStatus.has_completed_questionnaire);
+    } catch (e) { /* keep the current banner state */ }
+  }, [token]);
+
   useEffect(() => {
     const checkUserStatus = async () => {
       try {
@@ -1750,10 +1763,7 @@ function JourneyApp({ token, email, onLogout }) {
         // Check questionnaire status via API
         if (token) {
           const userStatus = await API.auth.status(token);
-          if (!userStatus.has_completed_questionnaire) {
-            setOverlay("profile");
-            setForceQuestionnaire(true);
-          }
+          setProfileIncomplete(!userStatus.has_completed_questionnaire);
         }
       } catch (error) {
         setShowIntro(true);
@@ -1844,6 +1854,13 @@ function JourneyApp({ token, email, onLogout }) {
         />
       )}
 
+      {profileIncomplete && !bannerDismissed && (
+        <ProfileBanner
+          onStart={() => { setForceQuestionnaire(true); setOverlay("profile"); }}
+          onLater={() => { try { window.sessionStorage.setItem("luna_profile_banner_dismissed", "1"); } catch (e) { /* ignore */ } setBannerDismissed(true); }}
+        />
+      )}
+
       {/* STATS STRIP */}
       <div className="stats-strip">
         <div className="st-item"><div className="st-val" style={{ color: ph.color, fontFamily: "'Fira Code',monospace", fontSize: "1.2rem" }}>{cycleDay ?? "—"}</div><div className="st-lbl">Cycle Day</div></div>
@@ -1866,7 +1883,7 @@ function JourneyApp({ token, email, onLogout }) {
       {overlay === "log" && <LogModal token={token} onClose={() => setOverlay(null)} onSave={() => { setOverlay(null); loadPeriods(); }} />}
       {overlay === "chat" && <ChatDrawer token={token} onClose={() => setOverlay(null)} />}
       {overlay === "analysis" && <AnalysisDrawer token={token} onClose={() => setOverlay(null)} />}
-      {overlay === "profile" && <ProfileDrawer token={token} email={email} onClose={() => { setOverlay(null); setForceQuestionnaire(false); }} onLogout={onLogout} consents={consents} onSetConsent={setConsent} initialView={forceQuestionnaire ? "questionnaire" : "main"} />}
+      {overlay === "profile" && <ProfileDrawer token={token} email={email} onClose={() => { setOverlay(null); setForceQuestionnaire(false); refreshProfileStatus(); }} onLogout={onLogout} consents={consents} onSetConsent={setConsent} initialView={forceQuestionnaire ? "questionnaire" : "main"} />}
       {overlay === "ai-consent" && (
         <AiConsentModal
           onClose={() => { setOverlay(null); setPendingAi(null); }}
@@ -1964,4 +1981,4 @@ export default function App() {
   return <JourneyApp token={token} email={email} onLogout={handleLogout} />;
 }
 
-export { injectStyles, AuthScreen, JourneyApp, ChatDrawer, LogModal };
+export { injectStyles, AuthScreen, JourneyApp, ChatDrawer, LogModal, AnalysisDrawer };
