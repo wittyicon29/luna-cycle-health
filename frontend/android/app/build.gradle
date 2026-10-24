@@ -16,8 +16,25 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Release signing comes from the environment (LUNA_KEYSTORE, LUNA_KEYSTORE_PASSWORD,
+    // LUNA_KEY_ALIAS, LUNA_KEY_PASSWORD) so secrets never appear on a command line.
+    // Without LUNA_KEYSTORE the release build stays unsigned.
+    def lunaKeystore = System.getenv("LUNA_KEYSTORE")
+    if (lunaKeystore) {
+        signingConfigs {
+            release {
+                storeFile file(lunaKeystore)
+                storePassword System.getenv("LUNA_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("LUNA_KEY_ALIAS")
+                keyPassword System.getenv("LUNA_KEY_PASSWORD")
+            }
+        }
+    }
     buildTypes {
         release {
+            if (lunaKeystore) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

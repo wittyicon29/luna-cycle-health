@@ -1,7 +1,7 @@
 # Luna Health - Android shell
 
 The React app in `frontend/` wrapped with Capacitor 7. The Android project lives here
-(`frontend/android`). The application id is currently the placeholder `app.placeholder.luna`;
+(`frontend/android`). The application id is currently a placeholder (see `appId` in `frontend/capacitor.config.json`);
 see "Deciding the app ID later".
 
 ## Tooling
@@ -63,8 +63,8 @@ Never commit a keystore or its passwords.
 
 ## Release build
 
-Set the signing environment variables (they are passed to Gradle on the command line and are
-never printed or written to disk):
+Set the signing environment variables (Gradle reads them from the environment, so they are
+never printed, written to disk or visible in `ps`; do not run the script with `bash -x`):
 
 | Variable | Meaning |
 | --- | --- |
@@ -107,7 +107,7 @@ A link in an email opens in the browser, not in the app. Log in inside the app a
 
 ## Deciding the app ID later
 
-Until the id is chosen, debug builds use `app.placeholder.luna` and release builds are refused.
+Until the id is chosen, debug builds use the placeholder id and release builds are refused.
 To set the final id:
 
 ```bash
@@ -117,5 +117,5 @@ cd frontend && npm run android:sync
 
 The script validates the id, then updates `capacitor.config.json`, `applicationId` and
 `namespace` in `android/app/build.gradle`, the string resources, and the `MainActivity` package
-line and directory. Afterwards `grep -rn app.placeholder.luna frontend/android` returns nothing
-(build outputs excluded). Create the Android OAuth client with the same id and your signing SHA-1.
+line and directory. Documentation (including this file) is not modified. Afterwards the old placeholder id no longer appears in
+any non-Markdown file under `frontend/android` or in `capacitor.config.json` (build outputs excluded). Create the Android OAuth client with the same id and your signing SHA-1.
