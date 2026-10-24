@@ -150,7 +150,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .auth-tab.on{color:#FF8A80;border-color:rgba(196,84,74,.3);background:rgba(196,84,74,.07)}
 .auth-tab:not(.on):hover{color:var(--cream)}
 .pw-wrap{position:relative}
-.pw-wrap input{padding-right:3rem}
+.f .pw-wrap input{padding-right:3rem}
 .pw-toggle{position:absolute;top:50%;right:0;transform:translateY(-50%);width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1rem;border-radius:var(--r)}
 .pw-toggle:hover{color:var(--cream)}
 .pw-toggle:focus-visible{outline:2px solid #FF8A80;outline-offset:-2px}

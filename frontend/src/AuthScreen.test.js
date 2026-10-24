@@ -131,3 +131,21 @@ test('the browser is told what each field is for', () => {
   expect(screen.getByPlaceholderText('•••••••')).toHaveAttribute('autocomplete', 'new-password');
   expect(screen.getByText(/at least 8 characters/i)).toBeInTheDocument();
 });
+
+test('the password field reserves room for the show/hide button', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const app = fs.readFileSync(path.join(__dirname, 'App.js'), 'utf8');
+
+  // `.f .pw-wrap input` (0,2,1) outranks `.f input` (0,1,1) regardless of order.
+  expect(app).toMatch(/\.f \.pw-wrap input\{[^}]*padding-right:3rem/);
+});
+
+test('only the register password field enforces a minimum length', () => {
+  const { unmount } = render(<AuthScreen onLogin={jest.fn()} initialMode="login" />);
+  expect(screen.getByPlaceholderText('•••••••')).not.toHaveAttribute('minlength');
+  unmount();
+
+  render(<AuthScreen onLogin={jest.fn()} initialMode="register" />);
+  expect(screen.getByPlaceholderText('•••••••')).toHaveAttribute('minlength', '8');
+});
