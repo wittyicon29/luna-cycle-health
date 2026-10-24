@@ -3,6 +3,7 @@ import json
 import re
 from typing import Dict, Any, List
 from ..core.config import settings
+from .prediction_service import tracked_cycles_phrase, format_friendly_date, variation_clause
 
 LUNA_PERSONALITY = """You are Luna, a knowledgeable health guide specializing in menstrual health.
 
@@ -124,7 +125,7 @@ class LLMService:
         
         # Create detailed health context for LLM
         health_context = f"""
-Health Score: {stats.get('health_score')}/100 ({health_grade})
+Health Score: {(str(stats.get('health_score')) + '/100 (' + health_grade + ')') if stats.get('health_score') is not None else 'not enough data yet'}
 Trend: {trend}
 Breakdown:
 - Regularity: {health_breakdown.get('regularity_score', 0)}/35
@@ -210,11 +211,11 @@ Use supportive language. Explain uncertainty clearly. Be reassuring about natura
         except Exception as e:
             print(f"Qwen Error: {e}")
             user_friendly = {
-                "simple_summary": f"Based on your {statistics.get('data_points')} tracked cycles, there's a {confidence_info.get('percentage')}% chance your next period will arrive around {prediction_range.get('most_likely')}, with natural variation of ±{statistics.get('cycle_std_deviation')} days.",
+                "simple_summary": f"Based on your {tracked_cycles_phrase(statistics.get('data_points') or 0)}, there's a {confidence_info.get('percentage')}% chance your next period will arrive around {format_friendly_date(prediction_range.get('most_likely'))}{variation_clause(statistics.get('cycle_std_deviation'))}.",
                 "key_insights": medical_analysis.get("clinical_findings", []) + medical_analysis.get("positive_indicators", []),
                 "why_this_result": ["Based on your tracked patterns with statistical uncertainty"],
                 "recommendations": medical_analysis.get("medical_recommendations", []),
-                "what_to_expect": f"Your next period is predicted for {prediction_range.get('most_likely')} with a {confidence_info.get('percentage')}% confidence level.",
+                "what_to_expect": f"Your next period is predicted for {format_friendly_date(prediction_range.get('most_likely'))} with a {confidence_info.get('percentage')}% confidence level.",
                 "when_to_see_doctor": "Consult a healthcare provider if patterns change significantly.",
                 "next_steps": ["Continue tracking to improve prediction accuracy"],
                 "prediction_disclaimer": probabilistic_info.get('disclaimer', 'These predictions are based on statistical patterns and individual results may vary.')

@@ -2,6 +2,34 @@ import numpy as np
 from datetime import date, timedelta
 from typing import List, Dict, Any
 
+MIN_CYCLE_LENGTHS_FOR_SCORE = 3
+
+
+def tracked_cycles_phrase(n: int) -> str:
+    """'1 tracked cycle' / 'N tracked cycles'."""
+    return f"{n} tracked cycle" + ("" if n == 1 else "s")
+
+
+def format_friendly_date(value: Any) -> str:
+    """Human-readable short date like 'Nov 21' (portable; no %-d). Unparseable input is returned as-is."""
+    try:
+        d = value if isinstance(value, date) else date.fromisoformat(str(value))
+    except (ValueError, TypeError):
+        return str(value)
+    return f"{d:%b} {d.day}"
+
+
+def variation_clause(std: Any) -> str:
+    """', with natural variation of ±X days' or '' when X rounds to 0."""
+    try:
+        x = round(float(std), 1)
+    except (ValueError, TypeError):
+        return ""
+    if x <= 0:
+        return ""
+    return f", with natural variation of ±{x:g} days"
+
+
 def weighted_average(lengths: List[int], decay: float = 0.85) -> float:
     """Calculate weighted average with recent cycles weighted more heavily."""
     if not lengths:
@@ -252,19 +280,20 @@ def predict_next_period(cycles: List[Any], default_length: int = 28) -> Dict[str
         },
         "probabilistic_info": {
             "disclaimer": "These predictions are based on statistical patterns and are not guaranteed. Individual cycles vary naturally.",
-            "accuracy_note": f"Based on your {data_points} tracked cycles, there's a {confidence_percentage}% chance your next period will arrive within the predicted range.",
-            "natural_variation": f"Normal cycle variation is ±{round(std, 1)} days from your average."
+            "accuracy_note": f"Based on your {tracked_cycles_phrase(data_points)}, there's a {confidence_percentage}% chance your next period will arrive within the predicted range.",
+            "natural_variation": (f"Normal cycle variation is ±{round(std, 1)} days from your average." if round(std, 1) > 0 else "Not enough data yet to measure how much your cycles vary.")
         }
     }
 
 def get_confidence_message(confidence: str, std: float, data_points: int) -> str:
     """Generate appropriate confidence message."""
     if confidence == "high":
-        return f"High confidence: Your cycles are quite regular (±{round(std, 1)} days) based on {data_points} tracked cycles."
+        return f"High confidence: Your cycles are quite regular (±{round(std, 1)} days) based on {tracked_cycles_phrase(data_points)}."
     elif confidence == "medium":
-        return f"Medium confidence: Your cycles show moderate variation (±{round(std, 1)} days) with {data_points} data points."
-    else:
+        return f"Medium confidence: Your cycles show moderate variation (±{round(std, 1)} days) with {data_points} data point{'' if data_points == 1 else 's'}."
+    elif round(std, 1) > 0:
         return f"Low confidence: Limited data or high variation (±{round(std, 1)} days). Track more cycles for better predictions."
+    return "Low confidence: Limited data so far. Track more cycles for better predictions."
 
 def get_cycle_summary(cycles: List[Any]) -> Dict[str, Any]:
     """Get comprehensive cycle statistics with health score breakdown."""
@@ -274,7 +303,7 @@ def get_cycle_summary(cycles: List[Any]) -> Dict[str, Any]:
     lengths = cycle_lengths(cycles)
     
     # Calculate detailed health score components
-    health_score = calculate_health_score(cycles)
+    health_score = calculate_health_score(cycles) if len(lengths) >= MIN_CYCLE_LENGTHS_FOR_SCORE else None
     
     # Get individual components for detailed analysis
     score_breakdown = get_health_score_breakdown(cycles)
@@ -287,7 +316,7 @@ def get_cycle_summary(cycles: List[Any]) -> Dict[str, Any]:
         "max_cycle": max(lengths) if lengths else None,
         "health_score": health_score,
         "health_breakdown": score_breakdown,
-        "health_grade": get_health_grade(health_score),
+        "health_grade": get_health_grade(health_score) if health_score is not None else "Not enough data yet",
         "trend": analyze_health_trend(cycles),
     }
 

@@ -91,7 +91,8 @@ async def ask_question(
             context += f"\nUSER'S CYCLE DATA:\n"
             context += f"- Average cycle length: {stats.get('avg_cycle_length', 'N/A')} days\n"
             context += f"- Cycle regularity: {stats.get('std_deviation', 'N/A')} days variation\n"
-            context += f"- Health score: {stats.get('health_score', 'N/A')}/100\n"
+            score = stats.get('health_score')
+            context += f"- Health score: {f'{score}/100' if score is not None else 'not enough data yet'}\n"
             context += f"- Next period predicted: {prediction.get('predicted_next_period', 'N/A')}\n"
             context += f"- Total cycles tracked: {stats.get('total_cycles', 0)}\n"
         
