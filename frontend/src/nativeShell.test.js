@@ -34,19 +34,29 @@ describe('initNativeShell', () => {
     expect(App.addListener.mock.calls[0][0]).toBe('backButton');
   });
 
-  test('back button goes back in history when possible, else minimizes', async () => {
-    isNative.mockReturnValue(true);
-    const back = jest.spyOn(window.history, 'back').mockImplementation(() => {});
-    await initNativeShell();
-    const handler = App.addListener.mock.calls[0][1];
-    handler({ canGoBack: true });
-    expect(back).toHaveBeenCalledTimes(1);
-    expect(App.minimizeApp).not.toHaveBeenCalled();
-    handler({ canGoBack: false });
-    expect(App.minimizeApp).toHaveBeenCalledTimes(1);
-    expect(back).toHaveBeenCalledTimes(1);
-    back.mockRestore();
-  });
+  test.each(['/', '/landing', '/app', '/login', '/register', '/app/'])(
+    'back button minimizes on root path %s', async (path) => {
+      isNative.mockReturnValue(true);
+      window.history.pushState({}, '', path);
+      const back = jest.spyOn(window.history, 'back').mockImplementation(() => {});
+      await initNativeShell();
+      App.addListener.mock.calls[0][1]({ canGoBack: true });
+      expect(App.minimizeApp).toHaveBeenCalledTimes(1);
+      expect(back).not.toHaveBeenCalled();
+      back.mockRestore();
+    });
+
+  test.each(['/privacy', '/terms', '/verify-email', '/reset-password'])(
+    'back button goes back in history on %s', async (path) => {
+      isNative.mockReturnValue(true);
+      window.history.pushState({}, '', path);
+      const back = jest.spyOn(window.history, 'back').mockImplementation(() => {});
+      await initNativeShell();
+      App.addListener.mock.calls[0][1]({ canGoBack: false });
+      expect(back).toHaveBeenCalledTimes(1);
+      expect(App.minimizeApp).not.toHaveBeenCalled();
+      back.mockRestore();
+    });
 
   test('styles the status bar and hides the splash', async () => {
     isNative.mockReturnValue(true);
