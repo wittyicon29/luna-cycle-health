@@ -11,7 +11,7 @@ from ..core.security import (
 )
 from ..models.models import User, RefreshToken
 from ..schemas.schemas import (
-    UserCreate, UserLogin, Token, RefreshTokenRequest,
+    UserCreate, UserLogin, Token, RegisterResponse, RefreshTokenRequest,
     PasswordResetRequest, PasswordResetConfirm
 )
 from ..services.auth_service import (
@@ -33,7 +33,7 @@ class UserStatus(BaseModel):
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 security = HTTPBearer()
 
-@router.post("/register", response_model=Token, status_code=201)
+@router.post("/register", response_model=RegisterResponse, status_code=201)
 @limiter.limit(settings.AUTH_RATE_LIMIT)
 def register(request: Request, user: UserCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     existing_user = db.query(User).filter(User.email == user.email).first()
@@ -76,25 +76,7 @@ def register(request: Request, user: UserCreate, background_tasks: BackgroundTas
         content=email_content
     )
     
-    # Create tokens but don't allow login until email is verified
-    access_token = create_access_token({"sub": str(new_user.id)})
-    refresh_token_raw = create_refresh_token()
-    
-    # Store refresh token hash
-    refresh_token_db = RefreshToken(
-        user_id=new_user.id,
-        token_hash=hash_token(refresh_token_raw),
-        expires_at=datetime.now(timezone.utc) + timedelta(days=30)
-    )
-    db.add(refresh_token_db)
-    db.commit()
-    
-    return {
-        "access_token": access_token, 
-        "refresh_token": refresh_token_raw,
-        "token_type": "bearer",
-        "message": "Registration successful! Please check your email to verify your account."
-    }
+    return {"message": "Registration successful! Please check your email to verify your account."}
 
 @router.post("/login", response_model=Token)
 @limiter.limit(settings.AUTH_RATE_LIMIT)

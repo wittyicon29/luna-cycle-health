@@ -22,8 +22,16 @@ def test_registration_requires_confirming_age_18_plus(client, outbox, register_p
     assert client.post("/api/v1/auth/register", json=register_payload).status_code == 422
 
 
-def test_registration_records_terms_and_age_consent(client, outbox, register_payload):
-    token = client.post("/api/v1/auth/register", json=register_payload).json()["access_token"]
+def test_registration_records_terms_and_age_consent(client, db, outbox, register_payload):
+    from app.models.models import User
+
+    client.post("/api/v1/auth/register", json=register_payload)
+    db.query(User).filter(User.email == register_payload["email"]).one().is_email_verified = True
+    db.commit()
+    token = client.post(
+        "/api/v1/auth/login",
+        json={"email": register_payload["email"], "password": register_payload["password"]},
+    ).json()["access_token"]
 
     response = client.get("/api/v1/consents", headers={"Authorization": f"Bearer {token}"})
 

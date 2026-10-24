@@ -42,6 +42,9 @@ class Token(BaseModel):
     refresh_token: Optional[str] = None
     token_type: str
 
+class RegisterResponse(BaseModel):
+    message: str
+
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
 
