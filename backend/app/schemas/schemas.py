@@ -7,6 +7,8 @@ import re
 class UserCreate(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8)
+    accepted_privacy_policy: bool
+    confirmed_18_plus: bool
     
     @validator('email')
     def validate_gmail(cls, v):
@@ -17,6 +19,18 @@ class UserCreate(BaseModel):
         gmail_pattern = r'^[a-zA-Z0-9._%+-]+@gmail\.com$'
         if not re.match(gmail_pattern, v):
             raise ValueError('Invalid Gmail address format')
+        return v
+
+    @validator('accepted_privacy_policy')
+    def must_accept_policy(cls, v):
+        if v is not True:
+            raise ValueError('You must accept the Privacy Policy and Terms to create an account')
+        return v
+
+    @validator('confirmed_18_plus')
+    def must_be_adult(cls, v):
+        if v is not True:
+            raise ValueError('Luna Health is for users aged 18 and over')
         return v
 
 class UserLogin(BaseModel):

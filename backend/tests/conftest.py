@@ -77,4 +77,9 @@ def outbox(monkeypatch):
 
 @pytest.fixture
 def register_payload():
-    return {"email": "new@gmail.com", "password": "password123"}
+    return {
+        "email": "new@gmail.com",
+        "password": "password123",
+        "accepted_privacy_policy": True,
+        "confirmed_18_plus": True,
+    }

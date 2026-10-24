@@ -7,6 +7,7 @@ from ..schemas.schemas import ChatMessageResponse, ChatRequest, ChatResponse
 from ..services.llm_service import llm_service
 from ..services.prediction_service import predict_next_period, get_cycle_summary
 from .auth import get_current_user
+from .consents import require_consent
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
@@ -25,7 +26,7 @@ import uuid
 @router.post("/ask", response_model=ChatResponse)
 async def ask_question(
     request: ChatRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_consent("ai_processing")),
     db: Session = Depends(get_db)
 ):
     """Ask questions about your cycle health and get personalized answers."""
