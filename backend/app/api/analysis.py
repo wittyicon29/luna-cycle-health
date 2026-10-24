@@ -14,6 +14,7 @@ from .consents import require_consent
 router = APIRouter(prefix="/analysis", tags=["Analysis"])
 
 CACHE_TTL = 60 * 60 * 6  # 6 hours
+INSUFFICIENT_DATA = "Log at least two periods (about a month apart) so Luna can find your pattern."
 
 async def get_cached_analysis(user_id: str):
     return None  # Redis disabled
@@ -35,7 +36,7 @@ async def create_analysis(request: AnalysisRequest, current_user: User = Depends
     questionnaire = db.query(Questionnaire).filter(Questionnaire.user_id == current_user.id).order_by(Questionnaire.created_at.desc()).first()
     
     if not periods:
-        raise HTTPException(status_code=400, detail="No period data available")
+        raise HTTPException(status_code=400, detail=INSUFFICIENT_DATA)
     
     period_data = [
         {
@@ -53,8 +54,10 @@ async def create_analysis(request: AnalysisRequest, current_user: User = Depends
     
     # Get statistical predictions
     prediction = predict_next_period(periods, current_user.default_cycle_length)
+    if prediction.get("error"):
+        raise HTTPException(status_code=400, detail=INSUFFICIENT_DATA)
     stats = get_cycle_summary(periods)
-    
+
     if request.analysis_type == "cycle_health":
         llm_result = await llm_service.analyze_cycle_health(period_data, questionnaire_data, stats, prediction)
         
