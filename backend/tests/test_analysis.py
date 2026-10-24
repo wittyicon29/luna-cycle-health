@@ -54,7 +54,11 @@ def test_prediction_type_is_refused_the_same_way(client, ai_user, db):
     user, headers = ai_user
     add_periods(db, user, [date.today() - timedelta(days=10)])
 
-    assert analyze(client, headers, "prediction").status_code == 400
+    response = analyze(client, headers, "prediction")
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == MESSAGE
+    assert db.query(Analysis).count() == 0
 
 
 def test_ai_outage_still_never_shows_none(client, ai_user, db, monkeypatch):
