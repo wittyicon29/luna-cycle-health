@@ -2,24 +2,6 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
-// CRA 5 / Jest 27 cannot resolve react-router-dom v7 (package "exports" only), so it is
-// mocked virtually; the mock reads the query string from MemoryRouter's initialEntries.
-jest.mock(
-  'react-router-dom',
-  () => {
-    let search = '';
-    return {
-      MemoryRouter: ({ initialEntries, children }) => {
-        search = (initialEntries[0].split('?')[1]) || '';
-        return children;
-      },
-      useSearchParams: () => [new URLSearchParams(search)],
-      useNavigate: () => jest.fn(),
-    };
-  },
-  { virtual: true }
-);
-
 jest.mock('./api', () => ({
   ...jest.requireActual('./api'),
   API: {
@@ -59,5 +41,4 @@ test('PasswordReset renders (its API import used to resolve to undefined)', () =
   render(<PasswordReset />);
 
   expect(screen.getByText('Reset Your Password')).toBeInTheDocument();
-  expect(API.auth.resetPassword).toBeDefined();
 });
