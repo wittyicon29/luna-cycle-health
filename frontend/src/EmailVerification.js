@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { API } from './api';
+import ConsentCheckboxes from './ConsentCheckboxes';
+
+const utf8Bytes = value => unescape(encodeURIComponent(value)).length;
 
 // Styles
 const STYLES = `
@@ -98,14 +101,20 @@ function EmailVerification() {
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [adult, setAdult] = useState(false);
+  const [accepted, setAccepted] = useState(false);
 
-  const started = useRef(false);
+  // The token whose check was last started; re-runs only when the token changes.
+  const checkedToken = useRef(undefined);
 
   useEffect(() => {
-    // Guard against React's dev double effect.
-    if (started.current) return;
-    started.current = true;
     injectStyles();
+    // One check per token: StrictMode's double effect repeats the same token and is skipped.
+    if (checkedToken.current === token) return;
+    checkedToken.current = token;
+    setLoading(true);
+    setFatal('');
+    setEmail('');
 
     if (!token) {
       setFatal('Invalid verification link');
@@ -114,19 +123,21 @@ function EmailVerification() {
     }
 
     API.verify.check(token)
-      .then(res => setEmail(res.email))
-      .catch(err => setFatal(err.message))
-      .finally(() => setLoading(false));
+      .then(res => { if (checkedToken.current === token) setEmail(res.email); })
+      .catch(err => { if (checkedToken.current === token) setFatal(err.message); })
+      .finally(() => { if (checkedToken.current === token) setLoading(false); });
   }, [token]);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setFormError('');
     if (password.length < 8) { setFormError('Use at least 8 characters'); return; }
+    if (utf8Bytes(password) > 72) { setFormError('Password must be at most 72 bytes'); return; }
     if (password !== confirm) { setFormError('Passwords do not match'); return; }
+    if (!adult || !accepted) { setFormError('Please confirm you are 18 or older and agree to the Terms and Privacy Policy'); return; }
     setSubmitting(true);
     try {
-      const res = await API.verify.complete(token, password);
+      const res = await API.verify.complete(token, password, { accepted, adult });
       localStorage.setItem('access_token', res.access_token);
       localStorage.setItem('refresh_token', res.refresh_token);
       localStorage.setItem('email', email);
@@ -180,6 +191,7 @@ function EmailVerification() {
           <label htmlFor="verify-confirm-password">Confirm password</label>
           <input id="verify-confirm-password" type={showPassword ? 'text' : 'password'} autoComplete="new-password" minLength={8} value={confirm} onChange={e => setConfirm(e.target.value)} required />
         </div>
+        <ConsentCheckboxes adult={adult} accepted={accepted} onAdultChange={setAdult} onAcceptedChange={setAccepted} />
         {formError && <div className="err" role="alert">{formError}</div>}
         <button className="btn btn-p btn-full" style={{ marginTop: '1rem' }} type="submit" disabled={submitting}>
           {submitting ? 'Creating…' : 'Create my account'}

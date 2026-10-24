@@ -276,11 +276,11 @@ describe('API', () => {
   test('verify.complete posts token and password to /verify/complete', async () => {
     fetch.mockResolvedValue(reply(200, { access_token: 'a', refresh_token: 'r' }));
 
-    await API.verify.complete('tok-1', 'password123');
+    await API.verify.complete('tok-1', 'password123', { accepted: true, adult: true });
 
     const [url, opts] = fetch.mock.calls[0];
     expect(url).toMatch(/\/verify\/complete$/);
-    expect(JSON.parse(opts.body)).toEqual({ token: 'tok-1', password: 'password123' });
+    expect(JSON.parse(opts.body)).toEqual({ token: 'tok-1', password: 'password123', accepted_privacy_policy: true, confirmed_18_plus: true });
   });
 
   test('verify.verify no longer exists', () => {

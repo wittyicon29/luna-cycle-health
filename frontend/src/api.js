@@ -125,7 +125,12 @@ export const API = {
   },
   verify: {
     check: token => post('/verify/check', { token }),
-    complete: (token, password) => post('/verify/complete', { token, password }),
+    complete: (token, password, consents = {}) => post('/verify/complete', {
+      token,
+      password,
+      accepted_privacy_policy: consents.accepted === true,
+      confirmed_18_plus: consents.adult === true,
+    }),
     resend: email => post('/verify/resend', { email }),
   },
   periods: {

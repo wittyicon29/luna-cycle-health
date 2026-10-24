@@ -30,6 +30,11 @@ async function openForm() {
   await screen.findByRole('heading', { name: 'Choose your password' });
 }
 
+function tick() {
+  userEvent.click(screen.getByLabelText('I am 18 years of age or older.'));
+  userEvent.click(screen.getByLabelText(/I agree to the/));
+}
+
 function fill(pw, confirm) {
   userEvent.type(screen.getByLabelText('New password'), pw);
   userEvent.type(screen.getByLabelText('Confirm password'), confirm);
@@ -85,11 +90,12 @@ test('a valid submit completes, stores the session and goes to /app', async () =
   API.verify.complete.mockResolvedValue({ access_token: 'acc', refresh_token: 'ref', token_type: 'bearer' });
   await openForm();
   fill('password123', 'password123');
+  tick();
 
   userEvent.click(screen.getByRole('button', { name: 'Create my account' }));
 
   expect(await screen.findByText('APP MARKER')).toBeInTheDocument();
-  expect(API.verify.complete).toHaveBeenCalledWith('tok-1', 'password123');
+  expect(API.verify.complete).toHaveBeenCalledWith('tok-1', 'password123', { accepted: true, adult: true });
   expect(localStorage.getItem('access_token')).toBe('acc');
   expect(localStorage.getItem('refresh_token')).toBe('ref');
   expect(localStorage.getItem('email')).toBe('u@gmail.com');
@@ -116,6 +122,7 @@ test('a complete failure shows the error and keeps the form usable', async () =>
   API.verify.complete.mockResolvedValueOnce({ access_token: 'a', refresh_token: 'r' });
   await openForm();
   fill('password123', 'password123');
+  tick();
 
   userEvent.click(screen.getByRole('button', { name: 'Create my account' }));
 
@@ -124,4 +131,57 @@ test('a complete failure shows the error and keeps the form usable', async () =>
   expect(submit).toBeEnabled();
   userEvent.click(submit);
   await waitFor(() => expect(screen.getByText('APP MARKER')).toBeInTheDocument());
+});
+
+test('submit is blocked until both consents are ticked', async () => {
+  await openForm();
+  fill('password123', 'password123');
+
+  userEvent.click(screen.getByRole('button', { name: 'Create my account' }));
+  expect(await screen.findByText(/18 or older and agree to the Terms/)).toBeInTheDocument();
+  userEvent.click(screen.getByLabelText('I am 18 years of age or older.'));
+  userEvent.click(screen.getByRole('button', { name: 'Create my account' }));
+
+  expect(API.verify.complete).not.toHaveBeenCalled();
+  expect(screen.getByRole('link', { name: 'Terms' })).toHaveAttribute('href', '/terms');
+  expect(screen.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/privacy');
+});
+
+test('a password over 72 bytes is rejected without calling the server', async () => {
+  await openForm();
+  const long = 'é'.repeat(37);
+  fill(long, long);
+  tick();
+
+  userEvent.click(screen.getByRole('button', { name: 'Create my account' }));
+
+  expect(await screen.findByText('Password must be at most 72 bytes')).toBeInTheDocument();
+  expect(API.verify.complete).not.toHaveBeenCalled();
+});
+
+test('a changed token re-runs the check once; the same token under StrictMode checks once', async () => {
+  API.verify.check.mockResolvedValue({ email: 'u@gmail.com' });
+  let go;
+  function Nav() {
+    const navigate = require('react-router-dom').useNavigate();
+    go = to => navigate(to);
+    return null;
+  }
+  render(
+    <React.StrictMode>
+      <MemoryRouter initialEntries={['/verify-email?token=tok-1']}>
+        <Nav />
+        <Routes><Route path="/verify-email" element={<EmailVerification />} /></Routes>
+      </MemoryRouter>
+    </React.StrictMode>
+  );
+  await screen.findByRole('heading', { name: 'Choose your password' });
+  expect(API.verify.check).toHaveBeenCalledTimes(1);
+
+  require('react').act(() => go('/verify-email?token=tok-2'));
+
+  await waitFor(() => expect(API.verify.check).toHaveBeenCalledTimes(2));
+  expect(API.verify.check).toHaveBeenLastCalledWith('tok-2');
+  await screen.findByRole('heading', { name: 'Choose your password' });
+  expect(API.verify.check).toHaveBeenCalledTimes(2);
 });

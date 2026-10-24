@@ -3,7 +3,8 @@ import React from 'react';
 const row = {
   display: 'flex',
   gap: '.5rem',
-  alignItems: 'flex-start',
+  alignItems: 'center',
+  minHeight: 44,
   fontSize: '.75rem',
   color: 'var(--muted)',
   cursor: 'pointer',
@@ -11,7 +12,7 @@ const row = {
   textTransform: 'none',
   letterSpacing: 0,
 };
-const box = { width: 'auto', marginTop: '.15rem' };
+const box = { width: 'auto', marginTop: 0 };
 
 export default function ConsentCheckboxes({ adult, accepted, onAdultChange, onAcceptedChange }) {
   return (
