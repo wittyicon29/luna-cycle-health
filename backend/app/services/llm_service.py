@@ -111,6 +111,32 @@ class LLMService:
             "recommendations": ["Please consult with a healthcare provider."]
         }
     
+    @staticmethod
+    def _build_health_context(stats, health_breakdown, health_grade, trend, confidence_info, statistics) -> str:
+        score = stats.get('health_score')
+        tail = f"""Prediction Confidence: {confidence_info.get('percentage', 0)}% ({confidence_info.get('level', 'unknown')})
+Data Quality: {statistics.get('data_quality', 'unknown')} based on {statistics.get('data_points', 0)} cycles
+Natural Variation: ±{statistics.get('cycle_std_deviation', 0)} days
+"""
+        if score is None:
+            return f"""
+Health Score: not enough data yet
+There is not enough data yet for a health score. Do not quote or estimate numeric scores or score components.
+Trend: {trend}
+
+{tail}"""
+        return f"""
+Health Score: {score}/100 ({health_grade})
+Trend: {trend}
+Breakdown:
+- Regularity: {health_breakdown.get('regularity_score', 0)}/35
+- Cycle Length: {health_breakdown.get('length_score', 0)}/25
+- Pain Management: {health_breakdown.get('pain_score', 0)}/20
+- Duration: {health_breakdown.get('duration_score', 0)}/10
+- Symptoms: {health_breakdown.get('symptom_score', 0)}/10
+
+{tail}"""
+
     async def analyze_cycle_health(self, period_data: List[Dict], questionnaire: Dict, stats: Dict, prediction: Dict) -> Dict[str, Any]:
         # Step 1: MedGemma
         health_breakdown = stats.get('health_breakdown', {})
@@ -124,20 +150,9 @@ class LLMService:
         statistics = prediction.get('statistics', {})
         
         # Create detailed health context for LLM
-        health_context = f"""
-Health Score: {(str(stats.get('health_score')) + '/100 (' + health_grade + ')') if stats.get('health_score') is not None else 'not enough data yet'}
-Trend: {trend}
-Breakdown:
-- Regularity: {health_breakdown.get('regularity_score', 0)}/35
-- Cycle Length: {health_breakdown.get('length_score', 0)}/25  
-- Pain Management: {health_breakdown.get('pain_score', 0)}/20
-- Duration: {health_breakdown.get('duration_score', 0)}/10
-- Symptoms: {health_breakdown.get('symptom_score', 0)}/10
-
-Prediction Confidence: {confidence_info.get('percentage', 0)}% ({confidence_info.get('level', 'unknown')})
-Data Quality: {statistics.get('data_quality', 'unknown')} based on {statistics.get('data_points', 0)} cycles
-Natural Variation: ±{statistics.get('cycle_std_deviation', 0)} days
-"""
+        health_context = self._build_health_context(stats, health_breakdown, health_grade, trend, confidence_info, statistics)
+        if stats.get('health_score') is None:
+            health_breakdown = {}
         
         medgemma_prompt = f"""Analyze menstrual cycle data with detailed health scoring and probabilistic predictions. Provide clinical assessment in JSON.
 
