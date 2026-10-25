@@ -2,6 +2,7 @@ from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..core.database import get_db
@@ -32,9 +33,20 @@ def recompute_cycle_lengths(db: Session, user_id) -> None:
         previous = period
 
 
+def _find_by_id(db: Session, period_id):
+    return db.query(Period).filter(Period.id == period_id).first()
+
+
 @router.post("/", response_model=PeriodResponse)
 def create_period(period: PeriodCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if period.id is not None:
+        existing = _find_by_id(db, period.id)
+        if existing is not None:
+            if existing.user_id != current_user.id:
+                raise HTTPException(status_code=409, detail="Period id is already in use")
+            return existing  # idempotent replay: return the stored period unchanged
     new_period = Period(
+        **({"id": period.id} if period.id is not None else {}),
         user_id=current_user.id,
         start_date=period.start_date,
         end_date=period.end_date,
@@ -44,7 +56,14 @@ def create_period(period: PeriodCreate, current_user: User = Depends(get_current
         notes=period.notes
     )
     db.add(new_period)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError:  # lost a race with the same client id: return the winner
+        db.rollback()
+        winner = _find_by_id(db, period.id) if period.id is not None else None
+        if winner is not None and winner.user_id == current_user.id:
+            return winner
+        raise HTTPException(status_code=409, detail="Period id is already in use")
     recompute_cycle_lengths(db, current_user.id)
     db.commit()
     db.refresh(new_period)

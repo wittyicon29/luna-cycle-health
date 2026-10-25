@@ -72,6 +72,7 @@ Symptom = Annotated[str, StringConstraints(max_length=50)]
 
 
 class PeriodCreate(BaseModel):
+    id: Optional[UUID] = None
     start_date: date
     end_date: Optional[date] = None
     flow_intensity: Optional[Literal["light", "medium", "heavy"]] = None
