@@ -9,6 +9,8 @@ export const MOODS = ["Very low", "Low", "Okay", "Good", "Great"];
 const MOOD_FACES = ["😞", "🙁", "😐", "🙂", "😄"];
 const FLOWS = ["spotting", "light", "medium", "heavy"];
 const NOTE_MAX = 1000;
+const DATE_RANGE_RE = /\bdate\b.*\brange\b|\brange\b.*\bdate\b/i;
+const SAVE_DATE_FAIL = "That date can't be saved yet. Pick today or an earlier day.";
 const SAVE_FAIL = "Couldn't save this day. Your entries are still here — try again.";
 
 export function buildPayload(s) {
@@ -41,7 +43,29 @@ const tap = { minHeight: 44, minWidth: 44 };
 const secStyle = { marginBottom: "1.25rem" };
 const secTitle = { fontSize: ".8rem", letterSpacing: ".06em", textTransform: "uppercase", color: "var(--muted)", marginBottom: ".5rem" };
 
-function Stepper({ label, value, step, min, max, firstPlus, firstMinus, unit, onChange }) {
+const canon = s => {
+  const p = buildPayload(s);
+  if (p.symptoms) p.symptoms = [...p.symptoms].sort();
+  if (p.medications_taken) p.medications_taken = [...p.medications_taken].sort();
+  return JSON.stringify(p);
+};
+
+// Merge the manager's new active list into everything we know (active + archived).
+// `info` says why an active item vanished: archived (kept, marked) or deleted (dropped).
+export function mergeMeds(prev, next, info) {
+  const nextIds = new Set(next.map(m => m.id));
+  const prevById = new Map(prev.map(m => [m.id, m]));
+  const out = [];
+  prev.forEach(m => {
+    if (nextIds.has(m.id)) return;
+    if (m.archived) out.push(m);
+    else if (info && info.type === "archive" && info.id === m.id) out.push({ ...m, archived: true });
+  });
+  next.forEach(m => out.push({ ...(prevById.get(m.id) || {}), ...m, archived: false }));
+  return out;
+}
+
+function Stepper({ label, resetLabel, value, step, min, max, firstPlus, firstMinus, unit, onChange }) {
   const display = value == null ? "—" : `${value}${unit || ""}`;
   const up = () => onChange(value == null ? firstPlus : Math.min(max, value + step));
   const down = () => onChange(value == null ? firstMinus : Math.max(min, value - step));
@@ -52,7 +76,7 @@ function Stepper({ label, value, step, min, max, firstPlus, firstMinus, unit, on
       <output aria-label={`${label} value`} style={{ minWidth: 64, textAlign: "center" }}>{display}</output>
       <button type="button" className="btn btn-g" style={tap} aria-label={`Increase ${label}`}
         disabled={value != null && value >= max} onClick={up}>+</button>
-      {value != null && <button type="button" className="btn btn-g btn-sm" style={tap} aria-label={`Clear ${label}`} onClick={() => onChange(null)}>Clear</button>}
+      {value != null && <button type="button" className="btn btn-g btn-sm" style={tap} aria-label={resetLabel} onClick={() => onChange(null)}>Reset</button>}
     </div>
   );
 }
@@ -60,8 +84,12 @@ function Stepper({ label, value, step, min, max, firstPlus, firstMinus, unit, on
 export default function DaySheet({ token, date, onClose, onSaved }) {
   const tooFar = date > maxSelectableDay();
   const [state, setState] = useState(EMPTY);
+  const [baseline, setBaseline] = useState(canon(EMPTY));
+  const [loadedMedIds, setLoadedMedIds] = useState([]);
   const [hasData, setHasData] = useState(false);
   const [allMeds, setAllMeds] = useState([]);
+  const [medsLoaded, setMedsLoaded] = useState(false);
+  const [medsError, setMedsError] = useState(false);
   const [loading, setLoading] = useState(!tooFar);
   const [loadError, setLoadError] = useState(false);
   const [retry, setRetry] = useState(0);
@@ -69,68 +97,137 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const savingRef = useRef(false);
+  const mounted = useRef(true);
+  const dateRef = useRef(date);
+  dateRef.current = date;
+  const medSeq = useRef(0);
+  const medsLoadedRef = useRef(false);
+  const titleRef = useRef(null);
+  const moodRefs = useRef([]);
+  const closeRef = useRef(null);
 
   const set = patch => setState(s => ({ ...s, ...patch }));
+
+  // Focus moves into the sheet on open and returns to where it was on close.
+  useEffect(() => {
+    mounted.current = true;
+    const prev = document.activeElement;
+    if (titleRef.current) titleRef.current.focus();
+    return () => {
+      mounted.current = false;
+      if (prev && prev.focus && document.contains(prev)) prev.focus();
+    };
+  }, []);
+
+  // Medication list: `initial` loads report failure in the section; background refetches never revert state.
+  const loadMeds = useCallback(async (initial) => {
+    const my = ++medSeq.current;
+    try {
+      const meds = await API.medications.list(token, true);
+      if (my !== medSeq.current || !mounted.current) return;
+      setAllMeds(Array.isArray(meds) ? meds : []);
+      medsLoadedRef.current = true; setMedsLoaded(true); setMedsError(false);
+    } catch (e) {
+      if (my !== medSeq.current || !mounted.current) return;
+      if (initial && !medsLoadedRef.current) setMedsError(true);
+    }
+  }, [token]);
 
   useEffect(() => {
     if (tooFar) return undefined;
     let alive = true;
-    setLoading(true); setLoadError(false);
-    Promise.all([API.logs.list(date, date, token), API.medications.list(token, true)]).then(([rows, meds]) => {
+    setLoading(true); setLoadError(false); setMedsError(false);
+    medsLoadedRef.current = false; setMedsLoaded(false);
+    API.logs.list(date, date, token).then(rows => {
       if (!alive) return;
-      const list = Array.isArray(meds) ? meds : [];
-      const known = new Set(list.map(m => m.id));
       const row = Array.isArray(rows) ? rows.find(r => r && r.date === date) || rows[0] : null;
       const loaded = row ? fromRow(row) : EMPTY;
-      setAllMeds(list);
-      setState({ ...loaded, meds: loaded.meds.filter(id => known.has(id)) });
+      setState(loaded);
+      setBaseline(canon(loaded));
+      setLoadedMedIds(loaded.meds);
       setHasData(!!row);
       setLoading(false);
     }).catch(() => { if (alive) { setLoadError(true); setLoading(false); } });
+    loadMeds(true);
     return () => { alive = false; };
-  }, [date, token, tooFar, retry]);
-
-  const refreshMeds = useCallback(async () => {
-    try {
-      const meds = await API.medications.list(token, true);
-      if (Array.isArray(meds)) setAllMeds(meds);
-    } catch (e) { /* the manager already reflects the change */ }
-  }, [token]);
+  }, [date, token, tooFar, retry, loadMeds]);
 
   const active = allMeds.filter(m => !m.archived);
   const known = new Set(allMeds.map(m => m.id));
-  const shown = allMeds.filter(m => !m.archived || state.meds.includes(m.id));
-  const effective = { ...state, meds: state.meds.filter(id => known.has(id)) };
+  // Archived medications stay listed for the whole session if they were checked on load (or are checked now).
+  const shown = allMeds.filter(m => !m.archived || loadedMedIds.includes(m.id) || state.meds.includes(m.id));
+  const effective = medsLoaded ? { ...state, meds: state.meds.filter(id => known.has(id)) } : state;
   const blank = isBlank(effective);
   const canSave = !saving && !(blank && !hasData);
+  const dirty = canon(state) !== baseline;
 
-  const finish = () => { if (onSaved) onSaved(); if (onClose) onClose(); };
+  const onManagerChange = (next, info) => {
+    medSeq.current += 1; // any refetch still in flight is now stale
+    setAllMeds(prev => mergeMeds(prev, next, info));
+    if (info && info.type === "delete") {
+      setState(s => ({ ...s, meds: s.meds.filter(id => id !== info.id) }));
+      setLoadedMedIds(ids => ids.filter(id => id !== info.id));
+      setBaseline(b => { try { const p = JSON.parse(b); if (p.medications_taken) p.medications_taken = p.medications_taken.filter(id => id !== info.id); if (!p.medications_taken || !p.medications_taken.length) delete p.medications_taken; return JSON.stringify(p); } catch (e) { return b; } });
+    }
+    loadMeds(false);
+  };
+
+  const requestClose = () => {
+    if (savingRef.current) return;
+    if (dirty) { setConfirmDiscard(true); return; }
+    if (onClose) onClose();
+  };
+  closeRef.current = () => { if (confirmDiscard) setConfirmDiscard(false); else requestClose(); };
+
+  useEffect(() => {
+    const onKey = e => { if (e.key === "Escape") { e.stopPropagation(); closeRef.current(); } };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
+  const finish = forDate => {
+    if (onSaved) onSaved();
+    if (onClose && mounted.current && dateRef.current === forDate) onClose();
+  };
 
   const save = async () => {
     if (savingRef.current || (blank && !hasData)) return;
-    savingRef.current = true; setSaving(true); setMessage("");
+    const forDate = date;
+    savingRef.current = true; setSaving(true); setMessage(""); setConfirmDiscard(false);
     try {
-      await API.logs.put(date, buildPayload(effective), token);
-      setMessage("Saved.");
-      finish();
+      await API.logs.put(forDate, buildPayload(effective), token);
+      if (mounted.current) setMessage("Saved.");
+      finish(forDate);
     } catch (e) {
-      setMessage(SAVE_FAIL);
-    } finally { savingRef.current = false; setSaving(false); }
+      if (mounted.current) setMessage(e && e.status === 422 && DATE_RANGE_RE.test(e.message || "") ? SAVE_DATE_FAIL : SAVE_FAIL);
+    } finally { savingRef.current = false; if (mounted.current) setSaving(false); }
   };
 
   const clearDay = async () => {
     if (savingRef.current) return;
+    const forDate = date;
     savingRef.current = true; setSaving(true); setMessage("");
     try {
-      await API.logs.remove(date, token);
-      finish();
+      await API.logs.remove(forDate, token);
+      finish(forDate);
     } catch (e) {
-      setMessage("Couldn't clear this day. Your entries are still here — try again.");
-    } finally { savingRef.current = false; setSaving(false); setConfirmClear(false); }
+      if (mounted.current) setMessage("Couldn't clear this day. Your entries are still here — try again.");
+    } finally { savingRef.current = false; if (mounted.current) { setSaving(false); setConfirmClear(false); } }
   };
 
   const toggle = (key, v) => setState(s => ({ ...s, [key]: s[key].includes(v) ? s[key].filter(x => x !== v) : [...s[key], v] }));
+
+  const moodKey = e => {
+    const dir = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+    if (!dir) return;
+    e.preventDefault();
+    const cur = state.mood == null ? (dir > 0 ? -1 : 0) : state.mood - 1;
+    const idx = (cur + dir + MOODS.length) % MOODS.length;
+    set({ mood: idx + 1 });
+    if (moodRefs.current[idx]) moodRefs.current[idx].focus();
+  };
 
   let body;
   if (tooFar) {
@@ -145,17 +242,19 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
       </div>
     );
   } else if (view === "meds") {
-    body = <MedicationManager token={token} medications={active} onChange={() => { refreshMeds(); }} onBack={() => setView("day")} />;
+    body = <MedicationManager token={token} medications={active} onChange={onManagerChange} onBack={() => setView("day")} />;
   } else {
     body = (
       <>
         <section style={secStyle}>
           <div style={secTitle} id="ds-mood">Mood</div>
-          <div role="radiogroup" aria-labelledby="ds-mood" style={{ display: "flex", gap: ".4rem", flexWrap: "wrap" }}>
+          <div role="radiogroup" aria-labelledby="ds-mood" style={{ display: "flex", gap: ".4rem", flexWrap: "wrap" }} onKeyDown={moodKey}>
             {MOODS.map((label, i) => {
               const v = i + 1; const on = state.mood === v;
+              const stop = state.mood == null ? i === 0 : on;
               return (
                 <button key={v} type="button" role="radio" aria-checked={on} aria-label={label} title={label}
+                  ref={el => { moodRefs.current[i] = el; }} tabIndex={stop ? 0 : -1}
                   className={`chip ${on ? "on" : ""}`} style={{ ...tap, fontSize: "1.3rem" }}
                   onClick={() => set({ mood: on ? null : v })}>{MOOD_FACES[i]}</button>
               );
@@ -182,23 +281,34 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
         </section>
         <section style={secStyle}>
           <div style={secTitle}>Sleep</div>
-          <Stepper label="sleep hours" value={state.sleep} step={0.5} min={0} max={24} firstPlus={7} firstMinus={6.5} unit=" h" onChange={v => set({ sleep: v })} />
+          <Stepper label="sleep hours" resetLabel="Reset sleep" value={state.sleep} step={0.5} min={0} max={24} firstPlus={7} firstMinus={6.5} unit=" h" onChange={v => set({ sleep: v })} />
         </section>
         <section style={secStyle}>
           <div style={secTitle}>Water</div>
-          <Stepper label="glasses of water" value={state.water} step={1} min={0} max={30} firstPlus={1} firstMinus={null} onChange={v => set({ water: v })} />
+          <Stepper label="glasses of water" resetLabel="Reset water" value={state.water} step={1} min={0} max={30} firstPlus={1} firstMinus={null} onChange={v => set({ water: v })} />
         </section>
         <section style={secStyle}>
           <div style={secTitle}>Medications</div>
-          {shown.length === 0 && <p style={{ color: "var(--muted)", fontSize: ".85rem" }}>No medications on your list yet.</p>}
-          {shown.map(m => (
-            <label key={m.id} style={{ display: "flex", alignItems: "center", gap: ".6rem", minHeight: 44 }}>
-              <input type="checkbox" checked={state.meds.includes(m.id)} style={{ width: 22, height: 22 }}
-                onChange={() => toggle("meds", m.id)} />
-              <span>{m.name}{m.archived ? " (archived)" : ""}</span>
-            </label>
-          ))}
-          <button type="button" className="btn btn-g btn-sm" style={tap} onClick={() => setView("meds")}>Manage my list</button>
+          {medsError ? (
+            <div role="alert" style={{ fontSize: ".85rem" }}>
+              <span>Couldn't load your medications.</span>{" "}
+              <button type="button" className="btn btn-g btn-sm" style={tap} onClick={() => { setMedsError(false); loadMeds(true); }}>Retry</button>
+            </div>
+          ) : !medsLoaded ? (
+            <p style={{ color: "var(--muted)", fontSize: ".85rem" }}>Loading medications…</p>
+          ) : (
+            <>
+              {shown.length === 0 && <p style={{ color: "var(--muted)", fontSize: ".85rem" }}>No medications on your list yet.</p>}
+              {shown.map(m => (
+                <label key={m.id} style={{ display: "flex", alignItems: "center", gap: ".6rem", minHeight: 44 }}>
+                  <input type="checkbox" checked={state.meds.includes(m.id)} style={{ width: 22, height: 22 }}
+                    onChange={() => toggle("meds", m.id)} />
+                  <span>{m.name}{m.archived ? " (archived)" : ""}</span>
+                </label>
+              ))}
+              <button type="button" className="btn btn-g btn-sm" style={tap} onClick={() => setView("meds")}>Manage my list</button>
+            </>
+          )}
         </section>
         <section style={secStyle}>
           <div className="f">
@@ -215,12 +325,19 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
   const showFooter = !tooFar && !loading && !loadError && view === "day";
   return (
     <>
-      <div className="o-backdrop o-backdrop-top" onClick={onClose} />
+      <div className="o-backdrop o-backdrop-top" aria-hidden="true" onClick={requestClose} />
       <div className="drawer drawer-top" style={{ height: "88vh" }} role="dialog" aria-label={`Log for ${formatLongDate(date)}`}>
         <div className="drawer-head">
-          <span className="drawer-title">{formatLongDate(date)}</span>
-          <button type="button" className="drawer-close" aria-label="Close" onClick={onClose}>×</button>
+          <span className="drawer-title" ref={titleRef} tabIndex={-1} style={{ outline: "none" }}>{formatLongDate(date)}</span>
+          <button type="button" className="drawer-close" aria-label="Close" disabled={saving} onClick={requestClose}>×</button>
         </div>
+        {confirmDiscard && (
+          <div role="alertdialog" aria-label="Discard changes?" style={{ display: "flex", gap: ".5rem", alignItems: "center", flexWrap: "wrap", padding: ".5rem 1.5rem", borderBottom: "1px solid var(--border)" }}>
+            <span style={{ fontSize: ".85rem" }}>Discard changes?</span>
+            <button type="button" className="btn btn-g" style={tap} onClick={() => setConfirmDiscard(false)}>Keep editing</button>
+            <button type="button" className="btn btn-p" style={tap} onClick={() => { if (onClose) onClose(); }}>Discard</button>
+          </div>
+        )}
         <div className="drawer-body">{body}</div>
         {showFooter && (
           <div style={{ padding: ".75rem 1.5rem 1rem", borderTop: "1px solid var(--border)", flexShrink: 0 }}>

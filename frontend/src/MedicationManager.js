@@ -25,7 +25,7 @@ export default function MedicationManager({ token, medications, onChange, onBack
     if (busyRef.current) return false;
     busyRef.current = true; setBusy(true); setMessage("");
     try { await fn(); return true; }
-    catch (e) { setMessage((e && e.status === 409 && e.message) || FAIL); return false; }
+    catch (e) { setMessage((e && ((e.status === 409) || (e.status === 422 && /\bmedications?\b/i.test(e.message || ""))) && e.message) || FAIL); return false; }
     finally { busyRef.current = false; setBusy(false); }
   };
 
@@ -37,7 +37,7 @@ export default function MedicationManager({ token, medications, onChange, onBack
     await run(async () => {
       const created = await API.medications.create(c.name, token);
       setNewName("");
-      onChange([...list, created]);
+      onChange([...list, created], { type: "add", id: created && created.id });
     });
   };
 
@@ -47,20 +47,20 @@ export default function MedicationManager({ token, medications, onChange, onBack
     const id = editing.id;
     const ok = await run(async () => {
       const updated = await API.medications.update(id, { name: c.name }, token);
-      onChange(list.map(m => (m.id === id ? { ...m, ...(updated || {}), name: c.name } : m)));
+      onChange(list.map(m => (m.id === id ? { ...m, ...(updated || {}), name: c.name } : m)), { type: "rename", id });
     });
     if (ok) setEditing(null);
   };
 
   const archive = id => run(async () => {
     await API.medications.update(id, { archived: true }, token);
-    onChange(list.filter(m => m.id !== id));
+    onChange(list.filter(m => m.id !== id), { type: "archive", id });
   });
 
   const remove = async id => {
     const ok = await run(async () => {
       await API.medications.remove(id, token);
-      onChange(list.filter(m => m.id !== id));
+      onChange(list.filter(m => m.id !== id), { type: "delete", id });
     });
     if (ok) setConfirmId(null);
   };

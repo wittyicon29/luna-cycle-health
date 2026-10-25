@@ -29,7 +29,7 @@ test("add calls create, clears the input and reports the new list", async () => 
   const { onChange } = setup();
   await add("  Zinc ");
   expect(API.medications.create).toHaveBeenCalledWith("Zinc", "tok");
-  expect(onChange).toHaveBeenCalledWith([...MEDS, { id: "3", name: "Zinc" }]);
+  expect(onChange).toHaveBeenCalledWith([...MEDS, { id: "3", name: "Zinc" }], { type: "add", id: "3" });
   expect(screen.getByLabelText("Add a medication")).toHaveValue("");
 });
 
@@ -69,7 +69,7 @@ test("rename", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Save name" }));
   await flush();
   expect(API.medications.update).toHaveBeenCalledWith("1", { name: "Iron 2" }, "tok");
-  expect(onChange).toHaveBeenCalledWith([{ id: "1", name: "Iron 2" }, MEDS[1]]);
+  expect(onChange).toHaveBeenCalledWith([{ id: "1", name: "Iron 2" }, MEDS[1]], { type: "rename", id: "1" });
 });
 
 test("archive removes it from the list", async () => {
@@ -78,7 +78,7 @@ test("archive removes it from the list", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Archive Iron" }));
   await flush();
   expect(API.medications.update).toHaveBeenCalledWith("1", { archived: true }, "tok");
-  expect(onChange).toHaveBeenCalledWith([MEDS[1]]);
+  expect(onChange).toHaveBeenCalledWith([MEDS[1]], { type: "archive", id: "1" });
 });
 
 test("delete asks for confirmation first", async () => {
@@ -89,7 +89,7 @@ test("delete asks for confirmation first", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Yes, delete" }));
   await flush();
   expect(API.medications.remove).toHaveBeenCalledWith("1", "tok");
-  expect(onChange).toHaveBeenCalledWith([MEDS[1]]);
+  expect(onChange).toHaveBeenCalledWith([MEDS[1]], { type: "delete", id: "1" });
 });
 
 test("API failure leaves the list unchanged with an honest message", async () => {
@@ -106,4 +106,13 @@ test("back button", () => {
   const { onBack } = setup();
   fireEvent.click(screen.getByRole("button", { name: /Back to day/ }));
   expect(onBack).toHaveBeenCalled();
+});
+
+test("a 422 about the 30 limit shows the server's own message", async () => {
+  const msg = "You can keep up to 30 medications. Remove or archive one first.";
+  API.medications.create.mockRejectedValue(Object.assign(new Error(msg), { status: 422 }));
+  setup();
+  await add("Zinc");
+  expect(screen.getByRole("alert")).toHaveTextContent(msg);
+  expect(screen.getByLabelText("Add a medication")).toHaveValue("Zinc");
 });

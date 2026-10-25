@@ -160,7 +160,7 @@ test("sleep stepper moves in half hours within 0-24", async () => {
   expect(val()).toHaveTextContent("7");
   fireEvent.click(screen.getByLabelText("Decrease sleep hours"));
   expect(val()).toHaveTextContent("6.5");
-  fireEvent.click(screen.getByLabelText("Clear sleep hours"));
+  fireEvent.click(screen.getByLabelText("Reset sleep"));
   expect(val()).toHaveTextContent("—");
   fireEvent.click(screen.getByLabelText("Decrease sleep hours"));
   expect(val()).toHaveTextContent("6.5");
@@ -223,4 +223,226 @@ test("controls are at least 44px tall and copy avoids excluded topics", async ()
     expect(b.style.minHeight).toBe("44px");
   });
   expect(document.body.textContent).not.toMatch(/ovulat|fertil|pregnan|intimacy/i);
+});
+
+describe("medication list inside the sheet", () => {
+  const openManager = () => fireEvent.click(screen.getByRole("button", { name: "Manage my list" }));
+  const back = async () => { fireEvent.click(screen.getByRole("button", { name: /Back to day/ })); await flush(); };
+
+  test("add shows immediately even when the refetch fails, and the checklist has it", async () => {
+    await setup();
+    API.medications.list.mockRejectedValue(new Error("net"));
+    API.medications.create.mockResolvedValue({ id: "m3", name: "Zinc" });
+    openManager();
+    fireEvent.change(screen.getByLabelText("Add a medication"), { target: { value: "Zinc" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    await flush();
+    expect(screen.getByText("Zinc")).toBeInTheDocument();
+    expect(screen.queryByText(/Nothing was changed/)).not.toBeInTheDocument();
+    await back();
+    expect(screen.getByLabelText("Zinc")).toBeInTheDocument();
+  });
+
+  test("archive A then B with the first refetch resolving last keeps both archived", async () => {
+    MEDS_TWO();
+    await setup();
+    let resolveA; let resolveB;
+    API.medications.update.mockResolvedValue({});
+    API.medications.list
+      .mockImplementationOnce(() => new Promise(r => { resolveA = r; }))
+      .mockImplementationOnce(() => new Promise(r => { resolveB = r; }));
+    openManager();
+    fireEvent.click(screen.getByRole("button", { name: "Archive Iron" }));
+    await flush();
+    fireEvent.click(screen.getByRole("button", { name: "Archive Calcium" }));
+    await flush();
+    const both = [{ id: "m1", name: "Iron", archived: true }, { id: "m3", name: "Calcium", archived: true }];
+    await act(async () => { resolveB(both); await Promise.resolve(); });
+    await act(async () => { resolveA([{ id: "m1", name: "Iron", archived: true }, { id: "m3", name: "Calcium", archived: false }]); await Promise.resolve(); });
+    await back();
+    expect(screen.queryByLabelText("Calcium")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Iron")).not.toBeInTheDocument();
+  });
+
+  test("delete updates the checklist and drops the id from the next save", async () => {
+    API.logs.list.mockResolvedValue([{ date: DATE, medications_taken: ["m1"] }]);
+    await setup();
+    API.medications.remove.mockResolvedValue({});
+    API.medications.list.mockRejectedValue(new Error("net"));
+    openManager();
+    fireEvent.click(screen.getByRole("button", { name: "Delete Iron" }));
+    fireEvent.click(screen.getByRole("button", { name: "Yes, delete" }));
+    await flush();
+    await back();
+    expect(screen.queryByLabelText("Iron")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Note"), { target: { value: "x" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await flush();
+    expect(API.logs.put).toHaveBeenCalledWith(DATE, { note: "x" }, "tok");
+  });
+
+  test("rename is reflected in the checklist", async () => {
+    await setup();
+    API.medications.update.mockResolvedValue({ id: "m1", name: "Iron Plus" });
+    API.medications.list.mockRejectedValue(new Error("net"));
+    openManager();
+    fireEvent.click(screen.getByRole("button", { name: "Rename Iron" }));
+    fireEvent.change(screen.getByLabelText("New name for Iron"), { target: { value: "Iron Plus" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save name" }));
+    await flush();
+    await back();
+    expect(screen.getByLabelText("Iron Plus")).toBeInTheDocument();
+  });
+});
+
+function MEDS_TWO() {
+  API.medications.list.mockResolvedValue([{ id: "m1", name: "Iron", archived: false }, { id: "m3", name: "Calcium", archived: false }]);
+}
+
+test("an archived medication checked on load stays visible after unchecking", async () => {
+  API.logs.list.mockResolvedValue([ROW]);
+  await setup();
+  fireEvent.click(screen.getByLabelText(/OldPill/));
+  expect(screen.getByLabelText(/OldPill/)).not.toBeChecked();
+  fireEvent.click(screen.getByLabelText(/OldPill/));
+  expect(screen.getByLabelText(/OldPill/)).toBeChecked();
+});
+
+describe("closing safety", () => {
+  test("while saving, backdrop, close and Escape do nothing and a failure is shown", async () => {
+    let fail;
+    API.logs.put.mockReturnValue(new Promise((_, rej) => { fail = rej; }));
+    const { onClose, container } = await setup();
+    fireEvent.click(screen.getByRole("radio", { name: "Okay" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(screen.getByRole("button", { name: "Close" })).toBeDisabled();
+    fireEvent.click(container.ownerDocument.querySelector(".o-backdrop"));
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClose).not.toHaveBeenCalled();
+    await act(async () => { fail(new Error("x")); await Promise.resolve(); });
+    await flush();
+    expect(screen.getByText(/Couldn't save this day/)).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  test("onClose is not called when the sheet unmounted during the save", async () => {
+    let ok;
+    API.logs.put.mockReturnValue(new Promise(r => { ok = r; }));
+    const { onClose, onSaved, unmount } = await setup();
+    fireEvent.click(screen.getByRole("radio", { name: "Okay" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    unmount();
+    await act(async () => { ok({}); await Promise.resolve(); });
+    expect(onSaved).toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  test("unsaved edits ask before discarding; Keep editing and Discard work", async () => {
+    const { onClose } = await setup();
+    fireEvent.click(screen.getByRole("radio", { name: "Okay" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.getByText("Discard changes?")).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+    expect(screen.queryByText("Discard changes?")).not.toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.getByText("Discard changes?")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  test("no prompt when nothing changed (also after undoing an edit)", async () => {
+    const { onClose } = await setup();
+    fireEvent.click(screen.getByRole("radio", { name: "Okay" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Okay" }));
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("Discard changes?")).not.toBeInTheDocument();
+  });
+});
+
+describe("load robustness", () => {
+  test("medications failing still shows the form with a Retry", async () => {
+    API.medications.list.mockRejectedValue(new Error("x"));
+    await setup();
+    expect(screen.getByRole("radiogroup")).toBeInTheDocument();
+    expect(screen.getByText("Couldn't load your medications.")).toBeInTheDocument();
+    API.medications.list.mockResolvedValue(MEDS);
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await flush();
+    expect(screen.getByLabelText("Iron")).toBeInTheDocument();
+  });
+
+  test("log failing shows the message and Retry reloads", async () => {
+    API.logs.list.mockRejectedValueOnce(new Error("x"));
+    await setup();
+    expect(screen.getByText("Couldn't load this day.")).toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
+    API.logs.list.mockResolvedValue([ROW]);
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await flush();
+    expect(screen.getByRole("radio", { name: "Good" })).toHaveAttribute("aria-checked", "true");
+  });
+});
+
+describe("keyboard and focus", () => {
+  test("focus moves into the sheet and is restored on close", async () => {
+    const opener = document.createElement("button");
+    document.body.appendChild(opener); opener.focus();
+    const { unmount } = await setup();
+    expect(document.activeElement).toBe(screen.getByText("October 24, 2026"));
+    unmount();
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
+  });
+
+  test("mood radiogroup supports arrow keys with roving tabindex", async () => {
+    await setup();
+    const radios = screen.getAllByRole("radio");
+    expect(radios[0]).toHaveAttribute("tabindex", "0");
+    fireEvent.keyDown(radios[0], { key: "ArrowRight" });
+    expect(radios[0]).toHaveAttribute("aria-checked", "true");
+    fireEvent.keyDown(radios[0], { key: "ArrowDown" });
+    expect(radios[1]).toHaveAttribute("aria-checked", "true");
+    expect(radios[1]).toHaveAttribute("tabindex", "0");
+    expect(radios[0]).toHaveAttribute("tabindex", "-1");
+    fireEvent.keyDown(radios[1], { key: "ArrowLeft" });
+    expect(radios[0]).toHaveAttribute("aria-checked", "true");
+    fireEvent.keyDown(radios[0], { key: "ArrowUp" });
+    expect(radios[4]).toHaveAttribute("aria-checked", "true");
+  });
+});
+
+describe("save and clear failures", () => {
+  test("422 about the date range shows the date message", async () => {
+    API.logs.put.mockRejectedValue(Object.assign(new Error("Date is out of range"), { status: 422 }));
+    await setup();
+    fireEvent.click(screen.getByRole("radio", { name: "Okay" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await flush();
+    expect(screen.getByText("That date can't be saved yet. Pick today or an earlier day.")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Okay" })).toHaveAttribute("aria-checked", "true");
+  });
+
+  test("another 422 keeps the generic message", async () => {
+    API.logs.put.mockRejectedValue(Object.assign(new Error("Sleep must be at most 24"), { status: 422 }));
+    await setup();
+    fireEvent.click(screen.getByRole("radio", { name: "Okay" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await flush();
+    expect(screen.getByText(/Couldn't save this day/)).toBeInTheDocument();
+  });
+
+  test("clear day failure keeps the form and says so", async () => {
+    API.logs.list.mockResolvedValue([ROW]);
+    API.logs.remove.mockRejectedValue(new Error("x"));
+    const { onClose, onSaved } = await setup();
+    fireEvent.click(screen.getByRole("button", { name: "Clear day" }));
+    fireEvent.click(screen.getByRole("button", { name: "Yes, clear" }));
+    await flush();
+    expect(screen.getByText(/Couldn't clear this day/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Note")).toHaveValue("hello");
+    expect(onClose).not.toHaveBeenCalled();
+    expect(onSaved).not.toHaveBeenCalled();
+  });
 });
