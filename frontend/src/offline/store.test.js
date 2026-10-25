@@ -144,14 +144,23 @@ test('writes queued before clearAll do not run; writes after it do', async () =>
   expect(await store.read('a@x.com', 'logs')).toBe(2);
 });
 
-test('a failed write removes the stale blob', async () => {
+test('a failed write keeps the previous blob so older queued changes survive', async () => {
   await store.write('a@x.com', 'outbox', { items: [1] });
-  expect(offlineKeys()).toHaveLength(1);
   const spy = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
-  await store.write('a@x.com', 'outbox', { items: [] });
+  await store.write('a@x.com', 'outbox', { items: [1, 2] });
   spy.mockRestore();
-  expect(offlineKeys()).toHaveLength(0);
-  expect(await store.read('a@x.com', 'outbox')).toBeNull();
+  expect(store.lastStoreError()).toBeTruthy();
+  expect(await store.read('a@x.com', 'outbox')).toEqual({ items: [1] });
+});
+
+test('a vault failure on write also keeps the previous blob', async () => {
+  await store.write('a@x.com', 'outbox', { items: [1] });
+  mockSecure.get.mockRejectedValue(new Error('keystore busy'));
+  require('./vault').__resetCacheForTests();
+  await store.write('a@x.com', 'outbox', { items: [1, 2] });
+  mockSecure.get.mockImplementation(async k => mockData.get(k) ?? null);
+  require('./vault').__resetCacheForTests();
+  expect(await store.read('a@x.com', 'outbox')).toEqual({ items: [1] });
 });
 
 test('clearAll on web only clears localStorage keys', async () => {

@@ -56,16 +56,15 @@ function enqueueGuarded(task) {
 export function write(email, name, value) {
   if (!usable(email)) return Promise.resolve();
   return enqueueGuarded(async () => {
-    let key = null;
     try {
       const hash = await emailHash(email);
-      key = keyFor(hash, name);
+      const key = keyFor(hash, name);
       localStorage.setItem(key, await vault.seal(value, aadFor(hash, name)));
       lastError = null;
     } catch (e) {
+      // Keep the previous blob: it still holds older queued changes, and replaying an item that already synced is
+      // idempotent, so a stale outbox is harmless while a deleted one would lose real changes.
       lastError = e;
-      // Never leave the previous blob behind: stale data (e.g. synced outbox items) must not return.
-      if (key) { try { localStorage.removeItem(key); } catch (e2) { /* storage unavailable */ } }
     }
   });
 }
