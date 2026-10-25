@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints, model_validator, validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints, field_validator, model_validator, validator
 from datetime import date, datetime, timedelta
 from typing import Annotated, Optional, List, Dict, Any, Literal
 from uuid import UUID
@@ -198,3 +198,58 @@ class MedicationResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+SYMPTOM_CHOICES = ("cramps", "bloating", "headache", "fatigue", "mood swings", "acne", "back pain", "nausea", "tender breasts", "insomnia")
+
+
+class DailyLogData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    mood: Optional[int] = Field(default=None, ge=1, le=5, strict=True)
+    symptoms: List[Literal[SYMPTOM_CHOICES]] = Field(default_factory=list, max_length=10)  # cap applies to the raw list, before de-duplication
+    flow: Optional[Literal["spotting", "light", "medium", "heavy"]] = None
+    sleep_hours: Optional[float] = Field(default=None, ge=0, le=24)
+    water_glasses: Optional[int] = Field(default=None, ge=0, le=30, strict=True)
+    medications_taken: List[UUID] = Field(default_factory=list, max_length=30)
+    note: Optional[str] = Field(default=None, max_length=1000)
+
+    @field_validator("symptoms")
+    @classmethod
+    def _dedupe_symptoms(cls, v):
+        return list(dict.fromkeys(v))
+
+    @field_validator("medications_taken")
+    @classmethod
+    def _dedupe_meds(cls, v):
+        return list(dict.fromkeys(v))
+
+    @field_validator("sleep_hours")
+    @classmethod
+    def _half_hours(cls, v):
+        if v is not None and (v * 2) != int(v * 2):
+            raise ValueError("Sleep must be in half-hour steps")
+        return v
+
+    @field_validator("note")
+    @classmethod
+    def _trim_note(cls, v):
+        if v is None:
+            return None
+        v = v.strip()
+        return v or None
+
+    def is_empty(self) -> bool:
+        return (self.mood is None and not self.symptoms and self.flow is None and self.sleep_hours is None
+                and self.water_glasses is None and not self.medications_taken and self.note is None)
+
+
+class DailyLogResponse(BaseModel):
+    date: date
+    mood: Optional[int] = None
+    symptoms: List[str] = []
+    flow: Optional[str] = None
+    sleep_hours: Optional[float] = None
+    water_glasses: Optional[int] = None
+    medications_taken: List[UUID] = []
+    note: Optional[str] = None
+    updated_at: Optional[datetime] = None

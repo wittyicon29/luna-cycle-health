@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Date, Boolean, JSON, Enum as SQLEnum
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Date, Boolean, JSON, UniqueConstraint, Enum as SQLEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -34,6 +34,7 @@ class User(Base):
     chat_messages = relationship("ChatMessage", back_populates="user", cascade="all, delete-orphan")
     consents = relationship("ConsentRecord", back_populates="user", cascade="all, delete-orphan")
     medications = relationship("Medication", back_populates="user", cascade="all, delete-orphan")
+    daily_logs = relationship("DailyLog", back_populates="user", cascade="all, delete-orphan")
 
 class Period(Base):
     __tablename__ = "periods"
@@ -61,6 +62,20 @@ class Medication(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="medications")
+
+
+class DailyLog(Base):
+    __tablename__ = "daily_logs"
+    __table_args__ = (UniqueConstraint("user_id", "log_date", name="uq_daily_logs_user_date"),)
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    log_date = Column(Date, nullable=False, index=True)
+    data = Column(EncryptedJSON, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User", back_populates="daily_logs")
 
 
 class Questionnaire(Base):

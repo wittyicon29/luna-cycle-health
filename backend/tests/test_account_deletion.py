@@ -1,7 +1,7 @@
 from datetime import date, datetime, timedelta, timezone
 
 from app.core.security import create_access_token
-from app.models.models import (Analysis, ChatMessage, ConsentRecord, Medication,
+from app.models.models import (Analysis, ChatMessage, ConsentRecord, DailyLog, Medication,
                                Period, Questionnaire, RefreshToken, User)
 
 
@@ -12,6 +12,7 @@ def seed(db, user):
         ChatMessage(user_id=user.id, session_id="s", role="user", content="hello"),
         Analysis(user_id=user.id, analysis_type="prediction", llm_response="r"),
         Medication(user_id=user.id, name="Iron"),
+        DailyLog(user_id=user.id, log_date=date(2026, 10, 20), data={"mood": 3, "note": "n"}),
         ConsentRecord(user_id=user.id, purpose="terms_privacy", policy_version="1.0", granted=True),
         RefreshToken(user_id=user.id, token_hash="h", expires_at=datetime.now(timezone.utc) + timedelta(days=1)),
     ])
@@ -36,7 +37,7 @@ def test_delete_removes_the_user_and_all_their_data(client, db, make_user):
     response = client.post("/api/v1/account/delete", json={"confirm": "DELETE"}, headers=headers_for(user))
 
     assert response.status_code == 200
-    for model in (User, Period, Questionnaire, ChatMessage, Analysis, ConsentRecord, RefreshToken, Medication):
+    for model in (User, Period, Questionnaire, ChatMessage, Analysis, ConsentRecord, RefreshToken, Medication, DailyLog):
         assert db.query(model).count() == 0, model.__name__
 
 
