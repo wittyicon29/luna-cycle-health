@@ -1,5 +1,4 @@
 export const KIND_BASE = { periodExpected: 100000000, dailyLog: 200000000, lateCheckIn: 300000000 };
-const DAY_MS = 24 * 60 * 60 * 1000;
 const LATE_CHECK_IN_AFTER_DAYS = 3;
 const SAME_CYCLE_WINDOW_DAYS = 7;
 
@@ -20,7 +19,9 @@ const ymd = d => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(
 const sameDay = (a, b) => a && b && ymd(a) === ymd(b);
 
 export function planReminders({ prefs, prediction, lastPeriodStart, lastLoggedOn, now = new Date(), horizonDays = 14 }) {
-  const end = new Date(now.getTime() + horizonDays * DAY_MS);
+  // Calendar-day horizon so a DST change inside the window cannot shift the last slot.
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + horizonDays,
+    now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
   const plan = [];
   const push = (kind, at) => {
     if (at > now && at <= end) plan.push({ id: KIND_BASE[kind] + ymd(at), at, kind });

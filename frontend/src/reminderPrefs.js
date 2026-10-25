@@ -12,9 +12,15 @@ const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 const time = (value, fallback) => (typeof value === 'string' && TIME.test(value) ? value : fallback);
 const flag = value => value === true;
 const days = value => {
-  const n = Math.round(Number(value));
-  if (!Number.isFinite(n)) return DEFAULT_PREFS.periodExpected.daysBefore;
-  return Math.min(7, Math.max(1, n));
+  const fallback = DEFAULT_PREFS.periodExpected.daysBefore;
+  let n;
+  if (typeof value === 'number') n = value;
+  else if (typeof value === 'string' && value.trim() !== '') n = Number(value);
+  else return fallback;
+  if (Number.isNaN(n)) return fallback;
+  if (n === Infinity) return 7;
+  if (n === -Infinity) return 1;
+  return Math.min(7, Math.max(1, Math.round(n)));
 };
 
 function normalise(raw) {
@@ -45,8 +51,14 @@ export function loadPrefs() {
 }
 
 export function savePrefs(prefs) {
-  const clean = normalise(prefs);
-  try { localStorage.setItem(PREFS_KEY, JSON.stringify(clean)); } catch (e) { /* storage unavailable */ }
+  let clean;
+  try {
+    clean = normalise(prefs);
+    localStorage.setItem(PREFS_KEY, JSON.stringify(clean));
+  } catch (e) {
+    /* storage unavailable or unreadable input */
+    if (!clean) clean = normalise(null);
+  }
   return clean;
 }
 
@@ -55,4 +67,4 @@ export function clearPrefs() {
 }
 
 export const anyEnabled = prefs =>
-  !!(prefs && (prefs.periodExpected.enabled || prefs.dailyLog.enabled || prefs.lateCheckIn.enabled));
+  !!(prefs && (prefs.periodExpected?.enabled || prefs.dailyLog?.enabled || prefs.lateCheckIn?.enabled));

@@ -46,3 +46,32 @@ test('clearPrefs removes the stored value and storage errors never throw', () =>
   expect(() => savePrefs(DEFAULT_PREFS)).not.toThrow();
   spy.mockRestore();
 });
+
+test('anyEnabled tolerates partial or malformed objects', () => {
+  expect(anyEnabled({})).toBe(false);
+  expect(anyEnabled(null)).toBe(false);
+  expect(anyEnabled(undefined)).toBe(false);
+  expect(anyEnabled({ dailyLog: { enabled: true } })).toBe(true);
+});
+
+test('savePrefs never throws on hostile input and returns defaults-normalised prefs', () => {
+  const hostile = {};
+  Object.defineProperty(hostile, 'periodExpected', { enumerable: true, get() { throw new Error('boom'); } });
+  let out;
+  expect(() => { out = savePrefs(hostile); }).not.toThrow();
+  expect(out).toEqual(DEFAULT_PREFS);
+  expect(() => { out = savePrefs({ periodExpected: { daysBefore: Symbol('x') } }); }).not.toThrow();
+  expect(out.periodExpected.daysBefore).toBe(2);
+});
+
+test('daysBefore fallbacks and clamping', () => {
+  const d = v => savePrefs({ ...DEFAULT_PREFS, periodExpected: { enabled: true, daysBefore: v, time: '09:00' } }).periodExpected.daysBefore;
+  for (const v of [null, '', [], false, NaN, 'abc', undefined]) expect(d(v)).toBe(2);
+  expect(d(Infinity)).toBe(7);
+  expect(d(-Infinity)).toBe(1);
+  expect(d(2.4)).toBe(2);
+  expect(d(2.6)).toBe(3);
+  expect(d('5')).toBe(5);
+  expect(d(100)).toBe(7);
+  expect(d(-3)).toBe(1);
+});
