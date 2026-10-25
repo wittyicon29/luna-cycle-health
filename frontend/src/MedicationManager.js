@@ -44,7 +44,7 @@ export default function MedicationManager({ token, medications, archivedMedicati
     if (busyRef.current) return false;
     busyRef.current = true; setBusy(true); setMessage(null);
     try { await fn(); return true; }
-    catch (e) { const known = e && ((e.status === 409) || (e.status === 422 && /\bmedications?\b/i.test(e.message || ""))) && e.message; setMessage(known ? { id: "text", text: known } : FAIL); return false; }
+    catch (e) { const known = e && ((e.status === 409) || (e.status === 422 && /\bmedications?\b/i.test(e.rawMessage || ""))) && e.message; setMessage(known ? { id: "text", text: known } : FAIL); return false; }
     finally { busyRef.current = false; setBusy(false); }
   };
 

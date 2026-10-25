@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { API } from './api';
 import { t, useLanguage } from './i18n';
-import { translateServer } from './serverMessages';
 
 // Two-step inline confirmation for removing a logged period.
 export default function PeriodDelete({ period, token, onDeleted }) {
@@ -16,7 +15,7 @@ export default function PeriodDelete({ period, token, onDeleted }) {
       await API.periods.remove(period.id, token);
       onDeleted();
     } catch (e) {
-      setErr(translateServer(e.message) || t('Could not delete this entry'));
+      setErr(e.message || t('Could not delete this entry'));
       setStep('confirming');
     }
   }

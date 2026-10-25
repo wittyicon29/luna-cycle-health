@@ -1051,7 +1051,7 @@ function LogModal({ token, onClose, onSave }) {
           setStats(st);
         }
       } catch (e) {
-        if (!cancelled) setStatsErr(translateServer(e.message) || t("Unable to load recent pattern"));
+        if (!cancelled) setStatsErr(e.message || t("Unable to load recent pattern"));
       } finally {
         if (!cancelled) setStatsLoading(false);
       }
@@ -1065,7 +1065,7 @@ function LogModal({ token, onClose, onSave }) {
     if (startDate > todayNow || (endDate && endDate > todayNow)) { setErr(t("Dates can't be in the future.")); return; }
     setSaving(true); setErr("");
     try { await API.periods.create({ start_date: startDate, end_date: endDate || null, flow_intensity: flow, pain_level: pain, symptoms, notes }, token); onSave(); }
-    catch (e) { setErr(translateServer(e.message)); } finally { setSaving(false); }
+    catch (e) { setErr(e.message); } finally { setSaving(false); }
   }
   return (
     <Modal title={t("Log New Period")} onClose={onClose}

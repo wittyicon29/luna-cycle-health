@@ -302,7 +302,8 @@ describe('LogModal in Hindi', () => {
   });
 
   test('a server error is translated when known', async () => {
-    API.periods.create.mockRejectedValue(new Error('Date is out of range'));
+    const { ApiError, messageFromDetail } = require('./api');
+    API.periods.create.mockRejectedValue(new ApiError(messageFromDetail('Date is out of range', 422), { status: 422, rawMessage: 'Date is out of range' }));
     modal();
     await screen.findByText('आपके चक्र की आम अवधि');
     userEvent.click(screen.getByRole('button', { name: 'यात्रा में सहेजें' }));

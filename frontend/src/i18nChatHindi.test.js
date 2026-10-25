@@ -235,7 +235,7 @@ describe('AnalysisDrawer and Insights in Hindi', () => {
     expect(screen.getByRole('button', { name: /विश्लेषण चलाएँ/ })).toBeInTheDocument();
     ['औसत चक्र', 'नियमितता'].forEach(l => expect(screen.getByText(l)).toBeInTheDocument());
     expect(screen.getByText('29 दिन')).toBeInTheDocument();
-    ['अगली माहवारी', 'डेटा की गुणवत्ता', 'भरोसा'].forEach(l => expect(screen.getAllByText(new RegExp(l)).length).toBeGreaterThan(0));
+    ['अगली माहवारी', 'डेटा की गुणवत्ता', 'विश्वसनीयता'].forEach(l => expect(screen.getAllByText(new RegExp(l)).length).toBeGreaterThan(0));
     expect(screen.getByText('उच्च (85%)')).toBeInTheDocument();
     expect(screen.getByText('अच्छी')).toBeInTheDocument();
     ['मुख्य इनसाइट्स', 'यह नतीजा क्यों', 'सुझाव', 'अनुमान संबंधी सूचना', 'आगे क्या हो सकता है', 'अगले कदम', 'डॉक्टर को कब दिखाएँ',

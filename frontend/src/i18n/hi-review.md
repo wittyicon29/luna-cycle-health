@@ -69,7 +69,7 @@ Edit the Hindi text in `src/i18n/catalogs/hi.json` (the English sentence is the 
 | 49 | Done | हो गया | App.js:583 |  |
 | 50 | Thinking… | सोच रही हूँ… | App.js:611 |  |
 | 51 | Thought process | सोचने की प्रक्रिया | App.js:613 |  |
-| 52 | Something went wrong. Please try again. | कुछ गड़बड़ हो गई। कृपया दोबारा प्रयास करें। | App.js:646 |  |
+| 52 | Something went wrong. Please try again. | कुछ गड़बड़ हो गई। कृपया दोबारा कोशिश करें। | App.js:646 |  |
 | 53 | Check your email. Open the link we sent to choose your password and finish signing up. | अपना ईमेल देखें। हमारे भेजे गए लिंक को खोलकर अपना पासवर्ड चुनें और पंजीकरण पूरा करें। | App.js:648 |  |
 | 54 | Failed to sign in with Google | Google से साइन इन नहीं हो सका | App.js:667 |  |
 | 55 | Failed to initiate Google Sign-In | Google साइन इन शुरू नहीं हो सका | App.js:678 |  |
@@ -189,7 +189,7 @@ Edit the Hindi text in `src/i18n/catalogs/hi.json` (the English sentence is the 
 | 169 | Regularity | नियमितता | App.js:1632 |  |
 | 170 | Next Period | अगली माहवारी | App.js:1636 |  |
 | 171 | Range | संभावित तारीखें | App.js:1639 |  |
-| 172 | Confidence | भरोसा | App.js:1646 |  |
+| 172 | Confidence | विश्वसनीयता | App.js:1646 |  |
 | 173 | {level} ({percentage}%) | {level} ({percentage}%) | App.js:1648 |  |
 | 174 | Data Quality | डेटा की गुणवत्ता | App.js:1654 |  |
 | 175 | No insights yet. | अभी कोई इनसाइट नहीं। | App.js:1665 |  |
@@ -274,7 +274,7 @@ Edit the Hindi text in `src/i18n/catalogs/hi.json` (the English sentence is the 
 | 254 | App appearance on this phone | इस फ़ोन पर ऐप का रूप | AppearancePanel.js:57 |  |
 | 255 | App appearance | ऐप का रूप | AppearancePanel.js:58 |  |
 | 256 | Confirm app appearance | ऐप का रूप बदलने की पुष्टि | AppearancePanel.js:79 |  |
-| 257 | The app will appear as “{label}” in your app list; your old home-screen shortcut will disappear. It can take a moment to update, and some launchers need a restart. The app may close once when this changes. | ऐप आपकी ऐप सूची में अंग्रेज़ी नाम “{label}” से दिखेगा; आपका पुराना होम-स्क्रीन शॉर्टकट हट जाएगा। अपडेट होने में कुछ समय लग सकता है, और कुछ लॉन्चर को रीस्टार्ट करना पड़ सकता है। इस बदलाव के दौरान ऐप एक बार बंद हो सकता है। | AppearancePanel.js:81 |  |
+| 257 | The app will appear as “{label}” in your app list; your old home-screen shortcut will disappear. It can take a moment to update, and some launchers need a restart. The app may close once when this changes. | यह ऐप आपकी ऐप सूची में अंग्रेज़ी नाम “{label}” से दिखेगा; आपका पुराना होम-स्क्रीन शॉर्टकट हट जाएगा। अपडेट होने में कुछ समय लग सकता है, और कुछ लॉन्चर को रीस्टार्ट करना पड़ सकता है। इस बदलाव के दौरान ऐप एक बार बंद हो सकता है। | AppearancePanel.js:81 |  |
 | 258 | Change | बदलें | AppearancePanel.js:83 |  |
 | 259 | Done. Look for “{label}” in your app list. You may need to add it to your home screen again. | हो गया। अपनी ऐप सूची में अंग्रेज़ी नाम “{label}” खोजें। हो सकता है आपको इसे दोबारा होम स्क्रीन पर जोड़ना पड़े। | AppearancePanel.js:89 |  |
 | 260 | Couldn't change the app appearance. Nothing was changed. | ऐप का रूप बदला नहीं जा सका। कुछ भी नहीं बदला गया। | AppearancePanel.js:90 |  |
@@ -325,7 +325,7 @@ Edit the Hindi text in `src/i18n/catalogs/hi.json` (the English sentence is the 
 | 305 | Couldn't load your medications. | आपकी दवाएँ लोड नहीं हो सकीं। | DaySheet.js:340 |  |
 | 306 | Loading medications… | दवाएँ लोड हो रही हैं… | DaySheet.js:344 |  |
 | 307 | No medications on your list yet. | आपकी सूची में अभी कोई दवा नहीं है। | DaySheet.js:347 |  |
-| 308 | (archived) | (संग्रहित) | DaySheet.js:352 |  |
+| 308 | (archived) | (संग्रहीत) | DaySheet.js:352 |  |
 | 309 | Manage my list | मेरी सूची प्रबंधित करें | DaySheet.js:355 |  |
 | 310 | Note | नोट | DaySheet.js:361 |  |
 | 311 | Log for {date} | {date} का रिकॉर्ड | DaySheet.js:376 |  |
@@ -354,7 +354,7 @@ Edit the Hindi text in `src/i18n/catalogs/hi.json` (the English sentence is the 
 | 334 | Create my account | मेरा खाता बनाएँ | EmailVerification.js:203 |  |
 | 335 | Google authentication was cancelled or failed | Google प्रमाणीकरण रद्द हो गया या विफल रहा | GoogleCallback.js:51 |  |
 | 336 | No authorization code received | कोई प्राधिकरण कोड प्राप्त नहीं हुआ | GoogleCallback.js:56 |  |
-| 337 | Sign-in could not be verified. Please try again. | साइन इन सत्यापित नहीं हो सका। कृपया दोबारा प्रयास करें। | GoogleCallback.js:64 |  |
+| 337 | Sign-in could not be verified. Please try again. | साइन इन सत्यापित नहीं हो सका। कृपया दोबारा कोशिश करें। | GoogleCallback.js:64 |  |
 | 338 | Authentication failed | प्रमाणीकरण विफल रहा | GoogleCallback.js:79 |  |
 | 339 | Completing authentication... | प्रमाणीकरण पूरा किया जा रहा है... | GoogleCallback.js:89 |  |
 | 340 | Authentication Successful! | प्रमाणीकरण सफल रहा! | GoogleCallback.js:96 |  |
@@ -365,8 +365,8 @@ Edit the Hindi text in `src/i18n/catalogs/hi.json` (the English sentence is the 
 | 345 | Authentication Failed | प्रमाणीकरण विफल रहा | GoogleCallback.js:114 |  |
 | 346 | Enter a medication name. | दवा का नाम लिखें। | MedicationManager.js:21 |  |
 | 347 | Names can be up to {max} characters. | नाम अधिकतम {max} अक्षरों का हो सकता है। | MedicationManager.js:22 |  |
-| 348 | You can keep up to {max} medications. Archive or delete one to add another. | आप अधिकतम {max} दवाएँ रख सकते हैं। नई दवा जोड़ने के लिए किसी एक को संग्रहित करें या हटाएँ। | MedicationManager.js:23 |  |
-| 349 | You can keep up to {max} medications. Remove or archive one first. | आप अधिकतम {max} दवाएँ रख सकते हैं। पहले किसी एक को हटाएँ या संग्रहित करें। | MedicationManager.js:24 |  |
+| 348 | You can keep up to {max} medications. Archive or delete one to add another. | आप अधिकतम {max} दवाएँ रख सकते हैं। नई दवा जोड़ने के लिए किसी एक को संग्रहीत करें या हटाएँ। | MedicationManager.js:23 |  |
+| 349 | You can keep up to {max} medications. Remove or archive one first. | आप अधिकतम {max} दवाएँ रख सकते हैं। पहले किसी एक को हटाएँ या संग्रहीत करें। | MedicationManager.js:24 |  |
 | 350 | Couldn't update your medication list. Nothing was changed — try again. | आपकी दवाओं की सूची अपडेट नहीं हो सकी। कुछ भी नहीं बदला गया — दोबारा कोशिश करें। | MedicationManager.js:26 |  |
 | 351 | ← Back to day | ← दिन पर वापस जाएँ | MedicationManager.js:98 |  |
 | 352 | My medications | मेरी दवाएँ | MedicationManager.js:99 |  |
@@ -376,14 +376,14 @@ Edit the Hindi text in `src/i18n/catalogs/hi.json` (the English sentence is the 
 | 356 | New name for {name} | {name} का नया नाम | MedicationManager.js:115 |  |
 | 357 | Save name | नाम सहेजें | MedicationManager.js:119 |  |
 | 358 | Delete {name}? Past days will no longer show it. | {name} को हटाएँ? पिछले दिनों के रिकॉर्ड में इसका नाम नहीं दिखेगा। | MedicationManager.js:124 |  |
-| 359 | Yes, delete | हाँ, हटाएँ | MedicationManager.js:125, PeriodDelete.js:40 |  |
+| 359 | Yes, delete | हाँ, हटाएँ | MedicationManager.js:125, PeriodDelete.js:39 |  |
 | 360 | Rename {name} | {name} का नाम बदलें | MedicationManager.js:131 |  |
 | 361 | Rename | नाम बदलें | MedicationManager.js:131 |  |
-| 362 | Archive {name} | {name} को संग्रहित करें | MedicationManager.js:132 |  |
-| 363 | Archive | संग्रहित करें | MedicationManager.js:132 |  |
+| 362 | Archive {name} | {name} को संग्रहीत करें | MedicationManager.js:132 |  |
+| 363 | Archive | संग्रहीत करें | MedicationManager.js:132 |  |
 | 364 | Delete {name} | {name} को हटाएँ | MedicationManager.js:133 |  |
 | 365 | Delete | हटाएँ | MedicationManager.js:133 |  |
-| 366 | Archived ({count}) | संग्रहित ({count}) | MedicationManager.js:141 |  |
+| 366 | Archived ({count}) | संग्रहीत ({count}) | MedicationManager.js:141 |  |
 | 367 | Restore {name} | {name} को वापस लाएँ | MedicationManager.js:146 |  |
 | 368 | Restore | वापस लाएँ | MedicationManager.js:146 |  |
 | 369 | Password must be at least 8 characters long | पासवर्ड कम से कम 8 अक्षर का होना चाहिए | PasswordReset.js:36 |  |
@@ -397,10 +397,10 @@ Edit the Hindi text in `src/i18n/catalogs/hi.json` (the English sentence is the 
 | 377 | Confirm Password | पासवर्ड की पुष्टि करें | PasswordReset.js:145 |  |
 | 378 | Confirm new password | नए पासवर्ड की पुष्टि करें | PasswordReset.js:151 |  |
 | 379 | Resetting... | रीसेट हो रहा है... | PasswordReset.js:206 |  |
-| 380 | Could not delete this entry | यह रिकॉर्ड हटाया नहीं जा सका | PeriodDelete.js:19 |  |
-| 381 | Delete this entry | यह रिकॉर्ड हटाएँ | PeriodDelete.js:28 |  |
-| 382 | This entry will be removed from your journey. This can't be undone. | यह रिकॉर्ड आपकी यात्रा से हटा दिया जाएगा। इसे वापस नहीं लाया जा सकता। | PeriodDelete.js:36 |  |
-| 383 | Deleting… | हटाया जा रहा है… | PeriodDelete.js:40, PrivacyPanel.js:92 |  |
+| 380 | Could not delete this entry | यह रिकॉर्ड हटाया नहीं जा सका | PeriodDelete.js:18 |  |
+| 381 | Delete this entry | यह रिकॉर्ड हटाएँ | PeriodDelete.js:27 |  |
+| 382 | This entry will be removed from your journey. This can't be undone. | यह रिकॉर्ड आपकी यात्रा से हटा दिया जाएगा। इसे वापस नहीं लाया जा सकता। | PeriodDelete.js:35 |  |
+| 383 | Deleting… | हटाया जा रहा है… | PeriodDelete.js:39, PrivacyPanel.js:92 |  |
 | 384 | Privacy & data | गोपनीयता और डेटा | PrivacyPanel.js:51 |  |
 | 385 | Withdraw AI consent | एआई सहमति वापस लें | PrivacyPanel.js:54 |  |
 | 386 | Chat and insights currently send your data to third-party AI services. | चैट और इनसाइट्स अभी आपका डेटा तीसरे पक्ष की एआई सेवाओं को भेजते हैं। | PrivacyPanel.js:58 |  |
@@ -453,7 +453,7 @@ Edit the Hindi text in `src/i18n/catalogs/hi.json` (the English sentence is the 
 | 433 | Your period may be a little late. Tap to log or check in. | आपकी माहवारी में थोड़ी देरी हो सकती है। दर्ज करने या चेक-इन के लिए टैप करें। | reminderScheduler.js:40 |  |
 | 434 | Have you logged today? | क्या आपने आज का रिकॉर्ड दर्ज किया? | reminderScheduler.js:41 |  |
 | 435 | Error {status} | त्रुटि {status} | serverMessages.js:9 |  |
-| 436 | Connection problem. Please try again. | कनेक्शन में समस्या आई। कृपया दोबारा प्रयास करें। | serverMessages.js:10 |  |
+| 436 | Connection problem. Please try again. | कनेक्शन में समस्या आई। कृपया दोबारा कोशिश करें। | serverMessages.js:10 |  |
 | 437 | Please review and accept the required consent to continue. | जारी रखने के लिए कृपया आवश्यक सहमति देखें और स्वीकार करें। | serverMessages.js:11 |  |
 | 438 | Email already registered | यह ईमेल पहले से पंजीकृत है | serverMessages.js:19 |  |
 | 439 | Please verify your email before logging in. Check your inbox for the verification link. | लॉग इन करने से पहले कृपया अपना ईमेल सत्यापित करें। सत्यापन लिंक के लिए अपना इनबॉक्स देखें। | serverMessages.js:20 |  |
@@ -469,7 +469,7 @@ Edit the Hindi text in `src/i18n/catalogs/hi.json` (the English sentence is the 
 | 449 | Email is already verified. | ईमेल पहले ही सत्यापित हो चुका है। | serverMessages.js:32 |  |
 | 450 | Verification email sent successfully. | सत्यापन ईमेल सफलतापूर्वक भेज दिया गया। | serverMessages.js:33 |  |
 | 451 | You've reached today's chat limit. It resets at midnight IST. | आज की चैट सीमा पूरी हो चुकी है। यह भारतीय समयानुसार (IST) मध्यरात्रि को रीसेट होती है। | serverMessages.js:35 |  |
-| 452 | Luna is unavailable right now. Please try again in a moment. | Luna अभी उपलब्ध नहीं है। कृपया थोड़ी देर बाद दोबारा प्रयास करें। | serverMessages.js:36 |  |
+| 452 | Luna is unavailable right now. Please try again in a moment. | Luna अभी उपलब्ध नहीं है। कृपया थोड़ी देर बाद दोबारा कोशिश करें। | serverMessages.js:36 |  |
 | 453 | Log at least two periods (about a month apart) so Luna can find your pattern. | कम से कम दो माहवारी दर्ज करें (लगभग एक महीने के अंतर पर), ताकि Luna आपका पैटर्न पहचान सके। | serverMessages.js:38 |  |
 | 454 | No analysis found | कोई विश्लेषण नहीं मिला | serverMessages.js:39 |  |
 | 455 | Type DELETE to confirm account deletion | खाता हटाने की पुष्टि के लिए DELETE लिखें | serverMessages.js:42 | account deletion; "DELETE" stays in Latin because the server expects that exact word |
@@ -479,7 +479,7 @@ Edit the Hindi text in `src/i18n/catalogs/hi.json` (the English sentence is the 
 | 459 | Unknown medication | अज्ञात दवा | serverMessages.js:47 |  |
 | 460 | Medication not found | दवा नहीं मिली | serverMessages.js:49 |  |
 | 461 | You already have a medication with that name | इस नाम की दवा आपकी सूची में पहले से है | serverMessages.js:50 |  |
-| 462 | You can keep up to 30 medications. Remove or archive one first. | आप अधिकतम 30 दवाएँ रख सकते हैं। पहले किसी एक को हटाएँ या संग्रहित करें। | serverMessages.js:51 |  |
+| 462 | You can keep up to 30 medications. Remove or archive one first. | आप अधिकतम 30 दवाएँ रख सकते हैं। पहले किसी एक को हटाएँ या संग्रहीत करें। | serverMessages.js:51 |  |
 | 463 | Period not found | माहवारी का रिकॉर्ड नहीं मिला | serverMessages.js:53 |  |
 | 464 | Period deleted | माहवारी का रिकॉर्ड हटा दिया गया | serverMessages.js:54 |  |
 | 465 | Data consent is required to submit questionnaire | प्रश्नावली जमा करने के लिए डेटा सहमति आवश्यक है | serverMessages.js:57 | consent wording, translated literally |
@@ -521,7 +521,7 @@ Edit the Hindi text in `src/i18n/catalogs/hi.json` (the English sentence is the 
 | 501 | medium flow | रक्तस्राव: मध्यम | symptoms.js:46 |  |
 | 502 | heavy flow | रक्तस्राव: भारी | symptoms.js:47 |  |
 | 503 | {flow} flow | रक्तस्राव: {flow} | symptoms.js:48 |  |
-| 504 | Could not load your privacy settings | आपकी गोपनीयता सेटिंग लोड नहीं हो सकीं | useConsents.js:15 |  |
+| 504 | Could not load your privacy settings | आपकी गोपनीयता सेटिंग लोड नहीं हो सकीं | useConsents.js:14 |  |
 
 ## Flagged for the reviewer
 

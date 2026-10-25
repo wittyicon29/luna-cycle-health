@@ -436,3 +436,54 @@ describe('language sent to the AI endpoints', () => {
     expect(body).toEqual({ question: 'q' });
   });
 });
+
+describe('network failures', () => {
+  afterEach(() => setLanguage('en'));
+  const offline = () => new TypeError('Failed to fetch');
+
+  test('offline during login is a translated connection error, not the browser text', async () => {
+    setLanguage('hi');
+    fetch.mockRejectedValue(offline());
+    const err = await API.auth.login({ email: 'a@b.c', password: 'x' }).catch(e => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err.status).toBe(0);
+    expect(err.rawMessage).toBe('Connection problem. Please try again.');
+    expect(err.message).toBe('कनेक्शन में समस्या आई। कृपया दोबारा कोशिश करें।');
+  });
+
+  test('offline during an authenticated call keeps the session', async () => {
+    localStorage.setItem('access_token', 'tok');
+    localStorage.setItem('refresh_token', 'r1');
+    const expired = jest.fn();
+    window.addEventListener('luna:session-expired', expired);
+    fetch.mockRejectedValue(offline());
+    const err = await API.periods.list('tok').catch(e => e);
+    window.removeEventListener('luna:session-expired', expired);
+    expect(err.message).toBe('Connection problem. Please try again.');
+    expect(err.status).toBe(0);
+    expect(expired).not.toHaveBeenCalled();
+    expect(localStorage.getItem('refresh_token')).toBe('r1');
+  });
+
+  test('offline during the token refresh does not log the user out', async () => {
+    localStorage.setItem('access_token', 'old');
+    localStorage.setItem('refresh_token', 'r1');
+    const expired = jest.fn();
+    window.addEventListener('luna:session-expired', expired);
+    fetch.mockResolvedValueOnce(reply(401, { detail: 'expired' })).mockRejectedValueOnce(offline());
+    const err = await API.periods.list('old').catch(e => e);
+    window.removeEventListener('luna:session-expired', expired);
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err.message).toBe('Connection problem. Please try again.');
+    expect(expired).not.toHaveBeenCalled();
+    expect(localStorage.getItem('refresh_token')).toBe('r1');
+  });
+
+  test('rawMessage keeps the untranslated server text while message is translated', async () => {
+    setLanguage('hi');
+    fetch.mockResolvedValue(reply(422, { detail: 'Date is out of range' }));
+    const err = await API.logs.put('2026-01-01', {}, 'tok').catch(e => e);
+    expect(err.rawMessage).toBe('Date is out of range');
+    expect(err.message).toBe('तारीख सीमा से बाहर है');
+  });
+});

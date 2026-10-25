@@ -27,7 +27,7 @@ jest.mock('@capacitor/local-notifications', () => ({ LocalNotifications: mockLN 
 jest.mock('@capacitor/app', () => ({ App: { addListener: jest.fn() } }));
 jest.mock('./tokenStore', () => ({ ...jest.requireActual('./tokenStore'), getAccessToken: jest.fn(() => 'tok') }));
 
-const { API } = require('./api');
+const { API, ApiError, messageFromDetail } = require('./api');
 const { isNative } = require('./platform');
 const { getAccessToken } = require('./tokenStore');
 const { downloadJson } = require('./download');
@@ -457,7 +457,7 @@ describe('DaySheet in Hindi', () => {
     const { container } = await sheet();
     expect(screen.getByRole('radio', { name: 'बहुत बढ़िया' })).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByLabelText('नींद के घंटे: मान')).toHaveTextContent('7.5 घंटे');
-    expect(container.textContent).toContain('(संग्रहित)');
+    expect(container.textContent).toContain('(संग्रहीत)');
     fireEvent.click(screen.getByRole('button', { name: 'दिन मिटाएँ' }));
     expect(screen.getByText('इस दिन के लिए दर्ज सब कुछ मिटा दें?')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'हाँ, मिटाएँ' })).toBeInTheDocument();
@@ -471,7 +471,8 @@ describe('DaySheet in Hindi', () => {
   });
 
   test('save errors and out-of-range days are Hindi and follow a language switch', async () => {
-    API.logs.put.mockRejectedValue(Object.assign(new Error('Date is out of range'), { status: 422 }));
+    // api.js translates the message but keeps the server's own text in rawMessage, which the day sheet branches on
+    API.logs.put.mockRejectedValue(new ApiError(messageFromDetail('Date is out of range', 422), { status: 422, rawMessage: 'Date is out of range' }));
     const { container } = await sheet();
     fireEvent.click(screen.getByRole('button', { name: 'ऐंठन' }));
     fireEvent.click(screen.getByRole('button', { name: 'सहेजें' }));
@@ -500,9 +501,9 @@ describe('MedicationManager in Hindi', () => {
     expect(screen.getByText('मेरी दवाएँ')).toBeInTheDocument();
     expect(screen.getByLabelText('दवा जोड़ें')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Iron का नाम बदलें' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Iron को संग्रहित करें' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Iron को संग्रहीत करें' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Iron को हटाएँ' })).toBeInTheDocument();
-    expect(screen.getByText('संग्रहित (1)')).toBeInTheDocument();
+    expect(screen.getByText('संग्रहीत (1)')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'OldPill को वापस लाएँ' })).toBeInTheDocument();
     expect(screen.getByText('Iron')).toBeInTheDocument();
     noEnglish(container, [...ALLOW_NAMES, 'OldPill']);
@@ -528,6 +529,16 @@ describe('MedicationManager in Hindi', () => {
     noEnglish(container, [...ALLOW_NAMES, 'OldPill']);
   });
 
+  test('the 30-medications 422 shows the limit explanation in Hindi', async () => {
+    const raw = 'You can keep up to 30 medications. Remove or archive one first.';
+    API.medications.create.mockRejectedValueOnce(new ApiError(messageFromDetail(raw, 422), { status: 422, rawMessage: raw }));
+    manager();
+    fireEvent.change(screen.getByLabelText('दवा जोड़ें'), { target: { value: 'Zinc' } });
+    fireEvent.click(screen.getByRole('button', { name: 'जोड़ें' }));
+    await flush();
+    expect(screen.getByRole('alert')).toHaveTextContent('आप अधिकतम 30 दवाएँ रख सकते हैं।');
+  });
+
   test('a server failure shows the Hindi generic text; a 409 shows the (already translated) server text', async () => {
     API.medications.create.mockRejectedValueOnce(new Error('boom'));
     manager();
@@ -535,7 +546,7 @@ describe('MedicationManager in Hindi', () => {
     fireEvent.click(screen.getByRole('button', { name: 'जोड़ें' }));
     await flush();
     expect(screen.getByRole('alert')).toHaveTextContent('आपकी दवाओं की सूची अपडेट नहीं हो सकी।');
-    API.medications.create.mockRejectedValueOnce(Object.assign(new Error('इस नाम की दवा आपकी सूची में पहले से है'), { status: 409 }));
+    API.medications.create.mockRejectedValueOnce(new ApiError(messageFromDetail('You already have a medication with that name', 409), { status: 409, rawMessage: 'You already have a medication with that name' }));
     fireEvent.click(screen.getByRole('button', { name: 'जोड़ें' }));
     await flush();
     expect(screen.getByRole('alert')).toHaveTextContent('इस नाम की दवा आपकी सूची में पहले से है');

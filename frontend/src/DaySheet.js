@@ -244,7 +244,7 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
       if (mounted.current) setMessage("saved");
       finish(forDate);
     } catch (e) {
-      if (mounted.current) setMessage(e && e.status === 422 && DATE_RANGE_RE.test(e.message || "") ? "dateFail" : "saveFail");
+      if (mounted.current) setMessage(e && e.status === 422 && DATE_RANGE_RE.test(e.rawMessage || "") ? "dateFail" : "saveFail");
     } finally { savingRef.current = false; if (mounted.current) setSaving(false); }
   };
 

@@ -14,9 +14,12 @@ const NO_REFRESH_PREFIXES = [
 ];
 
 export class ApiError extends Error {
-  constructor(message, { status, detail } = {}) {
+  // `message` is shown to the user (translated when created). `rawMessage` is the server's own, untranslated
+  // text: branch on it (with `status`), never on `message`, which is in the app language.
+  constructor(message, { status, detail, rawMessage } = {}) {
     super(message);
     this.name = 'ApiError';
+    this.rawMessage = rawMessage;
     this.status = status;
     this.detail = detail;
     this.code = detail && typeof detail === 'object' && !Array.isArray(detail) ? detail.code : undefined;
@@ -25,17 +28,27 @@ export class ApiError extends Error {
 
 // Fixed server messages come back in the app language; validation text with values and other dynamic
 // details have no catalog entry and stay in English. Errors are translated when created (shown once).
-export function messageFromDetail(detail, status) {
-  if (typeof detail === 'string' && detail) return translateServer(detail);
-  if (Array.isArray(detail) && detail[0] && detail[0].msg) {
-    return translateServer(String(detail[0].msg));
-  }
+// The server's own text for an error detail (English, untranslated), or undefined when there is none.
+export function rawMessageFromDetail(detail) {
+  if (typeof detail === 'string' && detail) return detail;
+  if (Array.isArray(detail) && detail[0] && detail[0].msg) return String(detail[0].msg);
   if (detail && typeof detail === 'object' && !Array.isArray(detail)) {
-    if (detail.code === 'consent_required') return consentRequiredMessage();
-    if (typeof detail.message === 'string') return translateServer(detail.message);
+    if (detail.code === 'consent_required') return undefined;
+    if (typeof detail.message === 'string') return detail.message;
   }
+  return undefined;
+}
+
+export function messageFromDetail(detail, status) {
+  const raw = rawMessageFromDetail(detail);
+  if (raw !== undefined) return translateServer(raw);
+  if (detail && typeof detail === 'object' && !Array.isArray(detail) && detail.code === 'consent_required') return consentRequiredMessage();
   return errorStatusMessage(status);
 }
+
+const CONNECTION_RAW = 'Connection problem. Please try again.';
+// A rejected fetch (offline, DNS, CORS...) becomes a translated error instead of the browser's English text.
+const networkError = () => new ApiError(connectionProblemMessage(), { status: 0, rawMessage: CONNECTION_RAW });
 
 function emit(name, detail) {
   window.dispatchEvent(new CustomEvent(name, { detail }));
@@ -49,7 +62,7 @@ function expireSession() {
 async function toApiError(res) {
   const body = await res.json().catch(() => ({}));
   const detail = body ? body.detail : undefined;
-  const error = new ApiError(messageFromDetail(detail, res.status), { status: res.status, detail });
+  const error = new ApiError(messageFromDetail(detail, res.status), { status: res.status, detail, rawMessage: rawMessageFromDetail(detail) });
   if (res.status === 403 && error.code === 'consent_required') {
     emit('luna:consent-required', { purpose: detail.purpose });
   }
@@ -96,13 +109,18 @@ export async function req(path, opts = {}, token = null, retried = false) {
     ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
     ...opts.headers,
   };
-  const res = await fetch(`${API_BASE}${path}`, { ...opts, headers });
+  let res;
+  try {
+    res = await fetch(`${API_BASE}${path}`, { ...opts, headers });
+  } catch (e) {
+    throw networkError();
+  }
 
   if (res.status === 401 && token && !retried && !NO_REFRESH_PREFIXES.some(p => path.startsWith(p))) {
     const result = await refreshTokens();
     if (result.token) return req(path, opts, result.token, true);
     if (result.rejected) expireSession();
-    else throw new ApiError(connectionProblemMessage(), { status: result.status });
+    else throw new ApiError(connectionProblemMessage(), { status: result.status || 0, rawMessage: CONNECTION_RAW });
   }
   if (!res.ok) throw await toApiError(res);
   return res.json();
