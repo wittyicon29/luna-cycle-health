@@ -1,0 +1,88 @@
+import React from 'react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import RemindersPanel from './RemindersPanel';
+import { isNative } from './platform';
+import { getReminderPermission, requestReminderPermission } from './reminderScheduler';
+import { DEFAULT_PREFS } from './reminderPrefs';
+
+jest.mock('./platform', () => ({ isNative: jest.fn() }));
+jest.mock('./reminderScheduler', () => ({ getReminderPermission: jest.fn(), requestReminderPermission: jest.fn() }));
+
+const ON = { ...DEFAULT_PREFS, periodExpected: { ...DEFAULT_PREFS.periodExpected, enabled: true }, dailyLog: { ...DEFAULT_PREFS.dailyLog, enabled: true } };
+
+beforeEach(() => {
+  isNative.mockReturnValue(true);
+  getReminderPermission.mockResolvedValue('granted');
+  requestReminderPermission.mockResolvedValue('granted');
+});
+
+async function setup(prefs = DEFAULT_PREFS) {
+  const onChange = jest.fn();
+  const utils = render(<RemindersPanel prefs={prefs} onChange={onChange} />);
+  await waitFor(() => expect(getReminderPermission).toHaveBeenCalled());
+  await Promise.resolve();
+  return { onChange, ...utils };
+}
+
+test('renders nothing on web', async () => {
+  isNative.mockReturnValue(false);
+  const { container } = await (async () => render(<RemindersPanel prefs={DEFAULT_PREFS} onChange={() => {}} />))();
+  expect(container).toBeEmptyDOMElement();
+});
+
+test('shows toggles, wording switch and caption without fertility words', async () => {
+  const { container } = await setup();
+  expect(screen.getByLabelText('Period expected soon')).toBeInTheDocument();
+  expect(screen.getByLabelText('Daily check-in nudge')).toBeInTheDocument();
+  expect(screen.getByLabelText('Late period check-in')).toBeInTheDocument();
+  expect(screen.getByLabelText('Show details in notifications')).toBeInTheDocument();
+  expect(screen.getByText('Reminders arrive within a few minutes of the set time.')).toBeInTheDocument();
+  expect(screen.getByText(/details stay hidden while your phone is locked/i)).toBeInTheDocument();
+  expect(container.textContent).not.toMatch(/ovulat|fertil|pregnan/i);
+});
+
+test('granted permission enables directly', async () => {
+  const { onChange } = await setup();
+  fireEvent.click(screen.getByLabelText('Daily check-in nudge'));
+  await waitFor(() => expect(onChange).toHaveBeenCalled());
+  expect(onChange.mock.calls[0][0].dailyLog.enabled).toBe(true);
+  expect(requestReminderPermission).not.toHaveBeenCalled();
+});
+
+test('prompt permission requests first; denied does not enable', async () => {
+  getReminderPermission.mockResolvedValue('prompt');
+  requestReminderPermission.mockResolvedValue('denied');
+  const { onChange } = await setup();
+  fireEvent.click(screen.getByLabelText('Late period check-in'));
+  expect(await screen.findByText(/notifications are turned off/i)).toHaveTextContent(/Android Settings/);
+  expect(requestReminderPermission).toHaveBeenCalled();
+  expect(onChange).not.toHaveBeenCalled();
+});
+
+test('prompt permission granted enables', async () => {
+  getReminderPermission.mockResolvedValue('prompt');
+  const { onChange } = await setup();
+  fireEvent.click(screen.getByLabelText('Late period check-in'));
+  await waitFor(() => expect(onChange).toHaveBeenCalled());
+  expect(onChange.mock.calls[0][0].lateCheckIn.enabled).toBe(true);
+});
+
+test('time and days-before controls call onChange', async () => {
+  const { onChange } = await setup(ON);
+  fireEvent.change(screen.getByLabelText('Daily check-in reminder time'), { target: { value: '20:30' } });
+  expect(onChange.mock.calls[0][0].dailyLog.time).toBe('20:30');
+  const select = screen.getByLabelText('Days before');
+  expect(Array.from(select.options).map(o => o.value)).toEqual(['1', '2', '3', '4', '5', '6', '7']);
+  fireEvent.change(select, { target: { value: '5' } });
+  expect(onChange.mock.calls[1][0].periodExpected.daysBefore).toBe(5);
+});
+
+test('all interactive controls have a 44px hit area', async () => {
+  const { container } = await setup(ON);
+  const controls = container.querySelectorAll('input[type="checkbox"], input[type="time"], select');
+  expect(controls.length).toBeGreaterThan(4);
+  controls.forEach(el => {
+    const target = el.type === 'checkbox' ? el.closest('label') : el;
+    expect(target.style.minHeight).toBe('44px');
+  });
+});

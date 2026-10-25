@@ -10,6 +10,10 @@ import useConsents from "./useConsents";
 import RequiredConsentScreen from "./RequiredConsentScreen";
 import AiConsentModal from "./AiConsentModal";
 import PrivacyPanel from "./PrivacyPanel";
+import RemindersPanel from "./RemindersPanel";
+import { useReminders } from "./useReminders";
+import { loadPrefs, savePrefs } from "./reminderPrefs";
+import { teardownReminders } from "./reminderScheduler";
 import PeriodDelete from "./PeriodDelete";
 import ProfileBanner from "./ProfileBanner";
 import { localDateString, formatLongDate } from "./localDate";
@@ -1642,7 +1646,7 @@ function AnalysisDrawer({ token, onClose }) {
 }
 
 // ─── PROFILE DRAWER ───────────────────────────────────────────────────────────
-function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent, initialView = "main" }) {
+function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent, reminderPrefs, onReminderPrefsChange, initialView = "main" }) {
   const [view, setView] = useState(initialView);
   const [saving, setSaving] = useState(false); const [err, setErr] = useState(""); const [done, setDone] = useState(false);
   const [age, setAge] = useState(25); const [sex, setSex] = useState("female"); const [wt, setWt] = useState(60); const [ht, setHt] = useState(165);
@@ -1701,6 +1705,8 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
                 <button className="btn btn-g" style={{ justifyContent: "flex-start", gap: ".6rem" }} onClick={() => setView("questionnaire")}><span aria-hidden="true" className="btn-ico">📋</span>Update Health Profile</button>
                 <button className="btn btn-g" style={{ justifyContent: "flex-start", gap: ".6rem", color: "#E07070", borderColor: "rgba(224,112,112,.2)" }} onClick={onLogout}><span aria-hidden="true" className="btn-ico">⏻</span>Sign Out</button>
               </div>
+              <div className="divider" />
+              <RemindersPanel prefs={reminderPrefs} onChange={onReminderPrefsChange} />
               <div className="divider" />
               <PrivacyPanel token={token} consents={consents} onSetConsent={onSetConsent} onAccountDeleted={onLogout} />
             </div>
@@ -1784,6 +1790,8 @@ function JourneyApp({ token, email, onLogout }) {
     catch (e) { } finally { setLoading(false); }
   }, [token]);
   useEffect(() => { loadPeriods(); }, [loadPeriods]);
+  const [reminderPrefs, setReminderPrefs] = useState(loadPrefs);
+  useReminders({ token, periods, prefs: reminderPrefs });
 
   // The API announces a 403 consent_required (e.g. consent withdrawn elsewhere): refresh our copy and ask again.
   useEffect(() => {
@@ -1931,7 +1939,7 @@ function JourneyApp({ token, email, onLogout }) {
       {overlay === "log" && <LogModal token={token} onClose={() => setOverlay(null)} onSave={() => { setOverlay(null); loadPeriods(); }} />}
       {overlay === "chat" && <ChatDrawer token={token} onClose={() => setOverlay(null)} />}
       {overlay === "analysis" && <AnalysisDrawer token={token} onClose={() => setOverlay(null)} />}
-      {overlay === "profile" && <ProfileDrawer token={token} email={email} onClose={() => { setOverlay(null); setForceQuestionnaire(false); refreshProfileStatus(); }} onLogout={onLogout} consents={consents} onSetConsent={setConsent} initialView={forceQuestionnaire ? "questionnaire" : "main"} />}
+      {overlay === "profile" && <ProfileDrawer token={token} email={email} onClose={() => { setOverlay(null); setForceQuestionnaire(false); refreshProfileStatus(); }} onLogout={onLogout} consents={consents} onSetConsent={setConsent} reminderPrefs={reminderPrefs} onReminderPrefsChange={next => setReminderPrefs(savePrefs(next))} initialView={forceQuestionnaire ? "questionnaire" : "main"} />}
       {overlay === "ai-consent" && (
         <AiConsentModal
           onClose={() => { setOverlay(null); setPendingAi(null); }}
@@ -2001,6 +2009,7 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    teardownReminders();
     setToken(null);
     setEmail("");
     clearSession();
