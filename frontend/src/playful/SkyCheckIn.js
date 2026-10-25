@@ -10,6 +10,14 @@ import WeatherIcon from "./WeatherIcon";
 
 const NONE = Symbol("none");
 
+// Comparable form of a log entry's check-in fields (ignores date/updated_at).
+function norm(e) {
+  const p = buildCheckInPayload(e, null);
+  if (e && Number.isInteger(e.mood)) p.mood = e.mood;
+  return JSON.stringify(Object.keys(p).sort().map(k => [k, p[k]]));
+}
+const sameEntry = (a, b) => norm(a) === norm(b);
+
 // One-tap weather check-in. It merges the mood into today's existing log (never overwriting other fields)
 // and serialises writes: one request at a time, later taps collapse into a single queued choice.
 export default function SkyCheckIn({ token, logs, logsReady, onSaved, onAddDetails }) {
@@ -21,6 +29,8 @@ export default function SkyCheckIn({ token, logs, logsReady, onSaved, onAddDetai
   const refs = useRef([]);
   const inFlight = useRef(false);
   const queued = useRef(NONE);
+  const flying = useRef(null);
+  const lastSaved = useRef(null);
   const mounted = useRef(true);
   const shownRef = useRef(shown);
   const latest = useRef({});
@@ -32,26 +42,32 @@ export default function SkyCheckIn({ token, logs, logsReady, onSaved, onAddDetai
   const fromLogs = logsReady && logs && logs[today] ? logs[today].mood ?? null : null;
   useEffect(() => { if (logsReady && !inFlight.current) setMood(fromLogs); }, [logsReady, fromLogs]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function run(value, known) {
+  async function run(value) {
     inFlight.current = true;
+    flying.current = value;
     const day = localDateString();
     const before = shownRef.current;
     let saved = null;
     try {
       setError(false);
-      let entry = known;
-      if (entry === undefined) {
-        const cur = latest.current;
-        if (cur.logsReady) entry = (cur.logs && cur.logs[day]) || null;
-        else {
-          const rows = await API.logs.list(day, day, cur.token);
-          entry = (Array.isArray(rows) ? rows.find(r => r && r.date === day) : null) || null;
-        }
+      const cur = latest.current;
+      let entry;
+      const ls = lastSaved.current;
+      if (ls && ls.date === day && !(cur.logsReady && cur.logs && cur.logs[day] && sameEntry(cur.logs[day], ls.payload))) {
+        entry = { ...ls.payload, date: day }; // our own latest write, until the map's logs catch up
+      } else if (cur.logsReady) {
+        entry = (cur.logs && cur.logs[day]) || null;
+      } else {
+        const rows = await API.logs.list(day, day, cur.token);
+        entry = (Array.isArray(rows) ? rows.find(r => r && r.date === day) : null) || null;
       }
       const payload = buildCheckInPayload(entry, value);
-      setMood(payload.mood ?? null);
+      flying.current = payload.mood ?? null;
+      setMood(flying.current);
+      if (latest.current.animated) setPulse(value);
       await API.logs.put(day, payload, latest.current.token);
-      saved = { ...payload, date: day };
+      saved = payload;
+      lastSaved.current = { date: day, payload };
     } catch (e) {
       setMood(before);
       if (mounted.current) setError(true);
@@ -63,13 +79,16 @@ export default function SkyCheckIn({ token, logs, logsReady, onSaved, onAddDetai
       if (latest.current.animated) tick();
       if (latest.current.onSaved) latest.current.onSaved();
     }
-    // after a failure the queued choice is dropped; after a success it merges into what we just saved
-    if (next !== NONE && saved && mounted.current) run(next, saved);
+    // after a failure the queued choice is dropped; a queued choice means "set", so one equal to what was just saved is skipped
+    if (next !== NONE && saved && mounted.current && next !== (saved.mood ?? null)) run(next);
   }
 
   function select(value) {
-    if (latest.current.animated) setPulse(value);
-    if (inFlight.current) { queued.current = value; return; }
+    if (inFlight.current) {
+      if (value === flying.current) return; // a repeat of the request already under way
+      queued.current = value;
+      return;
+    }
     run(value);
   }
 
@@ -79,7 +98,7 @@ export default function SkyCheckIn({ token, logs, logsReady, onSaved, onAddDetai
     e.preventDefault();
     const cur = shown == null ? (dir > 0 ? -1 : 0) : shown - 1;
     const idx = e.key === "Home" ? 0 : e.key === "End" ? MOODS.length - 1 : (cur + dir + MOODS.length) % MOODS.length;
-    select(idx + 1);
+    if (idx + 1 !== shown) select(idx + 1); // keys set a mood, they never clear it
     if (refs.current[idx]) refs.current[idx].focus();
   };
 

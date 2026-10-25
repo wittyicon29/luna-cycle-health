@@ -78,6 +78,17 @@ test('normal mode: tapped button pulses', () => {
   expect(radio('Okay').className).toMatch(/sky-pulse/);
 });
 
+test('a dropped repeat tap does not pulse', async () => {
+  const d = deferred();
+  API.logs.put.mockReturnValueOnce(d.p);
+  draw();
+  fireEvent.click(radio('Okay'));
+  fireEvent.animationEnd(radio('Okay'));
+  fireEvent.click(radio('Okay'));
+  expect(radio('Okay').className).not.toMatch(/sky-pulse/);
+  await act(async () => { d.resolve({}); await Promise.resolve(); });
+});
+
 test('tapping the selected option removes the mood (empty body is sent)', async () => {
   const { onSaved } = draw({ logs: { [TODAY]: { date: TODAY, mood: 3 } } });
   expect(radio('Okay')).toHaveAttribute('aria-checked', 'true');
@@ -120,19 +131,65 @@ test('a failed PUT reverts the selection and shows the alert', async () => {
   expect(tick).not.toHaveBeenCalled();
 });
 
-test('double tap while in flight sends one request, then applies the last choice once', async () => {
+test('a repeat tap on the in-flight mood is dropped: exactly one PUT', async () => {
   const d = deferred();
   API.logs.put.mockReturnValueOnce(d.p);
   draw();
   fireEvent.click(radio('Good'));
   fireEvent.click(radio('Good'));
   await flush();
-  expect(API.logs.put).toHaveBeenCalledTimes(1);
   await act(async () => { d.resolve({}); await Promise.resolve(); });
   await flush();
-  // the second tap on the same value toggles it off against the saved entry
-  expect(API.logs.put).toHaveBeenCalledTimes(2);
-  expect(API.logs.put).toHaveBeenLastCalledWith(TODAY, {}, 'tok');
+  expect(API.logs.put).toHaveBeenCalledTimes(1);
+  expect(API.logs.put).toHaveBeenCalledWith(TODAY, { mood: 4 }, 'tok');
+  expect(radio('Good')).toHaveAttribute('aria-checked', 'true');
+});
+
+test('A, B, A sends A then B and never a clearing PUT', async () => {
+  const d = deferred();
+  API.logs.put.mockReturnValueOnce(d.p);
+  draw();
+  fireEvent.click(radio('Good'));
+  fireEvent.click(radio('Okay'));
+  fireEvent.click(radio('Good'));
+  await flush();
+  await act(async () => { d.resolve({}); await Promise.resolve(); });
+  await flush();
+  expect(API.logs.put.mock.calls.map(c => c[1])).toEqual([{ mood: 4 }, { mood: 3 }]);
+});
+
+test('A, A, B sends A then B', async () => {
+  const d = deferred();
+  API.logs.put.mockReturnValueOnce(d.p);
+  draw();
+  fireEvent.click(radio('Good'));
+  fireEvent.click(radio('Good'));
+  fireEvent.click(radio('Okay'));
+  await flush();
+  await act(async () => { d.resolve({}); await Promise.resolve(); });
+  await flush();
+  expect(API.logs.put.mock.calls.map(c => c[1])).toEqual([{ mood: 4 }, { mood: 3 }]);
+});
+
+test('right after a save, a stale logs prop does not hide the saved payload', async () => {
+  const stale = { [TODAY]: { date: TODAY, mood: 2, note: 'n', sleep_hours: 7 } };
+  draw({ logs: stale });
+  fireEvent.click(radio('Good'));
+  await flush();
+  fireEvent.click(radio('Good')); // logs prop is still stale (mood 2)
+  await flush();
+  expect(API.logs.put.mock.calls.map(c => c[1])).toEqual([
+    { note: 'n', sleep_hours: 7, mood: 4 },
+    { note: 'n', sleep_hours: 7 },
+  ]);
+});
+
+test('arrow keys landing on the selected option do not clear it', async () => {
+  draw({ logs: { [TODAY]: { date: TODAY, mood: 1 } } });
+  fireEvent.keyDown(radio('Very low'), { key: 'Home' });
+  await flush();
+  expect(API.logs.put).not.toHaveBeenCalled();
+  expect(radio('Very low')).toHaveAttribute('aria-checked', 'true');
 });
 
 test('rapid A, B, C sends A then C', async () => {

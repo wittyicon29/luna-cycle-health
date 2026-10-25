@@ -444,10 +444,10 @@ Edit the Hindi text in `src/i18n/catalogs/hi.json` (the English sentence is the 
 | 424 | Plain ticked-list icon | टिक लगी सूची का सादा आइकन | launcherAppearance.js:36 |  |
 | 425 | Plain folder icon | सादा फ़ोल्डर आइकन | launcherAppearance.js:37 |  |
 | 426 | Mist hasn't lifted here yet. Tap to add a day. / Mist hasn't lifted on these {count} days yet. Tap to add one. | यहाँ की धुंध अभी छँटी नहीं है। कोई दिन जोड़ने के लिए टैप करें। / इन {count} दिनों की धुंध अभी छँटी नहीं है। कोई दिन जोड़ने के लिए टैप करें। | FogLayer.js:65 | "mist" is the fog-of-war metaphor for days not yet logged; the Hindi uses धुंध (mist) and छँटना (to lift/clear), kept gentle and non-judgemental |
-| 427 | Today's sky: {label} | आज का आसमान: {label} | SkyCheckIn.js:91 |  |
-| 428 | How's your sky today? | आज आपका आसमान कैसा है? | SkyCheckIn.js:91 |  |
-| 429 | Add details | विवरण जोड़ें | SkyCheckIn.js:95 |  |
-| 430 | Couldn't save your check-in. Try again. | आपका चेक-इन सहेजा नहीं जा सका। फिर कोशिश करें। | SkyCheckIn.js:118 |  |
+| 427 | Today's sky: {label} | आज का आसमान: {label} | SkyCheckIn.js:110 |  |
+| 428 | How's your sky today? | आज आपका आसमान कैसा है? | SkyCheckIn.js:110 |  |
+| 429 | Add details | विवरण जोड़ें | SkyCheckIn.js:114 |  |
+| 430 | Couldn't save your check-in. Try again. | आपका चेक-इन सहेजा नहीं जा सका। फिर कोशिश करें। | SkyCheckIn.js:137 |  |
 | 431 | Very low | बहुत उदास | weather.js:8 | the five mood words (बहुत उदास / थोड़ा उदास / ठीक / अच्छा / बहुत बढ़िया) are a plain scale |
 | 432 | Low | थोड़ा उदास | weather.js:9 |  |
 | 433 | Okay | ठीक | weather.js:10 |  |
