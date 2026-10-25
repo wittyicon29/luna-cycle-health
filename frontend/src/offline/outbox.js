@@ -144,4 +144,5 @@ export function remove(email, id) {
 }
 
 // In-memory state (locks, loss flags) is not persisted; sign-out or tests reset it.
-export function __resetForTests() { locks.clear(); lossFlags.clear(); }
+export function resetMemory() { locks.clear(); lossFlags.clear(); }
+export const __resetForTests = resetMemory;
