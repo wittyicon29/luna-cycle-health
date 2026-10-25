@@ -42,7 +42,7 @@ test('the dock has exactly five tabs and no round log button', async () => {
 test('the floating Log period button opens the log modal', async () => {
   const { container } = setup([{ id: 1, start_date: '2026-10-01', end_date: '2026-10-05' }]);
   const fab = await screen.findByRole('button', { name: /Log period/ });
-  expect(fab.className).toBe('log-fab');
+  expect(fab.classList.contains('log-fab')).toBe(true);
   expect(container.querySelector('.j-canvas').contains(fab)).toBe(true);
   expect(container.querySelector('.dock').contains(fab)).toBe(false);
   userEvent.click(fab);

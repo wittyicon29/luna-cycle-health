@@ -318,6 +318,7 @@ body{font-family:'Outfit','Noto Sans Devanagari',sans-serif;background:var(--bg)
 .log-fab{position:absolute;right:14px;bottom:14px;z-index:20;display:flex;align-items:center;gap:.4rem;min-height:44px;padding:0 1.1rem 0 .9rem;border:none;border-radius:999px;background:#FF6B8A;color:#fff;font-family:'Outfit','Noto Sans Devanagari',sans-serif;font-size:.85rem;font-weight:600;cursor:pointer;user-select:none;transition:transform .2s}
 .log-fab:hover{transform:scale(1.05)}
 .log-fab:active{transform:scale(.96)}
+.log-fab:focus-visible{outline:2px solid var(--cream);outline-offset:2px}
 .log-fab svg{flex-shrink:0}
 
 /* OVERLAY / DRAWER */
@@ -915,7 +916,7 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
           <button type="button" className="btn btn-p" onClick={e => { e.stopPropagation(); onLogPeriod(); }}>{t("Log a period")}</button>
         </div>
       )}
-      {!(periods.length === 0 && onLogPeriod) && onLogPeriod && (
+      {onLogPeriod && periods.length > 0 && (
         <button type="button" className="log-fab" onClick={e => { e.stopPropagation(); onLogPeriod(); }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14" /></svg>
           {t("Log period")}
