@@ -180,7 +180,7 @@ describe('Hindi audit: no English left on the main screens', () => {
   });
 
   test('TodayCard, collapsed and expanded with the profile prompt', async () => {
-    const { container } = render(<TodayCard token="tok" logs={{}} logsReady onSaved={jest.fn()} onAddDetails={jest.fn()} onShownChange={jest.fn()}
+    const { container } = render(<TodayCard token="tok" logs={{}} logsReady onSaved={jest.fn()} onAddDetails={jest.fn()}
       cycleDay={12} daysToNext={16} avgCycle={28} periodsCount={3} phaseName="ओव्यूलेशन" phaseColor="#aaa"
       profilePrompt={{ onStart: jest.fn(), onLater: jest.fn() }} />);
     await flush();

@@ -27,11 +27,22 @@ export default function TodayCard({ token, logs, logsReady, onSaved, onAddDetail
 
   const parts = [];
   if (cycleDay && typeof phaseName === "string" && phaseName) parts.push(t("Day {day} · {phase}", { day: cycleDay, phase: phaseName }));
-  if (Number.isFinite(daysToNext)) parts.push(`${t("Next in")} ${t("{days}d", { days: daysToNext })}`);
   if (mood != null) parts.push(t("Today's sky: {label}", { label: moodLabel(mood - 1) }));
+  if (Number.isFinite(daysToNext)) parts.push(`${t("Next in")} ${t("{days}d", { days: daysToNext })}`);
 
   return (
     <div className="today-card" data-open={open ? "true" : "false"} ref={root}>
+      <div className="today-sum" onClick={() => setOpen(true)}>{parts.join(" · ")}</div>
+      <div className="today-row">
+        <div className="today-sky">
+          <SkyCheckIn compact token={token} logs={logs} logsReady={logsReady} onSaved={onSaved} onAddDetails={onAddDetails} onShownChange={setMood} />
+        </div>
+        <button ref={chev} type="button" className="today-chev" aria-expanded={open} aria-controls={open ? panelId : undefined}
+          aria-label={open ? t("Hide today's details") : t("Show today's details")} onClick={() => setOpen(o => !o)}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"
+            style={{ transform: open ? "rotate(180deg)" : "none", transition: animated ? "transform .2s" : undefined }}><path d="M6 15l6-6 6 6" /></svg>
+        </button>
+      </div>
       {open && (
         <div id={panelId} className="today-panel" role="region" aria-label={t("Today's details")}>
           {/* i18n-note: "Next in" is shown as अगली माहवारी above "N दिन"; the label is long for a five-column strip, check the layout */}
@@ -44,20 +55,9 @@ export default function TodayCard({ token, logs, logsReady, onSaved, onAddDetail
             <div className="st-item"><div className="st-val st-val-phase" style={{ color: phaseColor, lineHeight: 1.2, fontFamily: "'Outfit','Noto Sans Devanagari',sans-serif" }}>{phaseName}</div><div className="st-lbl">{t("Phase")}</div></div>
           </div>
           <button type="button" className="btn btn-g" style={{ minHeight: 44 }} onClick={() => { onAddDetails(); close(false); }}>{t("Add details")}</button>
-          {profilePrompt && <ProfileBanner onStart={profilePrompt.onStart} onLater={profilePrompt.onLater} />}
+          {profilePrompt && <ProfileBanner onStart={() => { close(false); profilePrompt.onStart(); }} onLater={() => { profilePrompt.onLater(); close(true); }} />}
         </div>
       )}
-      <div className="today-sum">{parts.join(" · ")}</div>
-      <div className="today-row">
-        <div className="today-sky">
-          <SkyCheckIn compact token={token} logs={logs} logsReady={logsReady} onSaved={onSaved} onAddDetails={onAddDetails} onShownChange={setMood} />
-        </div>
-        <button ref={chev} type="button" className="today-chev" aria-expanded={open} aria-controls={open ? panelId : undefined}
-          aria-label={open ? t("Hide today's details") : t("Show today's details")} onClick={() => setOpen(o => !o)}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"
-            style={{ transform: open ? "rotate(180deg)" : "none", transition: animated ? "transform .2s" : undefined }}><path d="M6 15l6-6 6 6" /></svg>
-        </button>
-      </div>
     </div>
   );
 }

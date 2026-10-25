@@ -248,7 +248,7 @@ body{font-family:'Outfit','Noto Sans Devanagari',sans-serif;background:var(--bg)
 .loading-c{display:flex;align-items:center;justify-content:center;gap:.75rem;padding:3rem;color:var(--muted);font-size:.78rem}
 
 /* TOPBAR */
-.topbar{height:48px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 .75rem;background:#0F081A;backdrop-filter:blur(12px);border-bottom:1px solid var(--border);z-index:20}
+.topbar{height:48px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 .75rem;background:#0F081A;border-bottom:1px solid var(--border);z-index:20}
 .tlogo{font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;font-size:1.35rem;font-weight:500;color:var(--cream);letter-spacing:.02em;display:flex;align-items:center;gap:.5rem}
 .tlogo .m{display:inline-block;animation:moonFloat 4s ease-in-out infinite}
 .phase-pill{display:flex;align-items:center;gap:.4rem;padding:.28rem .7rem;border-radius:100px;font-size:.72rem;font-weight:500;letter-spacing:.03em;border:1px solid;white-space:nowrap;transition:all .4s;min-width:0;max-width:100%}
@@ -316,7 +316,7 @@ body{font-family:'Outfit','Noto Sans Devanagari',sans-serif;background:var(--bg)
 .st-lbl{font-size:.58rem;color:#7A5C90;text-transform:uppercase;letter-spacing:.1em;margin-top:2px;font-weight:500}
 .vh{position:absolute !important;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 .today-card{position:relative;flex-shrink:0;background:#120A22;border-top:1px solid var(--border);padding:4px 8px 2px;min-width:0}
-.today-sum{font-size:.68rem;color:var(--muted);height:16px;line-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.today-sum{cursor:pointer;font-size:.68rem;color:var(--muted);height:16px;line-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .today-row{display:flex;align-items:center;gap:4px;min-width:0}
 .today-sky{flex:1;min-width:0}
 .today-chev{position:relative;flex-shrink:0;width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;color:var(--muted);cursor:pointer;border-radius:8px}
@@ -328,15 +328,15 @@ body{font-family:'Outfit','Noto Sans Devanagari',sans-serif;background:var(--bg)
 .today-sky .sky-btn.on{border-color:#FFC84A}
 
 /* DOCK */
-.dock{height:56px;flex-shrink:0;background:var(--s1);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-around;padding:0 .25rem;z-index:20}
-.dk{flex:1;min-width:0;font-family:'Outfit','Noto Sans Devanagari',sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;padding:.25rem .25rem;border-radius:8px;transition:color .2s,background-color .2s;user-select:none;min-height:44px;background:transparent;border:none;color:var(--muted)}
+.dock{height:56px;flex-shrink:0;background:var(--s1);border-top:1px solid var(--border);display:flex;align-items:stretch;justify-content:space-around;padding:0 .25rem;z-index:20}
+.dk{flex:1;min-width:0;font-family:'Outfit','Noto Sans Devanagari',sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:7px;cursor:pointer;padding:8px .25rem 0;border-radius:8px;transition:color .2s,background-color .2s;user-select:none;min-height:44px;background:transparent;border:none;color:var(--muted)}
 .dk:hover{color:var(--muted-h);background:var(--s2)}
 .dk.on{color:var(--cream)}
 .dk .di{position:relative;display:flex;transition:transform .2s}
-.dk.on .di::after{content:"";position:absolute;left:50%;bottom:-5px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:#FF6B8A}
+.dk.on .di::after{content:"";position:absolute;left:50%;bottom:-4px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:#FF6B8A}
 .dk:hover .di{transform:translateY(-2px)}
 .dk .dl{font-size:.58rem;font-weight:500;letter-spacing:.05em;text-transform:uppercase}
-@media(max-width:340px){.dk .dl{font-size:.54rem;letter-spacing:.02em}.dk{padding:.25rem .15rem}}
+@media(max-width:340px){.dk .dl{font-size:.54rem;letter-spacing:.02em}.dk{padding:8px .15rem 0}}
 .log-fab{position:absolute;right:14px;bottom:14px;z-index:20;display:flex;align-items:center;gap:.4rem;min-height:44px;padding:0 1.1rem 0 .9rem;border:none;border-radius:999px;background:#FF6B8A;color:#fff;font-family:'Outfit','Noto Sans Devanagari',sans-serif;font-size:.85rem;font-weight:600;cursor:pointer;user-select:none;transition:transform .2s}
 .log-fab:hover{transform:scale(1.05)}
 .log-fab:active{transform:scale(.96)}

@@ -90,8 +90,9 @@ test('profile prompt appears in the panel only when profilePrompt is set; Start/
   const banner = screen.getByRole('region', { name: /Health profile/ });
   expect(panelQ()).toContainElement(banner);
   await userEvent.click(within(banner).getByRole('button', { name: 'Start' }));
-  await userEvent.click(within(banner).getByRole('button', { name: 'Later' }));
   expect(onStart).toHaveBeenCalledTimes(1);
+  await userEvent.click(chevron());
+  await userEvent.click(within(screen.getByRole('region', { name: /Health profile/ })).getByRole('button', { name: 'Later' }));
   expect(onLater).toHaveBeenCalledTimes(1);
 });
 
@@ -130,7 +131,7 @@ test('a pending profile prompt leaves the chevron unflagged (the avatar carries 
   const { container } = render(<TodayCard {...base} profilePrompt={{ onStart: jest.fn(), onLater: jest.fn() }} />);
   const c = screen.getByRole('button', { name: /Show today's details/ });
   expect(c).not.toHaveAttribute('aria-describedby');
-  expect(container.querySelector('.today-dot')).toBeNull();
+  expect(container.querySelector('.today-card [class*="dot"]')).toBeNull();
 });
 
 test('NaN daysToNext and missing phaseName never print NaN or undefined', async () => {
@@ -138,4 +139,42 @@ test('NaN daysToNext and missing phaseName never print NaN or undefined', async 
   expect(container.querySelector('.today-sum').textContent).toBe('');
   await userEvent.click(chevron());
   expect(container.textContent).not.toMatch(/NaN|undefined/);
+});
+
+test('Tab from the chevron lands on Add details in the open panel', async () => {
+  render(<TodayCard {...base} />);
+  await userEvent.click(chevron());
+  chevron().focus();
+  userEvent.tab();
+  expect(screen.getByRole('button', { name: 'Add details' })).toHaveFocus();
+});
+
+test('profile Start closes the panel without refocusing; Later closes and focuses the chevron', async () => {
+  const onStart = jest.fn(), onLater = jest.fn();
+  render(<TodayCard {...base} profilePrompt={{ onStart, onLater }} />);
+  await userEvent.click(chevron());
+  await userEvent.click(screen.getByRole('button', { name: 'Start' }));
+  expect(onStart).toHaveBeenCalledTimes(1);
+  expect(panelQ()).toBeNull();
+  expect(chevron()).not.toHaveFocus();
+  await userEvent.keyboard('{Escape}');
+  expect(chevron()).not.toHaveFocus();
+  await userEvent.click(chevron());
+  await userEvent.click(screen.getByRole('button', { name: 'Later' }));
+  expect(onLater).toHaveBeenCalledTimes(1);
+  expect(panelQ()).toBeNull();
+  expect(chevron()).toHaveFocus();
+});
+
+test('tapping the summary expands the card', async () => {
+  const { container } = render(<TodayCard {...base} />);
+  await userEvent.click(container.querySelector('.today-sum'));
+  expect(chevron()).toHaveAttribute('aria-expanded', 'true');
+});
+
+test('summary puts the mood before "Next in"', async () => {
+  const { container } = render(<TodayCard {...base} />);
+  await act(async () => { fireEvent.click(screen.getByRole('radio', { name: 'Good' })); });
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  expect(container.querySelector('.today-sum').textContent).toBe("Day 26 · Luteal · Today's sky: Good · Next in 4d");
 });

@@ -75,7 +75,8 @@ test('the profile prompt is hidden when collapsed, shown expanded, flagged on th
   await waitFor(() => expect(screen.queryByText(BANNER)).toBeNull());
   expect(avatar.parentElement.querySelector('.avatar-dot')).toBeNull();
   expect(avatar).not.toHaveAccessibleDescription('Profile incomplete');
-  expect(container.querySelector('.today-dot')).toBeNull();
+  expect(screen.getByRole('button', { name: /today's details/i })).not.toHaveAttribute('aria-describedby');
+  expect(container.querySelector('.today-card [class*="dot"]')).toBeNull();
 });
 
 const flush = async () => { for (let i = 0; i < 3; i += 1) await act(async () => {}); };

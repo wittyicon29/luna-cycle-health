@@ -186,8 +186,8 @@ Edit the Hindi text in `src/i18n/catalogs/hi.json` (the English sentence is the 
 | 166 | 5–15 seconds | 5–15 सेकंड | App.js:1685 |  |
 | 167 | Overview | सारांश | App.js:1697 |  |
 | 168 | Needs 3+ cycles for a score | स्कोर के लिए 3+ चक्र ज़रूरी हैं | App.js:1718 |  |
-| 169 | Avg Cycle | औसत चक्र | App.js:1721, TodayCard.js:42 |  |
-| 170 | {days}d | {days} दिन | App.js:1721, TodayCard.js:30, TodayCard.js:41 |  |
+| 169 | Avg Cycle | औसत चक्र | App.js:1721, TodayCard.js:53 |  |
+| 170 | {days}d | {days} दिन | App.js:1721, TodayCard.js:31, TodayCard.js:52 |  |
 | 171 | Regularity | नियमितता | App.js:1722 |  |
 | 172 | Next Period | अगली माहवारी | App.js:1726 |  |
 | 173 | Range | संभावित तारीखें | App.js:1729 |  |
@@ -286,7 +286,7 @@ Edit the Hindi text in `src/i18n/catalogs/hi.json` (the English sentence is the 
 | 266 | Couldn't load your logs. Tap Retry. | आपके रिकॉर्ड लोड नहीं हो सके। “दोबारा कोशिश करें” दबाएँ। | CalendarScreen.js:100 |  |
 | 267 | Period | माहवारी | CalendarScreen.js:128 |  |
 | 268 | Expected period | अनुमानित माहवारी | CalendarScreen.js:129 |  |
-| 269 | Logged | दर्ज | CalendarScreen.js:130, TodayCard.js:43 |  |
+| 269 | Logged | दर्ज | CalendarScreen.js:130, TodayCard.js:54 |  |
 | 270 | Flow | रक्तस्राव | CalendarScreen.js:131, DaySheet.js:314 |  |
 | 271 | Log today | आज दर्ज करें | CalendarScreen.js:133 |  |
 | 272 | I agree to the {terms} and {privacy}. | मैं {terms} और {privacy} से सहमत हूँ। | ConsentCheckboxes.js:20 |  |
@@ -430,14 +430,14 @@ Edit the Hindi text in `src/i18n/catalogs/hi.json` (the English sentence is the 
 | 410 | Could not save your data on this device. | आपका डेटा इस डिवाइस पर सहेजा नहीं जा सका। | download.js:52 |  |
 | 411 | Could not open the share sheet to save your data. | डेटा सहेजने के लिए शेयर मेन्यू नहीं खुल सका। | download.js:60 |  |
 | 412 | Day {day} · {phase} | दिन {day} · {phase} | TodayCard.js:29 |  |
-| 413 | Next in | अगली माहवारी | TodayCard.js:30, TodayCard.js:41 |  |
-| 414 | Today's sky: {label} | आज का आसमान: {label} | TodayCard.js:31, SkyCheckIn.js:99 |  |
-| 415 | Today's details | आज का ब्यौरा | TodayCard.js:36 |  |
-| 416 | Cycle Day | चक्र का दिन | TodayCard.js:40 |  |
-| 417 | Phase | चरण | TodayCard.js:44 |  |
-| 418 | Add details | विवरण जोड़ें | TodayCard.js:46, SkyCheckIn.js:103 |  |
-| 419 | Hide today's details | आज का ब्यौरा छिपाएँ | TodayCard.js:56 |  |
-| 420 | Show today's details | आज का ब्यौरा दिखाएँ | TodayCard.js:56 |  |
+| 413 | Today's sky: {label} | आज का आसमान: {label} | TodayCard.js:30, SkyCheckIn.js:99 |  |
+| 414 | Next in | अगली माहवारी | TodayCard.js:31, TodayCard.js:52 |  |
+| 415 | Hide today's details | आज का ब्यौरा छिपाएँ | TodayCard.js:41 |  |
+| 416 | Show today's details | आज का ब्यौरा दिखाएँ | TodayCard.js:41 |  |
+| 417 | Today's details | आज का ब्यौरा | TodayCard.js:47 |  |
+| 418 | Cycle Day | चक्र का दिन | TodayCard.js:51 |  |
+| 419 | Phase | चरण | TodayCard.js:55 |  |
+| 420 | Add details | विवरण जोड़ें | TodayCard.js:57, SkyCheckIn.js:103 |  |
 | 421 | Luna Health | Luna Health | launcherAppearance.js:19 | the product name stays in Latin script, so the translation equals the English text |
 | 422 | Daily Planner | दैनिक प्लानर | launcherAppearance.js:22 |  |
 | 423 | Journal | जर्नल | launcherAppearance.js:23 |  |

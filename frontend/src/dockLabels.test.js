@@ -51,3 +51,10 @@ test('dock CSS is 56px tall with equal-width tabs', () => {
   expect(appSrc).toMatch(/\.dock\{[^}]*height:56px/);
   expect(appSrc).toMatch(/\.dk\{[^}]*flex:1;min-width:0/);
 });
+
+test('dock tabs share one icon baseline and keep the dot clear of the label', () => {
+  expect(appSrc).toMatch(/\.dock\{[^}]*align-items:stretch/);
+  expect(appSrc).toMatch(/\.dk\{[^}]*justify-content:flex-start;gap:7px[^}]*padding:8px/);
+  expect(appSrc).toMatch(/\.dk\.on \.di::after\{[^}]*bottom:-4px/);
+  expect(appSrc).not.toMatch(/\.topbar\{[^}]*backdrop-filter/);
+});
