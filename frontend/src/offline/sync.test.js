@@ -736,3 +736,59 @@ describe('engines, flights and sign-out', () => {
     expect(server.calls).toEqual([]);
   });
 });
+
+describe('review fixes', () => {
+  test('returning to the app (visibilitychange) forces items waiting on the network', async () => {
+    const sync = make();
+    await outbox.enqueue(E, pcreate('c1'));
+    server.failNext('periods.create', apiErr(0));
+    expect(await sync.syncNow()).toMatchObject({ stoppedBy: 'network', pending: 1 });
+    sync.start();
+    try {
+      document.dispatchEvent(new Event('visibilitychange'));
+      await waitUntil(async () => (await items()).length === 0);
+      expect(server.periods).toHaveLength(1);
+    } finally { sync.stop(); }
+  });
+
+  test('a hung request times out as a network error (default 25 s) and never blocks later runs', async () => {
+    const realCreate = server.api.periods.create;
+    server.api.periods.create = () => new Promise(() => {}); // never settles
+    await outbox.enqueue(E, pcreate('c1'));
+    jest.useFakeTimers();
+    const sync = make();
+    const first = sync.syncNow();
+    let settled = null;
+    first.then(r => { settled = r; });
+    for (let i = 0; i < 50; i += 1) await tick();
+    expect(settled).toBeNull();
+    jest.advanceTimersByTime(24 * SEC);
+    for (let i = 0; i < 50; i += 1) await tick();
+    expect(settled).toBeNull();
+    jest.advanceTimersByTime(1 * SEC);
+    await waitUntil(() => settled !== null);
+    expect(settled).toMatchObject({ synced: 0, stoppedBy: 'network', pending: 1 });
+    const [kept] = await items();
+    expect(kept).toMatchObject({ clientId: 'c1', lastFailure: 'network' });
+    jest.useRealTimers();
+
+    server.api.periods.create = realCreate;
+    expect(await sync.syncNow({ force: true })).toMatchObject({ synced: 1, stoppedBy: null, pending: 0 });
+  });
+
+  test('timeoutMs is injectable', async () => {
+    server.api.logs.list = () => new Promise(() => {});
+    await outbox.enqueue(E, lpatch(D, { mood: 2 }));
+    const r = await make({ timeoutMs: 20 }).syncNow();
+    expect(r).toMatchObject({ stoppedBy: 'network', pending: 1 });
+  });
+
+  test('retireOnSignOut: an engine created before a sign-out never runs again', async () => {
+    const sync = make({ retireOnSignOut: true });
+    await store.clearAll();
+    await outbox.enqueue(E, pcreate('c1'));
+    expect(await sync.syncNow()).toMatchObject({ stoppedBy: 'signed-out', synced: 0 });
+    expect(server.calls).toEqual([]);
+    expect(await make().syncNow()).toMatchObject({ synced: 1 });
+  });
+});

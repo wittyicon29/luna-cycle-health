@@ -102,3 +102,16 @@ test('hasSlice tells an empty cached logs map from nothing cached', async () => 
   expect(await snapshot.hasSlice(E, 'periods')).toBe(false);
   expect(await snapshot.hasSlice(E, 'nope')).toBe(false);
 });
+
+test('updateSlice is one serial read-modify-write: a racing saveSlice is not lost', async () => {
+  await snapshot.saveSlice(E, 'periods', [{ id: 'a' }]);
+  const u1 = snapshot.updateSlice(E, 'periods', cur => [...cur, { id: 'b' }]);
+  const s1 = snapshot.saveSlice(E, 'periods', [{ id: 'a' }, { id: 'c' }]);
+  const u2 = snapshot.updateSlice(E, 'periods', cur => [...cur, { id: 'd' }]);
+  await Promise.all([u1, s1, u2]);
+  expect((await snapshot.loadSnapshot(E)).periods).toEqual([{ id: 'a' }, { id: 'c' }, { id: 'd' }]);
+  expect(await snapshot.updateSlice(E, 'periods', () => undefined)).toBe(false);
+  expect(await snapshot.updateSlice(E, 'consents', cur => (cur === null ? { x: 1 } : cur))).toBe(true);
+  expect((await snapshot.loadSnapshot(E)).consents).toEqual({ x: 1 });
+  expect(await snapshot.updateSlice(E, 'logs', () => ({}))).toBe(false);
+});

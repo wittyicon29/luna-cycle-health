@@ -8,6 +8,7 @@ import { createSync, onSignOut } from './sync';
 import { periodsWithPending, logsWithPending } from './overlay';
 import { applyPatch, entryToPayload } from './patch';
 import { createStatus, webStatus } from './status';
+import { timedApi, DEFAULT_TIMEOUT_MS } from './timeout';
 
 // The calls the screens make for periods, day logs, medications, consents and auth status, with the same names and
 // result shapes as `API`. Native: online results are cached (encrypted) and returned overlaid with queued changes; a
@@ -34,6 +35,25 @@ const withoutId = payload => {
   const { id, ...rest } = payload || {}; // eslint-disable-line no-unused-vars
   return rest;
 };
+const DAY_MS = 24 * 60 * 60 * 1000;
+const dayNumber = ymd => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || ''));
+  return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) / DAY_MS : null;
+};
+// Same rule as the server: days since the previous period's start, null for the first. Newest first, like the API.
+function withCycleLengths(list) {
+  const asc = byStartDesc(list).reverse();
+  let prev = null;
+  const out = asc.map(p => {
+    if (!p || typeof p !== 'object') return p;
+    const day = dayNumber(p.start_date);
+    const next = { ...p, cycle_length: day !== null && prev !== null ? day - prev : null };
+    if (day !== null) prev = day;
+    return next;
+  });
+  return out.reverse();
+}
+class BadResponse extends Error {}
 const dropInfo = (item, reason) => {
   const info = { kind: item.kind };
   if (item.kind !== 'period.create' && item.date) info.date = item.date;
@@ -45,7 +65,8 @@ const dropInfo = (item, reason) => {
 // nothing is left.
 async function patchOnline(api, date, patch, token) {
   const rows = await api.logs.list(date, date, token);
-  const entry = (Array.isArray(rows) ? rows.find(r => r && r.date === date) : null) || null;
+  if (!Array.isArray(rows)) throw new BadResponse('unexpected logs response'); // never PUT over an unknown day
+  const entry = rows.find(r => r && r.date === date) || null;
   const payload = applyPatch(entry, patch);
   if (isEmpty(payload)) {
     await api.logs.remove(date, token);
@@ -80,15 +101,22 @@ function createWebOffline(api) {
   return { data, sync, status: webStatus, startSync: sync.start, stopSync: sync.stop, wipe: data.wipe, pendingSummary: data.pendingSummary };
 }
 
-function createNativeOffline({ email, getToken, api }) {
+function createNativeOffline({ email, getToken, api, timeoutMs, syncFactory }) {
   let disposed = false;
-  const web = createPassthrough(api);
+  const net = timedApi(api, timeoutMs);
+  const web = createPassthrough(net); // used once retired: straight to the server, nothing stored
+  // Any sign-out (this facade's wipe(), another facade's, or clearLocalUserData()) retires this facade for good.
+  const birth = store.currentGeneration();
+  const retired = () => disposed || store.currentGeneration() !== birth;
   const kicks = new Set();
   let writeChain = Promise.resolve();
   let listening = false;
 
-  const { status, internal } = createStatus({ onAcknowledge: () => { refreshOutbox(store.currentGeneration()); } });
-  const live = gen => !disposed && store.currentGeneration() === gen;
+  const { status, internal: rawStatus } = createStatus({ onAcknowledge: () => { refreshOutbox(store.currentGeneration()); } });
+  // Status updates stop once retired (the state stays frozen until the facade is dropped).
+  const internal = {};
+  Object.keys(rawStatus).forEach(k => { internal[k] = (...args) => (retired() ? undefined : rawStatus[k](...args)); });
+  const live = gen => !retired() && store.currentGeneration() === gen;
 
   // --- status bookkeeping -------------------------------------------------------------------------------------------
   function noteOutbox(count, unreadable) {
@@ -109,24 +137,40 @@ function createNativeOffline({ email, getToken, api }) {
   }
 
   function onSyncResult(r) {
-    if (disposed || !r || r.stoppedBy === 'signed-out') return;
+    if (retired() || !r || r.stoppedBy === 'signed-out') return;
     if (r.stoppedBy === 'network') internal.setNetwork(false);
     else if (r.synced || (r.dropped && r.dropped.length) || r.stoppedBy === 'server') internal.setNetwork(true);
-    internal.setPending(r.pending);
+    refreshOutbox(store.currentGeneration()); // r.pending can be stale when a write landed as the run finished
     internal.addDropped(r.dropped);
     if (r.queueLost) internal.reportLoss();
     if (r.storageError) internal.setError(store.lastStoreError() || new Error('offline storage failed'));
   }
 
-  const engine = createSync({ email, getToken, api, onChange: onSyncResult });
+  const engine = syncFactory({ email, getToken, api, timeoutMs, retireOnSignOut: true, onChange: onSyncResult });
 
-  function kick() {
-    if (disposed) return;
-    const p = Promise.resolve().then(() => engine.syncNow()).catch(() => {});
+  // Starts a background sync. Joining a run that already passed its last claim does not send a change queued just
+  // now, so when the queue still holds items after a clean run, one more run is started.
+  function kick({ force = false, again = true } = {}) {
+    if (retired()) return;
+    const gen = store.currentGeneration();
+    const p = Promise.resolve()
+      .then(() => engine.syncNow(force ? { force: true } : undefined))
+      .then(async r => {
+        const items = await refreshOutbox(gen);
+        if (again && r && r.stoppedBy === null && items.length > (r.pending || 0)) kick({ again: false });
+      })
+      .catch(() => {});
     kicks.add(p);
     p.then(() => kicks.delete(p));
   }
 
+  // A request reached the server: if the last one had failed on the network, retry the queue right away (it may be
+  // waiting on a long backoff while navigator.onLine never changed).
+  function reachable() {
+    if (internal.setNetwork(true)) kick({ force: true });
+  }
+
+  // Waits for the syncs started by this facade's writes and recoveries (kicks) only, not for other triggers.
   async function whenIdle() {
     while (kicks.size) await Promise.all([...kicks]); // eslint-disable-line no-await-in-loop
   }
@@ -144,25 +188,30 @@ function createNativeOffline({ email, getToken, api }) {
     else if (res.date === date) await cache(gen, 'logs', { [date]: res }, range);
   }
 
-  async function cachePeriod(gen, res) {
-    if (!res || typeof res !== 'object' || !res.id || !live(gen)) return;
-    const cached = (await snapshot.loadSnapshot(email)).periods;
-    if (!Array.isArray(cached)) return; // never invent a partial list
-    await cache(gen, 'periods', byStartDesc([...cached.filter(p => !p || p.id !== res.id), res]));
+  async function update(gen, slice, fn) {
+    if (!live(gen)) return;
+    try { await snapshot.updateSlice(email, slice, fn); } catch (e) { /* the cache is best effort */ }
+  }
+
+  // Adds the created period to the cached list (never invents a partial list) and recomputes cycle lengths locally.
+  function cachePeriod(gen, res) {
+    if (!res || typeof res !== 'object' || !res.id) return undefined;
+    return update(gen, 'periods', cached => (Array.isArray(cached)
+      ? withCycleLengths([...cached.filter(p => !p || p.id !== res.id), res]) : undefined));
   }
 
   // Online first; on a network error, `fromCache()` returns the cached view or undefined (then the error is re-thrown).
   async function read(gen, request, fromCache) {
     try {
       const res = await request();
-      internal.setNetwork(true);
+      reachable();
       return { res };
     } catch (e) {
       if (!isNetwork(e)) throw e;
       internal.setNetwork(false);
       if (!live(gen)) throw e;
       const cached = await fromCache();
-      if (cached === undefined) throw e;
+      if (cached === undefined || !live(gen)) throw e; // signed out meanwhile: never hand out wiped data
       return { cached };
     }
   }
@@ -182,7 +231,7 @@ function createNativeOffline({ email, getToken, api }) {
     if (!before.length || !live(gen)) {
       try {
         const res = await send();
-        internal.setNetwork(true);
+        reachable();
         return { res };
       } catch (e) {
         if (!isNetwork(e)) throw e;
@@ -220,9 +269,9 @@ function createNativeOffline({ email, getToken, api }) {
 
   const data = {
     async listPeriods(token) {
-      if (disposed) return web.listPeriods(token);
+      if (retired()) return web.listPeriods(token);
       const gen = store.currentGeneration();
-      const out = await read(gen, () => api.periods.list(token), async () => {
+      const out = await read(gen, () => net.periods.list(token), async () => {
         const { periods } = await snapshot.loadSnapshot(email);
         if (!Array.isArray(periods)) return undefined;
         return periodsWithPending(periods, await refreshOutbox(gen));
@@ -236,9 +285,9 @@ function createNativeOffline({ email, getToken, api }) {
     },
 
     async listLogs(from, to, token) {
-      if (disposed) return web.listLogs(from, to, token);
+      if (retired()) return web.listLogs(from, to, token);
       const gen = store.currentGeneration();
-      const out = await read(gen, () => api.logs.list(from, to, token), async () => {
+      const out = await read(gen, () => net.logs.list(from, to, token), async () => {
         if (!(await snapshot.hasSlice(email, 'logs'))) return undefined;
         const { logs } = await snapshot.loadSnapshot(email);
         return rangeRows(logsWithPending(logs, await refreshOutbox(gen)), from, to);
@@ -253,9 +302,9 @@ function createNativeOffline({ email, getToken, api }) {
     },
 
     async listMedications(token, includeArchived) {
-      if (disposed) return web.listMedications(token, includeArchived);
+      if (retired()) return web.listMedications(token, includeArchived);
       const gen = store.currentGeneration();
-      const out = await read(gen, () => api.medications.list(token, includeArchived), async () => {
+      const out = await read(gen, () => net.medications.list(token, includeArchived), async () => {
         const { medications } = await snapshot.loadSnapshot(email);
         if (!Array.isArray(medications)) return undefined;
         return includeArchived ? medications : medications.filter(m => m && !m.archived);
@@ -267,24 +316,23 @@ function createNativeOffline({ email, getToken, api }) {
         await cache(gen, 'medications', list);
       } else {
         // An active-only list says nothing about archived ones: keep those the cache already has.
-        const cached = (await snapshot.loadSnapshot(email)).medications;
         const ids = new Set(list.map(m => m && m.id));
-        const archived = Array.isArray(cached) ? cached.filter(m => m && m.archived && !ids.has(m.id)) : [];
-        await cache(gen, 'medications', [...list, ...archived]);
+        await update(gen, 'medications', cached => [
+          ...list, ...(Array.isArray(cached) ? cached.filter(m => m && m.archived && !ids.has(m.id)) : [])]);
       }
       return list;
     },
 
-    getConsents(token) { return cachedValue('consents', () => api.consents.get(token), () => web.getConsents(token)); },
-    getAuthStatus(token) { return cachedValue('authStatus', () => api.auth.status(token), () => web.getAuthStatus(token)); },
+    getConsents(token) { return cachedValue('consents', () => net.consents.get(token), () => web.getConsents(token)); },
+    getAuthStatus(token) { return cachedValue('authStatus', () => net.auth.status(token), () => web.getAuthStatus(token)); },
 
     createPeriod(payload, token) {
-      if (disposed) return web.createPeriod(payload, token);
+      if (retired()) return web.createPeriod(payload, token);
       return serialWrite(async () => {
         const gen = store.currentGeneration();
         const id = globalThis.crypto.randomUUID();
         const body = withoutId(payload);
-        const out = await sendOrQueue(gen, () => api.periods.create({ ...body, id }, token),
+        const out = await sendOrQueue(gen, () => net.periods.create({ ...body, id }, token),
           { kind: 'period.create', clientId: id, payload: body });
         if ('res' in out) {
           await cachePeriod(gen, out.res);
@@ -296,12 +344,12 @@ function createNativeOffline({ email, getToken, api }) {
 
     // Day sheet: the full state of the day; an empty payload deletes the day.
     saveLog(date, payload, token) {
-      if (disposed) return web.saveLog(date, payload, token);
+      if (retired()) return web.saveLog(date, payload, token);
       return serialWrite(async () => {
         const gen = store.currentGeneration();
         const body = entryToPayload(payload);
         const item = isEmpty(body) ? { kind: 'log.delete', date } : { kind: 'log.replace', date, payload: body };
-        const out = await sendOrQueue(gen, () => api.logs.put(date, payload, token), item);
+        const out = await sendOrQueue(gen, () => net.logs.put(date, payload, token), item);
         if ('res' in out) {
           await cacheDay(gen, date, out.res);
           return out.res;
@@ -312,12 +360,12 @@ function createNativeOffline({ email, getToken, api }) {
 
     // Check-in: { set, clear } merged into the server's current copy (online) or queued as a patch (offline).
     patchLog(date, patch, token) {
-      if (disposed) return web.patchLog(date, patch, token);
+      if (retired()) return web.patchLog(date, patch, token);
       return serialWrite(async () => {
         const gen = store.currentGeneration();
         const set = (patch && patch.set) || {};
         const clear = (patch && patch.clear) || [];
-        const out = await sendOrQueue(gen, () => patchOnline(api, date, { set, clear }, token), { kind: 'log.patch', date, set, clear });
+        const out = await sendOrQueue(gen, () => patchOnline(net, date, { set, clear }, token), { kind: 'log.patch', date, set, clear });
         if ('res' in out) {
           await cacheDay(gen, date, out.res);
           return out.res;
@@ -327,10 +375,10 @@ function createNativeOffline({ email, getToken, api }) {
     },
 
     removeLog(date, token) {
-      if (disposed) return web.removeLog(date, token);
+      if (retired()) return web.removeLog(date, token);
       return serialWrite(async () => {
         const gen = store.currentGeneration();
-        const out = await sendOrQueue(gen, () => api.logs.remove(date, token), { kind: 'log.delete', date });
+        const out = await sendOrQueue(gen, () => net.logs.remove(date, token), { kind: 'log.delete', date });
         if ('res' in out) {
           await cache(gen, 'logs', {}, { from: date, to: date });
           return out.res;
@@ -340,7 +388,7 @@ function createNativeOffline({ email, getToken, api }) {
     },
 
     async pendingSummary() {
-      if (disposed) return { count: 0 };
+      if (retired()) return { count: 0 };
       return { count: (await outbox.loadOutbox(email)).length };
     },
 
@@ -349,7 +397,7 @@ function createNativeOffline({ email, getToken, api }) {
 
   // Consents and auth status: a cached server answer is reused offline; nothing is ever made up.
   async function cachedValue(slice, request, passthrough) {
-    if (disposed) return passthrough();
+    if (retired()) return passthrough();
     const gen = store.currentGeneration();
     const out = await read(gen, request, async () => {
       const snap = await snapshot.loadSnapshot(email);
@@ -364,7 +412,7 @@ function createNativeOffline({ email, getToken, api }) {
   const onOffline = () => { internal.deviceChanged(); };
 
   function startSync() {
-    if (disposed) return;
+    if (retired()) return;
     engine.start();
     if (!listening) {
       listening = true;
@@ -391,12 +439,18 @@ function createNativeOffline({ email, getToken, api }) {
     const cleared = store.clearAll(); // bumps the store generation now, so queued work is dropped
     outbox.resetMemory();
     kicks.clear();
-    internal.reset();
+    rawStatus.reset();
     try { await cleared; } finally { onSignOut(); }
   }
 
   const sync = {
-    syncNow: opts => engine.syncNow(opts),
+    // Resolves after the pending count was re-read. A retired engine answers 'signed-out' without sending anything.
+    syncNow: async opts => {
+      const gen = store.currentGeneration();
+      const r = await engine.syncNow(opts);
+      await refreshOutbox(gen);
+      return r;
+    },
     start: startSync,
     stop: stopSync,
     whenIdle,
@@ -408,8 +462,10 @@ function createNativeOffline({ email, getToken, api }) {
   return { data, sync, status, startSync, stopSync, wipe, pendingSummary: data.pendingSummary };
 }
 
-export function createOfflineData({ email, getToken, api = API } = {}) {
+export function createOfflineData({
+  email, getToken, api = API, timeoutMs = DEFAULT_TIMEOUT_MS, syncFactory = createSync,
+} = {}) {
   const usable = typeof email === 'string' && email.trim() !== '';
   if (!isNative() || !usable) return createWebOffline(api);
-  return createNativeOffline({ email, getToken, api });
+  return createNativeOffline({ email, getToken, api, timeoutMs, syncFactory });
 }

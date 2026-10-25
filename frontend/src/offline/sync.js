@@ -4,6 +4,7 @@ import * as snapshot from './snapshot';
 import * as store from './store';
 import { applyPatch, entryToPayload } from './patch';
 import { emailKey } from './serial';
+import { timedApi, DEFAULT_TIMEOUT_MS } from './timeout';
 
 // Replays the outbox against the server, oldest item first. Every item is safe to send twice: a period carries its
 // client id (idempotent create) and a day patch is applied to a fresh server read, so a lost response or a crash
@@ -62,8 +63,15 @@ function classify(error, item) {
   return { stop: 'error' };
 }
 
-export function createSync({ email, getToken, now = Date.now, api = API, onChange } = {}) {
+// `timeoutMs`: each request fails as a network error after this long (a hung request must not block the queue).
+// `retireOnSignOut`: the engine stops for good once the store is cleared after it was created (the facade's mode).
+export function createSync({
+  email, getToken, now = Date.now, api = API, onChange, timeoutMs = DEFAULT_TIMEOUT_MS, retireOnSignOut = false,
+} = {}) {
+  const net = timedApi(api, timeoutMs);
+  const birth = store.currentGeneration();
   let disposed = false;
+  const retired = () => disposed || (retireOnSignOut && store.currentGeneration() !== birth);
   let started = false;
   let timer = null;
   let claim = null; // id this engine has claimed in the pass it is running
@@ -72,7 +80,7 @@ export function createSync({ email, getToken, now = Date.now, api = API, onChang
   // One pass over the queue.
   async function pass(gen) {
     const result = emptyResult();
-    const alive = () => !disposed && store.currentGeneration() === gen;
+    const alive = () => !retired() && store.currentGeneration() === gen;
     const guard = () => { if (!alive()) throw new SignedOut(); };
     const token = async () => {
       guard();
@@ -87,13 +95,13 @@ export function createSync({ email, getToken, now = Date.now, api = API, onChang
       const range = { from: date, to: date };
       if (isEmpty(payload)) {
         try {
-          await api.logs.remove(date, await token());
+          await net.logs.remove(date, await token());
         } catch (e) {
           if (!(e instanceof ApiError && e.status === 404)) throw e;
         }
         return () => snapshot.saveSlice(email, 'logs', {}, range);
       }
-      const res = await api.logs.put(date, payload, await token());
+      const res = await net.logs.put(date, payload, await token());
       return async () => {
         if (!res || typeof res !== 'object') return;
         if (res.deleted) await snapshot.saveSlice(email, 'logs', {}, range);
@@ -103,19 +111,18 @@ export function createSync({ email, getToken, now = Date.now, api = API, onChang
 
     async function send(item) {
       if (item.kind === 'period.create') {
-        const res = await api.periods.create({ ...(item.payload || {}), id: item.clientId }, await token());
+        const res = await net.periods.create({ ...(item.payload || {}), id: item.clientId }, await token());
         periodsChanged = true;
         return async () => {
           // Put the created period into the cached list (only when one exists: never invent a partial list).
           if (!res || typeof res !== 'object' || res.id !== item.clientId) return;
-          const cached = (await snapshot.loadSnapshot(email)).periods;
-          if (!Array.isArray(cached)) return;
           guard();
-          await snapshot.saveSlice(email, 'periods', [...cached.filter(p => !p || p.id !== res.id), res]);
+          await snapshot.updateSlice(email, 'periods',
+            cached => (Array.isArray(cached) ? [...cached.filter(p => !p || p.id !== res.id), res] : undefined));
         };
       }
       if (item.kind === 'log.patch') {
-        const rows = await api.logs.list(item.date, item.date, await token());
+        const rows = await net.logs.list(item.date, item.date, await token());
         if (!Array.isArray(rows)) throw new BadResponse('unexpected logs response');
         guard();
         const entry = rows.find(r => r && r.date === item.date) || null;
@@ -193,7 +200,7 @@ export function createSync({ email, getToken, now = Date.now, api = API, onChang
 
       if (periodsChanged && alive()) {
         try {
-          const list = await api.periods.list(await token());
+          const list = await net.periods.list(await token());
           guard();
           if (Array.isArray(list)) await snapshot.saveSlice(email, 'periods', list);
         } catch (e) {
@@ -213,9 +220,9 @@ export function createSync({ email, getToken, now = Date.now, api = API, onChang
 
   const engine = {
     pass,
-    isLive: () => !disposed,
+    isLive: () => !retired(),
     notify(result) {
-      if (disposed || result.stoppedBy === 'signed-out' || typeof onChange !== 'function') return;
+      if (retired() || result.stoppedBy === 'signed-out' || typeof onChange !== 'function') return;
       try { onChange(result); } catch (e) { /* a listener error must not break sync */ }
     },
   };
@@ -270,7 +277,10 @@ export function createSync({ email, getToken, now = Date.now, api = API, onChang
   // `force: true` (reconnect, app resume) lets items waiting only because the connection was down go right away.
   // A call during a run joins it and schedules one follow-up pass; the promise resolves with the combined result.
   function syncNow({ force = false } = {}) {
-    if (disposed) return Promise.resolve(signedOutResult());
+    if (retired()) {
+      if (!disposed) reset();
+      return Promise.resolve(signedOutResult());
+    }
     const gen = store.currentGeneration();
     const key = `${emailKey(email)}|${gen}`;
     let f = flights.get(key);
@@ -288,16 +298,16 @@ export function createSync({ email, getToken, now = Date.now, api = API, onChang
 
   const visible = () => typeof document === 'undefined' || document.visibilityState !== 'hidden';
   const onOnline = () => { syncNow({ force: true }); };
-  const onVisibility = () => { if (visible()) syncNow(); };
+  const onVisibility = () => { if (visible()) syncNow({ force: true }); }; // back in the app: retry right away
   const onTick = async () => {
-    if (disposed || !visible()) return;
+    if (retired() || !visible()) return;
     try {
       if ((await outbox.loadOutbox(email)).length) await syncNow();
     } catch (e) { /* next tick retries */ }
   };
 
   function start() {
-    if (started || disposed) return;
+    if (started || retired()) return;
     started = true;
     window.addEventListener('online', onOnline);
     document.addEventListener('visibilitychange', onVisibility);

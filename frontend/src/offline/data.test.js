@@ -10,6 +10,7 @@ const outbox = require('./outbox');
 const snapshot = require('./snapshot');
 const { resetSyncState } = require('./sync');
 const { createOffline } = require('./index');
+const { OUTBOX_CAP } = require('./outbox');
 
 const E = 'a@x.com';
 const B = 'b@x.com';
@@ -18,6 +19,16 @@ const D2 = '2026-03-02';
 const D3 = '2026-03-03';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const offlineKeys = () => Object.keys(localStorage).filter(k => k.startsWith('luna_offline_'));
+
+const realSetTimeout = setTimeout;
+const tick = () => new Promise(r => realSetTimeout(r, 0));
+async function waitUntil(cond, tries = 5000) {
+  for (let i = 0; i < tries; i += 1) {
+    if (await cond()) return;
+    await tick();
+  }
+  throw new Error('condition not reached');
+}
 
 let server;
 const make = (opts = {}) => createOffline({ email: E, getToken: () => 'tok', api: server.api, ...opts });
@@ -38,7 +49,7 @@ beforeEach(async () => {
   server = makeServer();
 });
 
-afterEach(() => { jest.restoreAllMocks(); });
+afterEach(() => { jest.useRealTimers(); jest.restoreAllMocks(); });
 
 describe('online happy path', () => {
   test('reads make exactly the original request, cache the slice and return the server result', async () => {
@@ -430,7 +441,7 @@ describe('wipe', () => {
     const inFlight = a.data.listPeriods('tok');
     await a.data.wipe();
     release();
-    await inFlight;
+    expect(await inFlight).toEqual(server.periods); // the answer still reaches the caller, it is just not cached
     server.api.periods.list = realList;
 
     await a.data.listPeriods('tok');
@@ -440,6 +451,7 @@ describe('wipe', () => {
     await expect(a.data.saveLog(D1, { mood: 2 }, 'tok')).rejects.toMatchObject({ status: 0 });
     await store.__flush();
     expect(offlineKeys()).toEqual([]);
+    expect(mockData.size).toBe(0);
   });
 });
 
@@ -452,4 +464,216 @@ test('startSync / stopSync add and remove the engine listeners; createOffline do
   expect(add.mock.calls.filter(([n]) => n === 'online').length).toBeGreaterThan(0);
   off.stopSync();
   expect(remove.mock.calls.filter(([n]) => n === 'online').length).toBeGreaterThan(0);
+});
+
+describe('review fixes', () => {
+  test('clearLocalUserData() retires the facade: later calls store nothing and never recreate the vault key', async () => {
+    server.periods = [{ id: 'p1', start_date: '2026-01-01' }];
+    server.consents = { ai_processing: true };
+    const { data, sync, status } = make();
+    await data.listPeriods('tok');
+    await data.getConsents('tok');
+    expect(mockData.size).toBe(1);
+    const before = status.getState();
+
+    require('../session').clearLocalUserData();
+    await store.__flush();
+    expect(mockData.size).toBe(0);
+
+    expect(await data.listPeriods('tok')).toEqual(server.periods);
+    await data.listLogs(D1, D2, 'tok');
+    await data.listMedications('tok', true);
+    await data.getConsents('tok');
+    await data.getAuthStatus('tok');
+    const p = await data.createPeriod({ start_date: '2026-02-01' }, 'tok');
+    expect(p.pending).toBeUndefined();
+    await data.patchLog(D1, { set: { mood: 2 } }, 'tok');
+    server.setOffline(true);
+    await expect(data.saveLog(D2, { mood: 2 }, 'tok')).rejects.toMatchObject({ status: 0 });
+    await expect(data.createPeriod({ start_date: '2026-03-01' }, 'tok')).rejects.toMatchObject({ status: 0 });
+    await expect(data.listPeriods('tok')).rejects.toMatchObject({ status: 0 });
+    expect(await sync.syncNow()).toMatchObject({ stoppedBy: 'signed-out' });
+    expect(await data.pendingSummary()).toEqual({ count: 0 });
+    await sync.whenIdle();
+    await store.__flush();
+    expect(mockData.size).toBe(0);
+    expect(offlineKeys()).toEqual([]);
+    expect(status.getState()).toBe(before); // frozen
+  });
+
+  test("another facade's wipe retires older facades", async () => {
+    server.periods = [{ id: 'p1', start_date: '2026-01-01' }];
+    const a = make();
+    const b = make();
+    await b.wipe();
+    await a.data.listPeriods('tok');
+    server.setOffline(true);
+    await expect(a.data.patchLog(D1, { set: { mood: 1 } }, 'tok')).rejects.toMatchObject({ status: 0 });
+    await store.__flush();
+    expect(offlineKeys()).toEqual([]);
+    expect(mockData.size).toBe(0);
+  });
+
+  test('a hung write times out after 25 s, is queued, and does not block the next write', async () => {
+    server.api.periods.create = () => new Promise(() => {});
+    jest.useFakeTimers();
+    const { data } = make();
+    let first = null;
+    data.createPeriod({ start_date: '2026-02-01' }, 'tok').then(r => { first = r; });
+    let second = null;
+    data.saveLog(D1, { mood: 3 }, 'tok').then(r => { second = r; });
+    for (let i = 0; i < 100; i += 1) await tick();
+    expect(first).toBeNull();
+    jest.advanceTimersByTime(25 * 1000);
+    await waitUntil(() => first !== null);
+    expect(first).toMatchObject({ start_date: '2026-02-01', pending: true });
+    // the second write now waits behind the queued period (ordering), so it is queued too
+    await waitUntil(() => second !== null);
+    expect(second).toEqual({ date: D1, mood: 3, pending: true });
+    jest.useRealTimers();
+    expect((await items()).map(i => i.kind)).toEqual(['period.create', 'log.replace']);
+  });
+
+  test('a hung read times out (injectable timeout) and serves the cache', async () => {
+    server.periods = [{ id: 'p1', start_date: '2026-01-01' }];
+    const { data } = make({ timeoutMs: 20 });
+    await data.listPeriods('tok');
+    server.api.periods.list = () => new Promise(() => {});
+    expect(await data.listPeriods('tok')).toEqual(server.periods);
+  });
+
+  test('recovery: a successful request after a network failure forces the queue even with backoff at the cap', async () => {
+    await outbox.enqueue(E, { kind: 'log.patch', date: D1, set: { mood: 2 }, clear: [] });
+    const [head] = await items();
+    await outbox.markFailed(E, head.id, Date.now() + 15 * 60 * 1000, { network: true });
+    const { data, sync, status } = make();
+    server.setOffline(true); // server unreachable while navigator.onLine stays true
+    await expect(data.listPeriods('tok')).rejects.toMatchObject({ status: 0 });
+    expect(status.getState().online).toBe(false);
+    server.setOffline(false);
+    await data.listPeriods('tok');
+    await sync.whenIdle();
+    expect(await items()).toEqual([]);
+    expect(server.logs[D1]).toMatchObject({ mood: 2 });
+    expect(status.getState()).toMatchObject({ online: true, pendingCount: 0 });
+  });
+
+  test('an offline read racing a wipe throws instead of returning wiped data', async () => {
+    server.periods = [{ id: 'p1', start_date: '2026-01-01' }];
+    const a = make();
+    await a.data.listPeriods('tok');
+    server.setOffline(true);
+    const realGet = Storage.prototype.getItem;
+    let wiping = null;
+    jest.spyOn(Storage.prototype, 'getItem').mockImplementation(function get(k) {
+      const v = realGet.call(this, k);
+      if (!wiping && String(k).endsWith('_snap_periods')) wiping = a.data.wipe();
+      return v;
+    });
+    await expect(a.data.listPeriods('tok')).rejects.toMatchObject({ status: 0 });
+    await wiping;
+    expect(mockData.size).toBe(0);
+    expect(offlineKeys()).toEqual([]);
+  });
+
+  test('online createPeriod merges into the cached list with local cycle lengths; a racing full save is kept', async () => {
+    server.periods = [{ id: 'p1', start_date: '2026-01-01', cycle_length: null }];
+    const { data } = make();
+    await data.listPeriods('tok');
+    const realCreate = server.api.periods.create;
+    server.api.periods.create = async (d, t) => {
+      const res = await realCreate(d, t);
+      snapshot.saveSlice(E, 'periods', [{ id: 'p0', start_date: '2025-12-01', cycle_length: null },
+        { id: 'p1', start_date: '2026-01-01', cycle_length: 31 }]);
+      return res;
+    };
+    const p = await data.createPeriod({ start_date: '2026-02-05' }, 'tok');
+    const cached = (await snapshot.loadSnapshot(E)).periods;
+    expect(cached.map(x => [x.id, x.cycle_length])).toEqual([[p.id, 35], ['p1', 31], ['p0', null]]);
+  });
+
+  test('pendingCount re-reads the queue after a sync instead of trusting the result', async () => {
+    let captured = null;
+    const fakeEngine = opts => {
+      captured = opts;
+      return { syncNow: async () => ({ synced: 0, dropped: [], stoppedBy: null, pending: 0, queueLost: false, storageError: false }), start() {}, stop() {}, reset() {} };
+    };
+    server.setOffline(true);
+    const { data, sync, status } = make({ syncFactory: fakeEngine });
+    await data.createPeriod({ start_date: '2026-02-01' }, 'tok');
+    await sync.whenIdle();
+    expect(status.getState().pendingCount).toBe(1);
+    captured.onChange({ synced: 0, dropped: [], stoppedBy: null, pending: 0, queueLost: false, storageError: false });
+    for (let i = 0; i < 20; i += 1) await tick();
+    expect(status.getState().pendingCount).toBe(1);
+  });
+
+  test('patchLog: a non-array list response is a bad response, nothing is written', async () => {
+    server.api.logs.list = async () => ({});
+    const { data } = make();
+    await expect(data.patchLog(D1, { set: { mood: 2 } }, 'tok')).rejects.toThrow();
+    expect(server.names()).not.toContain('logs.put');
+    expect(await items()).toEqual([]);
+  });
+
+  test('a later persisted write clears lastError', async () => {
+    server.setOffline(true);
+    const { data, status, sync } = make();
+    const spy = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
+    await data.patchLog(D1, { set: { mood: 2 } }, 'tok');
+    expect(status.getState().lastError).toBeInstanceOf(Error);
+    spy.mockRestore();
+    await sync.whenIdle();
+    await data.patchLog(D2, { set: { mood: 3 } }, 'tok');
+    expect(status.getState().lastError).toBeNull();
+    await sync.whenIdle();
+  });
+
+  test("startSync: the facade's own online/offline listeners update status.online", async () => {
+    const { startSync, stopSync, status, sync } = make();
+    startSync();
+    const onLine = jest.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(false);
+    window.dispatchEvent(new Event('offline'));
+    expect(status.getState().online).toBe(false);
+    onLine.mockReturnValue(true);
+    window.dispatchEvent(new Event('online'));
+    expect(status.getState().online).toBe(true);
+    stopSync();
+    await sync.syncNow(); // let the run the online event started finish inside this test
+  });
+
+  test('queue-cap overflow surfaces as reason overflow in status.dropped', async () => {
+    for (let i = 0; i < OUTBOX_CAP; i += 1) {
+      await outbox.enqueue(E, { kind: 'period.create', clientId: `c${i}`, payload: { start_date: '2026-01-01' } });
+    }
+    server.setOffline(true);
+    const { data, status, sync } = make();
+    await data.patchLog(D1, { set: { mood: 2 } }, 'tok');
+    await sync.whenIdle();
+    expect(status.getState().dropped).toEqual([{ kind: 'period.create', reason: 'overflow' }]);
+  });
+
+  test('unsubscribe stops notifications', async () => {
+    server.setOffline(true);
+    const { data, status, sync } = make();
+    const fn = jest.fn();
+    const unsubscribe = status.subscribe(fn);
+    unsubscribe();
+    await data.createPeriod({ start_date: '2026-02-01' }, 'tok');
+    await sync.whenIdle();
+    expect(status.getState().pendingCount).toBe(1);
+    expect(fn).not.toHaveBeenCalled();
+  });
+
+  test('a write queues behind a head waiting in backoff and returns the optimistic result', async () => {
+    await outbox.enqueue(E, { kind: 'log.patch', date: D1, set: { mood: 2 }, clear: [] });
+    const [head] = await items();
+    await outbox.markFailed(E, head.id, Date.now() + 60 * 1000, { network: false });
+    const { data, sync } = make();
+    const p = await data.createPeriod({ start_date: '2026-02-01' }, 'tok');
+    expect(p).toMatchObject({ pending: true });
+    await sync.whenIdle();
+    expect(server.names()).not.toContain('periods.create');
+    expect((await items()).map(i => i.kind)).toEqual(['log.patch', 'period.create']);
+  });
 });

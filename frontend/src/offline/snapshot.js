@@ -61,6 +61,21 @@ export function saveSlice(email, slice, value, range) {
   });
 }
 
+// Read-modify-write of one slice (not 'logs') inside its serial section, so a concurrent saveSlice of the same user
+// cannot be lost in between. `fn(current)` gets the cached value (or null) and returns the next value, or undefined to
+// leave the slice as it is. `fn` must not call any snapshot function (it would wait for itself) and should be quick.
+// Resolves true when the new value was stored.
+export function updateSlice(email, slice, fn) {
+  if (!SLICES.includes(slice) || slice === 'logs') return Promise.resolve(false);
+  const gen = store.currentGeneration();
+  return serial(email, async () => {
+    const rec = await readSlice(email, slice);
+    const next = await fn(rec ? rec.v : null);
+    if (next === undefined) return false;
+    return store.writeChecked(email, nameOf(slice), { v: next, at: Date.now() }, gen);
+  });
+}
+
 // True when the slice has been stored for this user (tells "nothing cached" from an empty cached logs map).
 export function hasSlice(email, slice) {
   if (!SLICES.includes(slice)) return Promise.resolve(false);

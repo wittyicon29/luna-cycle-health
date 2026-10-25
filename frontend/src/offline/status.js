@@ -47,7 +47,12 @@ export function createStatus({ onAcknowledge } = {}) {
       update({ queueLost: false, dropped: [] });
       if (typeof onAcknowledge === 'function') onAcknowledge();
     },
-    setNetwork(ok) { onlineChanged(() => { netOk = !!ok; }); },
+    // Returns true when a request succeeded right after one had failed on the network (a recovery).
+    setNetwork(ok) {
+      const recovered = !netOk && !!ok;
+      onlineChanged(() => { netOk = !!ok; });
+      return recovered;
+    },
     deviceChanged() { onlineChanged(() => {}); },
     setPending(n) { if (Number.isInteger(n) && n >= 0) update({ pendingCount: n }); },
     setError(e) { update({ lastError: e || null }); },
