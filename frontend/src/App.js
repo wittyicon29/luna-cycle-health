@@ -12,6 +12,7 @@ import AiConsentModal from "./AiConsentModal";
 import PrivacyPanel from "./PrivacyPanel";
 import RemindersPanel from "./RemindersPanel";
 import AppearancePanel from "./AppearancePanel";
+import PlayfulSettings from "./playful/PlayfulSettings";
 import LanguageSwitcher from "./i18n/LanguageSwitcher";
 import { t, tn, useLanguage, intlLocale, dateLocale } from "./i18n";
 import { translateServer } from "./serverMessages";
@@ -1873,6 +1874,8 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
                 <button className="btn btn-g" style={{ justifyContent: "flex-start", gap: ".6rem" }} onClick={() => setView("questionnaire")}><span aria-hidden="true" className="btn-ico">📋</span>{t("Update Health Profile")}</button>
                 <button className="btn btn-g" style={{ justifyContent: "flex-start", gap: ".6rem", color: "#E07070", borderColor: "rgba(224,112,112,.2)" }} onClick={onLogout}><span aria-hidden="true" className="btn-ico">⏻</span>{t("Sign Out")}</button>
               </div>
+              <div className="divider" />
+              <PlayfulSettings />
               <div className="divider" />
               <div style={{ display: "flex", flexDirection: "column", gap: ".5rem" }}>
                 <div className="ins-lbl">{t("Language")}</div>
