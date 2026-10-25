@@ -18,6 +18,8 @@ import { loadPrefs, savePrefs } from "./reminderPrefs";
 import { teardownReminders } from "./reminderScheduler";
 import PeriodDelete from "./PeriodDelete";
 import CalendarScreen from "./CalendarScreen";
+import DaySheet from "./DaySheet";
+import { SYMPTOMS_LIST } from "./symptoms";
 import ProfileBanner from "./ProfileBanner";
 import { localDateString, formatLongDate } from "./localDate";
 import { getAccessToken, getEmail, setSession, clearSession } from "./tokenStore";
@@ -317,6 +319,8 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 .drawer{position:fixed;bottom:0;left:0;right:0;background:var(--s1);border-top:1px solid var(--border);border-radius:16px 16px 0 0;z-index:50;display:flex;flex-direction:column;box-shadow:0 -20px 60px rgba(0,0,0,.6);animation:drawIn .35s cubic-bezier(.4,0,.2,1);max-height:90vh}
 @keyframes drawIn{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.drawer-top{z-index:60}
+.o-backdrop-top{z-index:55}
 .drawer-handle{width:36px;height:4px;border-radius:2px;background:rgba(255,255,255,.13);margin:10px auto 0;flex-shrink:0;cursor:pointer}
 .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.5rem .75rem;flex-shrink:0;border-bottom:1px solid var(--border)}
 .drawer-title{font-family:'Cormorant Garamond',serif;font-size:1.4rem;font-weight:500;letter-spacing:.01em}
@@ -810,7 +814,6 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
 }
 
 // ─── JOURNEY MAP ─────────────────────────────────────────────────────────────
-const SYMPTOMS_LIST = ["cramps", "bloating", "headache", "fatigue", "mood swings", "acne", "back pain", "nausea", "tender breasts", "insomnia"];
 const DAY_W = 34, BACK = 90, FWD = 60, TOTAL = BACK + FWD;
 
 function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss, token, onPeriodDeleted, onLogPeriod }) {
@@ -1794,10 +1797,7 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
 function JourneyApp({ token, email, onLogout }) {
   const [periods, setPeriods] = useState([]); const [loading, setLoading] = useState(true);
   const [overlay, setOverlay] = useState(null);
-  // dayDate is read by the day sheet (next task); setLogsVersion is called on save there.
-  // eslint-disable-next-line no-unused-vars
   const [dayDate, setDayDate] = useState(null);
-  // eslint-disable-next-line no-unused-vars
   const [logsVersion, setLogsVersion] = useState(0);
   const [selectedInfo, setSelectedInfo] = useState(null);
   const [showIntro, setShowIntro] = useState(false);
@@ -1823,7 +1823,7 @@ function JourneyApp({ token, email, onLogout }) {
     getAppearance().then(a => { if (alive) setAppearanceState(a); }, () => {});
     return () => { alive = false; };
   }, []);
-  useReminders({ token, periods, prefs: reminderPrefs, appearance });
+  useReminders({ token, periods, prefs: reminderPrefs, appearance, logsVersion });
 
   // The API announces a 403 consent_required (e.g. consent withdrawn elsewhere): refresh our copy and ask again.
   useEffect(() => {
@@ -1971,6 +1971,7 @@ function JourneyApp({ token, email, onLogout }) {
       {/* OVERLAYS */}
       {overlay === "log" && <LogModal token={token} onClose={() => setOverlay(null)} onSave={() => { setOverlay(null); loadPeriods(); }} />}
       {overlay === "calendar" && <CalendarScreen token={token} periods={periods} logsVersion={logsVersion} onClose={() => setOverlay(null)} onOpenDay={setDayDate} />}
+      {dayDate && <DaySheet token={token} date={dayDate} onClose={() => setDayDate(null)} onSaved={() => setLogsVersion(v => v + 1)} />}
       {overlay === "chat" && <ChatDrawer token={token} onClose={() => setOverlay(null)} />}
       {overlay === "analysis" && <AnalysisDrawer token={token} onClose={() => setOverlay(null)} />}
       {overlay === "profile" && <ProfileDrawer token={token} email={email} onClose={() => { setOverlay(null); setForceQuestionnaire(false); refreshProfileStatus(); }} onLogout={onLogout} consents={consents} onSetConsent={setConsent} reminderPrefs={reminderPrefs} onReminderPrefsChange={next => setReminderPrefs(savePrefs(next))} appearance={appearance} onAppearanceChange={setAppearanceState} initialView={forceQuestionnaire ? "questionnaire" : "main"} />}

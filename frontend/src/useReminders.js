@@ -24,7 +24,7 @@ function summarize(periods) {
   return { lastPeriodStart, lastLoggedOn: newest ? localDateString(newest) : null };
 }
 
-export function useReminders({ token, periods, prefs, appearance }) {
+export function useReminders({ token, periods, prefs, appearance, logsVersion }) {
   const lastPrediction = useRef(null);
   const [resumeTick, setResumeTick] = useState(0);
 
@@ -55,8 +55,16 @@ export function useReminders({ token, periods, prefs, appearance }) {
       }
       try { lastPrediction.current = await API.periods.prediction(token); } catch (e) { /* keep the last known prediction */ }
       if (cancelled || !getAccessToken()) return;
-      await rebuildReminders({ prefs, prediction: lastPrediction.current, ...summarize(periods) });
+      const today = localDateString();
+      let loggedToday = false;
+      try {
+        const rows = await API.logs.list(today, today, token);
+        loggedToday = Array.isArray(rows) && rows.length > 0;
+      } catch (e) { /* fall back to the period-based rule */ }
+      if (cancelled || !getAccessToken()) return;
+      const summary = summarize(periods);
+      await rebuildReminders({ prefs, prediction: lastPrediction.current, ...summary, lastLoggedOn: loggedToday ? today : summary.lastLoggedOn });
     }, DEBOUNCE_MS);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [token, periods, prefs, appearance, resumeTick]);
+  }, [token, periods, prefs, appearance, resumeTick, logsVersion]);
 }
