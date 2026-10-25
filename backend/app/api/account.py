@@ -6,10 +6,11 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..core.database import get_db
-from ..models.models import (Analysis, ChatMessage, ConsentRecord, Period,
-                             Questionnaire, User)
+from ..models.models import (Analysis, ChatMessage, ConsentRecord, DailyLog, Medication,
+                             Period, Questionnaire, User)
 from ..schemas.schemas import PeriodResponse
 from .auth import get_current_user
+from .daily_logs import entry_dict
 
 router = APIRouter(prefix="/account", tags=["Account"])
 
@@ -46,10 +47,19 @@ def export_account_data(
     messages = db.query(ChatMessage).filter(ChatMessage.user_id == uid).order_by(ChatMessage.created_at).all()
     consents = db.query(ConsentRecord).filter(ConsentRecord.user_id == uid).order_by(ConsentRecord.created_at).all()
 
+    meds = db.query(Medication).filter(Medication.user_id == uid).order_by(Medication.created_at).all()
+
+    logs = db.query(DailyLog).filter(DailyLog.user_id == uid).order_by(DailyLog.log_date).all()
+
     data = {
         "exported_at": datetime.now(timezone.utc).isoformat(),
         "account": {"email": current_user.email, "created_at": current_user.created_at.isoformat()},
         "periods": [PeriodResponse.model_validate(p).model_dump(mode="json") for p in periods],
+        "medications": [
+            {"id": str(m.id), "name": m.name, "archived": m.archived, "created_at": m.created_at.isoformat()}
+            for m in meds
+        ],
+        "daily_logs": [entry_dict(r) for r in logs],
         "questionnaires": [
             {"id": str(q.id), "created_at": q.created_at.isoformat(), "responses": q.responses}
             for q in questionnaires

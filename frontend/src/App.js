@@ -17,6 +17,9 @@ import { useReminders } from "./useReminders";
 import { loadPrefs, savePrefs } from "./reminderPrefs";
 import { teardownReminders } from "./reminderScheduler";
 import PeriodDelete from "./PeriodDelete";
+import CalendarScreen from "./CalendarScreen";
+import DaySheet from "./DaySheet";
+import { SYMPTOMS_LIST } from "./symptoms";
 import ProfileBanner from "./ProfileBanner";
 import { localDateString, formatLongDate } from "./localDate";
 import { getAccessToken, getEmail, setSession, clearSession } from "./tokenStore";
@@ -285,22 +288,41 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .st-lbl{font-size:.58rem;color:#7A5C90;text-transform:uppercase;letter-spacing:.1em;margin-top:2px;font-weight:500}
 
 /* DOCK */
-.dock{height:64px;flex-shrink:0;background:var(--s1);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-around;padding:0 .75rem;z-index:20}
-.dk{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:.4rem .75rem;border-radius:8px;transition:all .2s;user-select:none;min-width:56px;background:transparent;border:none;color:var(--muted)}
+.dock{height:64px;flex-shrink:0;background:var(--s1);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-around;padding:0 .25rem;z-index:20}
+.dk{font-family:'Outfit',sans-serif;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:.4rem .25rem;border-radius:8px;transition:all .2s;user-select:none;min-width:44px;min-height:44px;background:transparent;border:none;color:var(--muted)}
 .dk:hover{color:var(--muted-h);background:var(--s2)}
 .dk.on{color:#64DCB4}
 .dk .di{font-size:1.15rem;transition:transform .2s}
 .dk:hover .di{transform:translateY(-2px)}
 .dk .dl{font-size:.58rem;font-weight:500;letter-spacing:.05em;text-transform:uppercase}
+@media(max-width:340px){.dk .dl{font-size:.54rem;letter-spacing:.02em}.dk{padding:.4rem .15rem}}
 .dock-log{width:46px;height:46px;border-radius:50%;background:#FF6B8A;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1.4rem;color:#fff;box-shadow:0 0 20px rgba(255, 107, 138, 0.45);transition:all .2s;user-select:none;flex-shrink:0}
 .dock-log:hover{transform:scale(1.1) rotate(8deg);background:#FF4D70;box-shadow:0 0 25px rgba(255, 107, 138, 0.6)}
 .dock-log:active{transform:scale(.95)}
 
 /* OVERLAY / DRAWER */
+.cal-body{flex:1;overflow-y:auto;padding:1rem 1rem 1.5rem}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+@media(max-width:340px){.cal-body{padding-left:.25rem;padding-right:.25rem}.cal-grid{gap:1px}}
+.cal-wd{text-align:center;font-size:.7rem;color:var(--muted);padding:.25rem 0}
+.cal-day{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-width:0;border-radius:10px;border:1px solid transparent;background:transparent;color:var(--cream);font-size:.9rem;cursor:pointer;padding:2px 0}
+.cal-day.out{opacity:.4}
+.cal-day.period{background:rgba(255,107,138,.35);background:color-mix(in srgb,var(--cta) 35%,transparent)}
+.cal-day.predicted{border:1px dashed var(--cta)}
+.cal-day.today{box-shadow:0 0 0 2px var(--cta)}
+.cal-day:disabled{opacity:.3;cursor:default}
+.cal-marks{display:flex;gap:2px;font-size:.55rem;line-height:1;min-height:.6rem}
+.cal-sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:middle;border:1px solid transparent}
+.cal-sw.period{background:rgba(255,107,138,.35);background:color-mix(in srgb,var(--cta) 35%,transparent)}
+.cal-sw.predicted{border:1px dashed var(--cta)}
+.cal-retry,.cal-today-btn{background:var(--s2);border:1px solid var(--border);color:var(--cream);border-radius:10px;padding:0 1rem;cursor:pointer}
+.cal-today-btn{width:100%}
 .o-backdrop{position:fixed;inset:0;background:rgba(7,8,12,.8);backdrop-filter:blur(6px);z-index:40;animation:fadeIn .2s ease}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 .drawer{position:fixed;bottom:0;left:0;right:0;background:var(--s1);border-top:1px solid var(--border);border-radius:16px 16px 0 0;z-index:50;display:flex;flex-direction:column;box-shadow:0 -20px 60px rgba(0,0,0,.6);animation:drawIn .35s cubic-bezier(.4,0,.2,1);max-height:90vh}
 @keyframes drawIn{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.drawer-top{z-index:60}
+.o-backdrop-top{z-index:55}
 .drawer-handle{width:36px;height:4px;border-radius:2px;background:rgba(255,255,255,.13);margin:10px auto 0;flex-shrink:0;cursor:pointer}
 .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.5rem .75rem;flex-shrink:0;border-bottom:1px solid var(--border)}
 .drawer-title{font-family:'Cormorant Garamond',serif;font-size:1.4rem;font-weight:500;letter-spacing:.01em}
@@ -794,7 +816,6 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
 }
 
 // ─── JOURNEY MAP ─────────────────────────────────────────────────────────────
-const SYMPTOMS_LIST = ["cramps", "bloating", "headache", "fatigue", "mood swings", "acne", "back pain", "nausea", "tender breasts", "insomnia"];
 const DAY_W = 34, BACK = 90, FWD = 60, TOTAL = BACK + FWD;
 
 function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss, token, onPeriodDeleted, onLogPeriod }) {
@@ -1778,6 +1799,8 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
 function JourneyApp({ token, email, onLogout }) {
   const [periods, setPeriods] = useState([]); const [loading, setLoading] = useState(true);
   const [overlay, setOverlay] = useState(null);
+  const [dayDate, setDayDate] = useState(null);
+  const [logsVersion, setLogsVersion] = useState(0);
   const [selectedInfo, setSelectedInfo] = useState(null);
   const [showIntro, setShowIntro] = useState(false);
   const [forceQuestionnaire, setForceQuestionnaire] = useState(false);
@@ -1802,7 +1825,7 @@ function JourneyApp({ token, email, onLogout }) {
     getAppearance().then(a => { if (alive) setAppearanceState(a); }, () => {});
     return () => { alive = false; };
   }, []);
-  useReminders({ token, periods, prefs: reminderPrefs, appearance });
+  useReminders({ token, periods, prefs: reminderPrefs, appearance, logsVersion });
 
   // The API announces a 403 consent_required (e.g. consent withdrawn elsewhere): refresh our copy and ask again.
   useEffect(() => {
@@ -1940,6 +1963,7 @@ function JourneyApp({ token, email, onLogout }) {
       {/* BOTTOM DOCK */}
       <div className="dock">
         <button className="dk on"><span className="di">🗺</span><span className="dl">Journey</span></button>
+        <button className="dk" onClick={() => setOverlay("calendar")}><span className="di">🗓</span><span className="dl">Calendar</span></button>
         <button className="dk" onClick={() => openAi("analysis")}><span className="di">✦</span><span className="dl">Insights</span></button>
         <button className="dock-log" onClick={() => setOverlay("log")} title="Log period">+</button>
         <button className="dk" onClick={() => openAi("chat")}><span className="di">💬</span><span className="dl">Chat</span></button>
@@ -1948,6 +1972,8 @@ function JourneyApp({ token, email, onLogout }) {
 
       {/* OVERLAYS */}
       {overlay === "log" && <LogModal token={token} onClose={() => setOverlay(null)} onSave={() => { setOverlay(null); loadPeriods(); }} />}
+      {overlay === "calendar" && <CalendarScreen token={token} periods={periods} logsVersion={logsVersion} onClose={() => setOverlay(null)} onOpenDay={setDayDate} />}
+      {dayDate && <DaySheet token={token} date={dayDate} onClose={() => setDayDate(null)} onSaved={() => setLogsVersion(v => v + 1)} />}
       {overlay === "chat" && <ChatDrawer token={token} onClose={() => setOverlay(null)} />}
       {overlay === "analysis" && <AnalysisDrawer token={token} onClose={() => setOverlay(null)} />}
       {overlay === "profile" && <ProfileDrawer token={token} email={email} onClose={() => { setOverlay(null); setForceQuestionnaire(false); refreshProfileStatus(); }} onLogout={onLogout} consents={consents} onSetConsent={setConsent} reminderPrefs={reminderPrefs} onReminderPrefsChange={next => setReminderPrefs(savePrefs(next))} appearance={appearance} onAppearanceChange={setAppearanceState} initialView={forceQuestionnaire ? "questionnaire" : "main"} />}

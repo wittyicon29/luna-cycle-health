@@ -10,7 +10,7 @@ import { getAccessToken } from './tokenStore';
 
 jest.mock('./platform', () => ({ isNative: jest.fn() }));
 jest.mock('./reminderScheduler', () => ({ cancelAllReminders: jest.fn(), rebuildReminders: jest.fn() }));
-jest.mock('./api', () => ({ API: { periods: { prediction: jest.fn() } } }));
+jest.mock('./api', () => ({ API: { periods: { prediction: jest.fn() }, logs: { list: jest.fn() } } }));
 jest.mock('./tokenStore', () => ({ getAccessToken: jest.fn() }));
 jest.mock('@capacitor/app', () => ({ App: { addListener: jest.fn() } }));
 
@@ -27,6 +27,7 @@ beforeEach(() => {
   isNative.mockReturnValue(true);
   getAccessToken.mockReturnValue('t');
   API.periods.prediction.mockResolvedValue({ next: 'x' });
+  API.logs.list.mockResolvedValue([]);
   cancelAllReminders.mockResolvedValue();
   rebuildReminders.mockResolvedValue({});
   remove = jest.fn();
@@ -161,5 +162,42 @@ describe('naive UTC created_at (run under TZ=Asia/Kolkata and TZ=America/Los_Ang
   });
   test('explicit offsets are not re-interpreted', async () => {
     expect(await lastLoggedOn('2026-10-25T02:00:00Z')).toBe(localDateString(new Date('2026-10-25T02:00:00Z')));
+  });
+});
+
+describe('daily logs awareness', () => {
+  const today = () => localDateString();
+
+  test('a log for today sets lastLoggedOn to today even when periods say otherwise', async () => {
+    API.logs.list.mockResolvedValue([{ date: today() }]);
+    render(<Probe token="t" periods={P1} prefs={ON} />);
+    await flush(500);
+    expect(API.logs.list).toHaveBeenCalledWith(today(), today(), 't');
+    expect(rebuildReminders).toHaveBeenCalledWith(expect.objectContaining({ lastLoggedOn: today(), lastPeriodStart: '2026-10-01' }));
+  });
+
+  test('an empty result keeps the period-based value', async () => {
+    render(<Probe token="t" periods={P1} prefs={ON} />);
+    await flush(500);
+    expect(rebuildReminders).toHaveBeenCalledWith(expect.objectContaining({ lastLoggedOn: '2026-10-02' }));
+  });
+
+  test('a failing logs call falls back to the period-based value and still rebuilds', async () => {
+    API.logs.list.mockRejectedValue(new Error('boom'));
+    render(<Probe token="t" periods={P1} prefs={ON} />);
+    await flush(500);
+    expect(rebuildReminders).toHaveBeenCalledTimes(1);
+    expect(rebuildReminders).toHaveBeenCalledWith(expect.objectContaining({ lastLoggedOn: '2026-10-02' }));
+  });
+
+  test('changing logsVersion triggers a debounced rebuild', async () => {
+    const { rerender } = render(<Probe token="t" periods={P1} prefs={ON} logsVersion={0} />);
+    await flush(500);
+    expect(rebuildReminders).toHaveBeenCalledTimes(1);
+    rerender(<Probe token="t" periods={P1} prefs={ON} logsVersion={1} />);
+    await flush(499);
+    expect(rebuildReminders).toHaveBeenCalledTimes(1);
+    await flush(1);
+    expect(rebuildReminders).toHaveBeenCalledTimes(2);
   });
 });

@@ -24,6 +24,9 @@
     "LocalNotifications": {
       "smallIcon": "ic_stat_luna",
       "iconColor": "#7C66C0"
+    },
+    "Keyboard": {
+      "resizeOnFullScreen": true
     }
   }
 }
