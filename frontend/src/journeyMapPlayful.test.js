@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor, act, fireEvent, createEvent } from '@testing-library/react';
+import { render, screen, waitFor, act, fireEvent, createEvent, within } from '@testing-library/react';
 
 jest.mock('./api', () => ({
   ...jest.requireActual('./api'),
@@ -252,7 +252,7 @@ describe('JourneyApp logs', () => {
   });
   const saveFirstFoggedDay = async () => {
     fireEvent.click(runs()[0], { clientX: 0 });
-    fireEvent.click(await screen.findByRole('radio', { name: 'Good' }));
+    fireEvent.click(await within(await screen.findByRole('dialog')).findByRole('radio', { name: 'Good' }));
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Save' })); });
     await waitFor(() => expect(API.logs.put).toHaveBeenCalled());
   };

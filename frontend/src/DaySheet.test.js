@@ -152,6 +152,16 @@ test("mood is a radio group of five labelled faces; pressing again clears", asyn
   expect(radios[2]).toHaveAttribute("aria-checked", "false");
 });
 
+test("mood buttons show a decorative weather icon and a visible label", async () => {
+  await setup();
+  const radios = screen.getAllByRole("radio");
+  radios.forEach((r, i) => {
+    const svg = r.querySelector("svg");
+    expect(svg).toHaveAttribute("aria-hidden", "true");
+    expect(r).toHaveTextContent(["Very low", "Low", "Okay", "Good", "Great"][i]);
+  });
+});
+
 test("sleep stepper moves in half hours within 0-24", async () => {
   await setup();
   const val = () => screen.getByLabelText("sleep hours value");

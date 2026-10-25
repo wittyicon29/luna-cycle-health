@@ -24,6 +24,7 @@ import CalendarScreen from "./CalendarScreen";
 import DaySheet from "./DaySheet";
 import { SYMPTOMS_LIST, symptomLabel, flowLabel } from "./symptoms";
 import ProfileBanner from "./ProfileBanner";
+import SkyCheckIn from "./playful/SkyCheckIn";
 import DockIcon from "./playful/DockIcon";
 import Companion, { companionMood } from "./playful/Companion";
 import { FogLayer } from "./playful/FogLayer";
@@ -2136,6 +2137,11 @@ function JourneyApp({ token, email, onLogout }) {
           onLogPeriod={() => setOverlay("log")}
           logs={mapLogs} logsReady={logsReady} onOpenDay={setDayDate} justLogged={justLogged} playfulMode={playfulMode}
         />
+      )}
+
+      {!loading && !consentError && (
+        <SkyCheckIn token={token} logs={mapLogs} logsReady={logsReady}
+          onSaved={() => setLogsVersion(v => v + 1)} onAddDetails={() => setDayDate(localDateString())} />
       )}
 
       {profileIncomplete && !bannerDismissed && (

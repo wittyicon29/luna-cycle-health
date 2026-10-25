@@ -5,10 +5,10 @@ import { SYMPTOMS_LIST, symptomLabel, flowWord } from "./symptoms";
 import { t, useLanguage } from "./i18n";
 import { maxSelectableDay, MIN_LOG_DAY } from "./CalendarScreen";
 import MedicationManager from "./MedicationManager";
-import { MOODS, moodLabel } from "./playful/weather";
+import { MOODS, WEATHER, moodLabel } from "./playful/weather";
+import WeatherIcon from "./playful/WeatherIcon";
 
 export { MOODS };
-const MOOD_FACES = ["😞", "🙁", "😐", "🙂", "😄"];
 const FLOWS = ["spotting", "light", "medium", "heavy"];
 const NOTE_MAX = 1000;
 const DATE_RANGE_RE = /\bdate\b.*\brange\b|\brange\b.*\bdate\b/i;
@@ -291,8 +291,12 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
               return (
                 <button key={v} type="button" role="radio" aria-checked={on} aria-label={label} title={label}
                   ref={el => { moodRefs.current[i] = el; }} tabIndex={stop ? 0 : -1}
-                  className={`chip ${on ? "on" : ""}`} style={{ ...tap, fontSize: "1.3rem" }}
-                  onClick={() => set({ mood: on ? null : v })}>{MOOD_FACES[i]}</button>
+                  className={`chip ${on ? "on" : ""}`}
+                  style={{ ...tap, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, borderRadius: 14, padding: ".3rem .5rem", minWidth: 0 }}
+                  onClick={() => set({ mood: on ? null : v })}>
+                  <WeatherIcon name={WEATHER[i].key} size={28} plate={false} />
+                  <span style={{ fontSize: ".65rem" }}>{label}</span>
+                </button>
               );
             })}
           </div>
