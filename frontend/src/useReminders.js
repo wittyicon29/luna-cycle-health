@@ -5,6 +5,7 @@ import { getAccessToken } from './tokenStore';
 import { localDateString } from './localDate';
 import { anyEnabled } from './reminderPrefs';
 import { cancelAllReminders, rebuildReminders } from './reminderScheduler';
+import { useLanguage } from './i18n';
 
 const DEBOUNCE_MS = 500;
 const safeRemove = h => { try { Promise.resolve(h.remove()).catch(() => {}); } catch (e) { /* already gone */ } };
@@ -25,6 +26,8 @@ function summarize(periods) {
 }
 
 export function useReminders({ token, periods, prefs, appearance, logsVersion }) {
+  // A language change re-plans the reminders so their wording follows it.
+  const language = useLanguage();
   const lastPrediction = useRef(null);
   const [resumeTick, setResumeTick] = useState(0);
 
@@ -66,5 +69,5 @@ export function useReminders({ token, periods, prefs, appearance, logsVersion })
       await rebuildReminders({ prefs, prediction: lastPrediction.current, ...summary, lastLoggedOn: loggedToday ? today : summary.lastLoggedOn });
     }, DEBOUNCE_MS);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [token, periods, prefs, appearance, resumeTick, logsVersion]);
+  }, [token, periods, prefs, appearance, resumeTick, logsVersion, language]);
 }

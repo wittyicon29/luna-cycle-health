@@ -1,5 +1,6 @@
 import { registerPlugin } from '@capacitor/core';
 import { isNative } from './platform';
+import { t } from './i18n';
 
 export const APPEARANCES = [
   { key: 'default', label: 'Luna Health', hint: 'The standard Luna moon icon' },
@@ -9,6 +10,34 @@ export const APPEARANCES = [
   { key: 'checklist', label: 'Checklist', hint: 'Plain ticked-list icon' },
   { key: 'organizer', label: 'Organizer', hint: 'Plain folder icon' },
 ];
+
+// Display name and hint for the gallery tiles, translated at render time. The keys and the English
+// APPEARANCES data above are what is stored / compared; the Android launcher label itself stays English.
+export function appearanceLabel(key) {
+  switch (key) {
+    // i18n-note: the product name stays in Latin script, so the translation equals the English text
+    case 'default': return t('Luna Health');
+    // i18n-note: shares the catalog entry "Notes" = नोट used elsewhere; unsure "नोट्स" would read better as an app name
+    case 'notes': return t('Notes');
+    case 'planner': return t('Daily Planner');
+    case 'journal': return t('Journal');
+    case 'checklist': return t('Checklist');
+    case 'organizer': return t('Organizer');
+    default: return key;
+  }
+}
+
+export function appearanceHint(key) {
+  switch (key) {
+    case 'default': return t('The standard Luna moon icon');
+    case 'notes': return t('Plain notepad icon');
+    case 'planner': return t('Plain calendar-page icon');
+    case 'journal': return t('Plain closed-book icon');
+    case 'checklist': return t('Plain ticked-list icon');
+    case 'organizer': return t('Plain folder icon');
+    default: return '';
+  }
+}
 
 // Icon previews for the gallery. Colours and paths mirror the Android launcher vectors
 // (res/drawable/ic_launcher_fg_<key>.xml and values/launcher_colors.xml) exactly; a test keeps them in sync.

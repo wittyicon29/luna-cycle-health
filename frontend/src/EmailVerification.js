@@ -3,6 +3,9 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { API } from './api';
 import ConsentCheckboxes from './ConsentCheckboxes';
 import { setSession } from './tokenStore';
+import LanguageSwitcher from './i18n/LanguageSwitcher';
+import { t, useLanguage } from './i18n';
+import { translateServer } from './serverMessages';
 
 const utf8Bytes = value => unescape(encodeURIComponent(value)).length;
 
@@ -16,7 +19,7 @@ const STYLES = `
   --cream:#F5EEF8;--muted:#A889C0;--muted-h:#7A5C90;--r:8px;
   --cta:#FF6B8A;--cta-hover:#FF4D70;
 }
-body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);height:100vh;-webkit-font-smoothing:antialiased;font-size:14px;line-height:1.6}
+body{font-family:'Outfit','Noto Sans Devanagari',sans-serif;background:var(--bg);color:var(--cream);height:100vh;-webkit-font-smoothing:antialiased;font-size:14px;line-height:1.6}
 #root{min-height:100vh;display:flex;align-items:flex-start;justify-content:center}
 
 .verify-wrap{min-height:100vh;width:100%;padding:1rem;box-sizing:border-box;background:var(--bg);display:flex;align-items:flex-start;justify-content:center;position:relative;overflow:hidden}
@@ -31,16 +34,16 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .verify-logo{text-align:center;margin-bottom:2rem}
 .verify-moon{display:block;font-size:2.2rem;margin-bottom:.5rem;animation:moonFloat 4s ease-in-out infinite}
 @keyframes moonFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-.verify-logo h1{font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:500;color:var(--cream);letter-spacing:.02em}
+.verify-logo h1{font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;font-size:2rem;font-weight:500;color:var(--cream);letter-spacing:.02em}
 .verify-logo p{font-size:.7rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-top:.3rem}
 
 .success-icon{width:80px;height:80px;border-radius:50%;background:rgba(74,158,110,0.15);display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;font-size:2.5rem}
 .error-icon{width:80px;height:80px;border-radius:50%;background:rgba(196,84,74,0.15);display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;font-size:2.5rem}
 
-.verify-title{font-family:'Cormorant Garamond',serif;font-size:1.5rem;color:var(--cream);text-align:center;margin-bottom:1rem}
+.verify-title{font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;font-size:1.5rem;color:var(--cream);text-align:center;margin-bottom:1rem}
 .verify-message{text-align:center;color:var(--muted);line-height:1.6;margin-bottom:2rem}
 
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;padding:.62rem 1.2rem;font-family:'Outfit',sans-serif;font-size:.78rem;font-weight:500;cursor:pointer;border:none;border-radius:var(--r);transition:all .2s cubic-bezier(.4,0,.2,1);user-select:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;padding:.62rem 1.2rem;font-family:'Outfit','Noto Sans Devanagari',sans-serif;font-size:.78rem;font-weight:500;cursor:pointer;border:none;border-radius:var(--r);transition:all .2s cubic-bezier(.4,0,.2,1);user-select:none}
 .btn:active:not(:disabled){transform:scale(.97)}
 .btn-p{background:#FF6B8A;color:#fff;box-shadow:0 0 20px rgba(255, 107, 138, 0.45)}
 .btn-p:hover:not(:disabled){background:#FF4D70;transform:translateY(-1px)}
@@ -57,7 +60,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 
 .vf{margin-bottom:1rem}
 .vf label{display:block;font-size:.7rem;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:.35rem}
-.vf input{width:100%;padding:.7rem .85rem;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);color:var(--cream);font-family:'Outfit',sans-serif;font-size:.9rem}
+.vf input{width:100%;padding:.7rem .85rem;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);color:var(--cream);font-family:'Outfit','Noto Sans Devanagari',sans-serif;font-size:.9rem}
 .vf input:focus{outline:none;border-color:#FF6B8A}
 .vf input[readonly]{opacity:.7}
 .vpw-wrap{position:relative}
@@ -65,6 +68,9 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .vpw-toggle{position:absolute;top:50%;right:0;transform:translateY(-50%);width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1rem;border-radius:var(--r)}
 .vpw-toggle:hover{color:var(--cream)}
 .vpw-toggle:focus-visible{outline:2px solid #FF8A80;outline-offset:-2px}
+@font-face{font-family:'Noto Sans Devanagari';font-weight:400 600;font-display:swap;unicode-range:U+0900-097F,U+1CD0-1CF9,U+200C-200D,U+20A8,U+20B9,U+25CC,U+A830-A839,U+A8E0-A8FF;src:url('/fonts/NotoSansDevanagari-Variable.woff2') format('woff2')}
+:lang(hi) body{line-height:1.7}
+:lang(hi) .btn,:lang(hi) .chip,:lang(hi) .dk .dl{line-height:1.4}
 `;
 
 function injectStyles() {
@@ -79,10 +85,11 @@ function Shell({ children }) {
       <div className="verify-orb verify-orb-a" />
       <div className="verify-orb verify-orb-b" />
       <div className="verify-card">
+        <div style={{ marginBottom: '1rem' }}><LanguageSwitcher /></div>
         <div className="verify-logo">
           <span className="verify-moon">◐</span>
           <h1>Luna Health</h1>
-          <p>Email Verification</p>
+          <p>{t('Email Verification')}</p>
         </div>
         {children}
       </div>
@@ -91,6 +98,7 @@ function Shell({ children }) {
 }
 
 function EmailVerification() {
+  useLanguage();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const token = searchParams.get('token');
@@ -118,7 +126,6 @@ function EmailVerification() {
     setEmail('');
 
     if (!token) {
-      setFatal('Invalid verification link');
       setLoading(false);
       return;
     }
@@ -132,10 +139,10 @@ function EmailVerification() {
   async function handleSubmit(e) {
     e.preventDefault();
     setFormError('');
-    if (password.length < 8) { setFormError('Use at least 8 characters'); return; }
-    if (utf8Bytes(password) > 72) { setFormError('Password must be at most 72 bytes'); return; }
-    if (password !== confirm) { setFormError('Passwords do not match'); return; }
-    if (!adult || !accepted) { setFormError('Please confirm you are 18 or older and agree to the Terms and Privacy Policy'); return; }
+    if (password.length < 8) { setFormError(t('Use at least 8 characters')); return; }
+    if (utf8Bytes(password) > 72) { setFormError(t('Password must be at most 72 bytes')); return; }
+    if (password !== confirm) { setFormError(t('Passwords do not match')); return; }
+    if (!adult || !accepted) { setFormError(t('Please confirm you are 18 or older and agree to the Terms and Privacy Policy')); return; }
     setSubmitting(true);
     try {
       const res = await API.verify.complete(token, password, { accepted, adult });
@@ -152,20 +159,20 @@ function EmailVerification() {
       <Shell>
         <div className="loading">
           <span className="spinner" />
-          <span>Checking your link...</span>
+          <span>{t('Checking your link...')}</span>
         </div>
       </Shell>
     );
   }
 
-  if (fatal) {
+  if (fatal || !token) {
     return (
       <Shell>
         <div className="error-icon">❌</div>
-        <h2 className="verify-title">Link problem</h2>
-        <p className="verify-message">{fatal}</p>
+        <h2 className="verify-title">{t('Link problem')}</h2>
+        <p className="verify-message">{fatal ? translateServer(fatal) : t('Invalid verification link')}</p>
         <button className="btn btn-p btn-full" onClick={() => navigate('/login')}>
-          Back to sign in
+          {t('Back to sign in')}
         </button>
       </Shell>
     );
@@ -173,27 +180,27 @@ function EmailVerification() {
 
   return (
     <Shell>
-      <h2 className="verify-title">Choose your password</h2>
+      <h2 className="verify-title">{t('Choose your password')}</h2>
       <form onSubmit={handleSubmit} noValidate>
         <div className="vf">
-          <label htmlFor="verify-email-field">Email</label>
+          <label htmlFor="verify-email-field">{t('Email')}</label>
           <input id="verify-email-field" type="email" value={email} readOnly />
         </div>
         <div className="vf">
-          <label htmlFor="verify-new-password">New password</label>
+          <label htmlFor="verify-new-password">{t('New password')}</label>
           <div className="vpw-wrap">
             <input id="verify-new-password" type={showPassword ? 'text' : 'password'} autoComplete="new-password" minLength={8} value={password} onChange={e => setPassword(e.target.value)} required />
-            <button type="button" className="vpw-toggle" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword(v => !v)}>{showPassword ? '🙈' : '👁'}</button>
+            <button type="button" className="vpw-toggle" aria-label={showPassword ? t('Hide password') : t('Show password')} onClick={() => setShowPassword(v => !v)}>{showPassword ? '🙈' : '👁'}</button>
           </div>
         </div>
         <div className="vf">
-          <label htmlFor="verify-confirm-password">Confirm password</label>
+          <label htmlFor="verify-confirm-password">{t('Confirm password')}</label>
           <input id="verify-confirm-password" type={showPassword ? 'text' : 'password'} autoComplete="new-password" minLength={8} value={confirm} onChange={e => setConfirm(e.target.value)} required />
         </div>
         <ConsentCheckboxes adult={adult} accepted={accepted} onAdultChange={setAdult} onAcceptedChange={setAccepted} />
         {formError && <div className="err" role="alert">{formError}</div>}
         <button className="btn btn-p btn-full" style={{ marginTop: '1rem' }} type="submit" disabled={submitting}>
-          {submitting ? 'Creating…' : 'Create my account'}
+          {submitting ? t('Creating…') : t('Create my account')}
         </button>
       </form>
     </Shell>

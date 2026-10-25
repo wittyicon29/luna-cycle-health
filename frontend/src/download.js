@@ -1,4 +1,5 @@
 import { isNative } from './platform';
+import { t } from './i18n';
 
 const CLEANUP_DELAY_MS = 60000;
 let lastNativeFile = null;
@@ -48,7 +49,7 @@ export async function downloadJson(filename, data) {
     uri = res.uri;
     lastNativeFile = filename;
   } catch (e) {
-    throw new Error('Could not save your data on this device.');
+    throw new Error(t('Could not save your data on this device.'));
   }
 
   try {
@@ -56,7 +57,7 @@ export async function downloadJson(filename, data) {
     return true;
   } catch (e) {
     if (/cancel/i.test((e && e.message) || '')) return false;
-    throw new Error('Could not open the share sheet to save your data.');
+    throw new Error(t('Could not open the share sheet to save your data.'));
   } finally {
     setTimeout(() => {
       remove(filename);

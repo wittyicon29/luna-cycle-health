@@ -415,7 +415,7 @@ describe("keyboard and focus", () => {
 
 describe("save and clear failures", () => {
   test("422 about the date range shows the date message", async () => {
-    API.logs.put.mockRejectedValue(Object.assign(new Error("Date is out of range"), { status: 422 }));
+    API.logs.put.mockRejectedValue(Object.assign(new Error("Date is out of range"), { status: 422, rawMessage: "Date is out of range" }));
     await setup();
     fireEvent.click(screen.getByRole("radio", { name: "Okay" }));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -425,7 +425,7 @@ describe("save and clear failures", () => {
   });
 
   test("another 422 keeps the generic message", async () => {
-    API.logs.put.mockRejectedValue(Object.assign(new Error("Sleep must be at most 24"), { status: 422 }));
+    API.logs.put.mockRejectedValue(Object.assign(new Error("Sleep must be at most 24"), { status: 422, rawMessage: "Sleep must be at most 24" }));
     await setup();
     fireEvent.click(screen.getByRole("radio", { name: "Okay" }));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { API } from './api';
+import { t } from './i18n';
 
 export default function useConsents(token) {
   const [consents, setConsents] = useState(null); // null = still loading
@@ -10,7 +11,7 @@ export default function useConsents(token) {
     try {
       setConsents(await API.consents.get(token));
     } catch (e) {
-      setError(e.message || 'Could not load your privacy settings');
+      setError(e.message || t('Could not load your privacy settings'));
     }
   }, [token]);
 

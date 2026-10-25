@@ -6,6 +6,7 @@ import { injectStyles } from './App';
 import { takeGoogleConsent } from './consentFlags';
 import { takeGoogleState } from './googleState';
 import { setSession } from './tokenStore';
+import { t, useLanguage } from './i18n';
 
 const shell = {
   minHeight: '100vh',
@@ -33,6 +34,7 @@ function Screen({ icon, title, children }) {
 }
 
 function GoogleCallback() {
+  useLanguage();
   const navigate = useNavigate();
   const [state, setState] = useState({ status: 'loading' });
   const started = useRef(false);
@@ -46,12 +48,12 @@ function GoogleCallback() {
 
     const params = new URLSearchParams(window.location.search);
     if (params.get('error')) {
-      setState({ status: 'error', message: 'Google authentication was cancelled or failed' });
+      setState({ status: 'error', message: t('Google authentication was cancelled or failed') });
       return;
     }
     const code = params.get('code');
     if (!code) {
-      setState({ status: 'error', message: 'No authorization code received' });
+      setState({ status: 'error', message: t('No authorization code received') });
       return;
     }
 
@@ -59,7 +61,7 @@ function GoogleCallback() {
     const expected = takeGoogleState();
     const returned = params.get('state');
     if (!expected || !returned || returned !== expected) {
-      setState({ status: 'error', message: 'Sign-in could not be verified. Please try again.' });
+      setState({ status: 'error', message: t('Sign-in could not be verified. Please try again.') });
       return;
     }
 
@@ -74,7 +76,7 @@ function GoogleCallback() {
         if (err.code === 'consent_required') {
           setState({ status: 'consent' });
         } else {
-          setState({ status: 'error', message: err.message || 'Authentication failed' });
+          setState({ status: 'error', message: err.message || t('Authentication failed') });
         }
       });
   }, [navigate]);
@@ -84,35 +86,34 @@ function GoogleCallback() {
   if (state.status === 'loading') {
     return (
       <Screen icon={<span style={{ animation: 'moonFloat 4s ease-in-out infinite', display: 'inline-block' }}>◐</span>}>
-        <div>Completing authentication...</div>
+        <div>{t('Completing authentication...')}</div>
       </Screen>
     );
   }
 
   if (state.status === 'success') {
     return (
-      <Screen icon="✅" title="Authentication Successful!">
-        <p>Redirecting to your dashboard...</p>
+      <Screen icon="✅" title={t('Authentication Successful!')}>
+        <p>{t('Redirecting to your dashboard...')}</p>
       </Screen>
     );
   }
 
   if (state.status === 'consent') {
     return (
-      <Screen icon="🌙" title="Create your account first">
+      <Screen icon="🌙" title={t('Create your account first')}>
         <p>
-          We couldn't find a Luna Health account for this Google email. To create one, go to Register, confirm
-          that you are 18 or older and accept the Terms and Privacy Policy, then continue with Google.
+          {t("We couldn't find a Luna Health account for this Google email. To create one, go to Register, confirm that you are 18 or older and accept the Terms and Privacy Policy, then continue with Google.")}
         </p>
-        <button className="btn btn-p" onClick={() => navigate('/register')}>Go to Register</button>
+        <button className="btn btn-p" onClick={() => navigate('/register')}>{t('Go to Register')}</button>
       </Screen>
     );
   }
 
   return (
-    <Screen icon="❌" title="Authentication Failed">
+    <Screen icon="❌" title={t('Authentication Failed')}>
       <p>{state.message}</p>
-      <button className="btn btn-p" onClick={() => navigate('/login')}>Back to Login</button>
+      <button className="btn btn-p" onClick={() => navigate('/login')}>{t('Back to Login')}</button>
     </Screen>
   );
 }

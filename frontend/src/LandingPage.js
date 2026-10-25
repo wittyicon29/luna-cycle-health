@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SUPPORT_EMAIL } from './config';
+import { useEnglishDocument } from './i18n/useEnglishDocument';
 
 // ─── PHASE DATA ───────────────────────────────────────────────────────────────
 const PHASES = [
@@ -65,40 +66,40 @@ const MARQUEE_ITEMS = [
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Outfit:wght@300;400;500;600&family=Fira+Code:wght@300;400;500&display=swap');
 .lp*,.lp *{box-sizing:border-box;margin:0;padding:0}
-.lp{font-family:'Outfit',sans-serif;background:#07080C;color:#EAE5DC;overflow-x:hidden}
+.lp{font-family:'Outfit','Noto Sans Devanagari',sans-serif;background:#07080C;color:#EAE5DC;overflow-x:hidden}
 .lp ::-webkit-scrollbar{width:3px;height:3px}
 .lp ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.09);border-radius:2px}
 
 /* NAV */
 .lp-nav{position:fixed;top:0;left:0;right:0;z-index:100;height:58px;padding:0 2rem;display:flex;align-items:center;justify-content:space-between;transition:background .35s,border .35s}
 .lp-nav.stuck{background:rgba(7,8,12,.93);backdrop-filter:blur(14px);border-bottom:1px solid rgba(255,255,255,.06)}
-.lp-logo{font-family:'Cormorant Garamond',serif;font-size:1.3rem;font-weight:500;display:flex;align-items:center;gap:.4rem;cursor:default;letter-spacing:.02em}
+.lp-logo{font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;font-size:1.3rem;font-weight:500;display:flex;align-items:center;gap:.4rem;cursor:default;letter-spacing:.02em}
 .lp-logo-moon{display:inline-block;animation:moonBob 4s ease-in-out infinite}
 .lp-nav-links{display:flex;align-items:center;gap:.4rem}
-.lp-nav-link{background:none;border:1px solid rgba(255,255,255,.08);color:rgba(234,229,220,.65);font-family:'Outfit',sans-serif;font-size:.77rem;padding:.42rem .85rem;border-radius:100px;cursor:pointer;transition:all .2s}
+.lp-nav-link{background:none;border:1px solid rgba(255,255,255,.08);color:rgba(234,229,220,.65);font-family:'Outfit','Noto Sans Devanagari',sans-serif;font-size:.77rem;padding:.42rem .85rem;border-radius:100px;cursor:pointer;transition:all .2s}
 .lp-nav-link:hover{border-color:rgba(255,255,255,.18);color:#EAE5DC}
-.lp-nav-cta{background:#C4554B;border:none;color:#fff;font-family:'Outfit',sans-serif;font-size:.77rem;font-weight:500;padding:.42rem 1rem;border-radius:100px;cursor:pointer;transition:all .2s}
+.lp-nav-cta{background:#C4554B;border:none;color:#fff;font-family:'Outfit','Noto Sans Devanagari',sans-serif;font-size:.77rem;font-weight:500;padding:.42rem 1rem;border-radius:100px;cursor:pointer;transition:all .2s}
 .lp-nav-cta:hover{filter:brightness(1.14);box-shadow:0 4px 18px rgba(196,85,75,.42);transform:translateY(-1px)}
 
 /* HERO */
 .lp-hero{min-height:100vh;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;padding:80px 2rem 4rem}
 .lp-hero-inner{position:relative;z-index:2;display:flex;align-items:center;gap:4rem;max-width:1100px;width:100%;flex-wrap:wrap;justify-content:center}
 .lp-hero-text{flex:1;min-width:280px;max-width:500px}
-.lp-badge{display:inline-flex;align-items:center;gap:.45rem;padding:.28rem .75rem;border:1px solid rgba(196,85,75,.32);border-radius:100px;font-size:.67rem;color:#C4554B;font-family:'Fira Code',monospace;letter-spacing:.08em;text-transform:uppercase;margin-bottom:1.6rem;background:rgba(196,85,75,.07)}
+.lp-badge{display:inline-flex;align-items:center;gap:.45rem;padding:.28rem .75rem;border:1px solid rgba(196,85,75,.32);border-radius:100px;font-size:.67rem;color:#C4554B;font-family:'Fira Code','Noto Sans Devanagari',monospace;letter-spacing:.08em;text-transform:uppercase;margin-bottom:1.6rem;background:rgba(196,85,75,.07)}
 .lp-badge-dot{width:5px;height:5px;border-radius:50%;background:#C4554B;animation:pulse 2.5s ease-in-out infinite}
-.lp-h1{font-family:'Cormorant Garamond',serif;font-size:clamp(2.8rem,5.5vw,4.4rem);font-weight:500;line-height:1.08;letter-spacing:.01em;margin-bottom:.9rem}
+.lp-h1{font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;font-size:clamp(2.8rem,5.5vw,4.4rem);font-weight:500;line-height:1.08;letter-spacing:.01em;margin-bottom:.9rem}
 .lp-shimmer{background:linear-gradient(120deg,#F28BA0,#C4554B 30%,#D4A040 60%,#7C66C0);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;background-size:250% auto;animation:shimmer 7s linear infinite}
 @keyframes shimmer{from{background-position:200% center}to{background-position:-200% center}}
-.lp-tagline{font-family:'Fira Code',monospace;font-size:clamp(.85rem,1.8vw,1rem);color:rgba(234,229,220,.5);letter-spacing:.07em;margin-bottom:1.6rem;min-height:1.5em}
+.lp-tagline{font-family:'Fira Code','Noto Sans Devanagari',monospace;font-size:clamp(.85rem,1.8vw,1rem);color:rgba(234,229,220,.5);letter-spacing:.07em;margin-bottom:1.6rem;min-height:1.5em}
 .lp-cursor{animation:blink .7s step-end infinite}
 @keyframes blink{50%{opacity:0}}
 .lp-desc{font-size:clamp(.88rem,1.4vw,1rem);color:rgba(234,229,220,.6);line-height:1.8;margin-bottom:2rem;max-width:420px}
 .lp-ctas{display:flex;gap:.9rem;flex-wrap:wrap;margin-bottom:2.4rem}
-.lp-btn-primary{display:inline-flex;align-items:center;gap:.5rem;padding:.85rem 2rem;background:#C4554B;border:none;border-radius:100px;color:#fff;font-family:'Outfit',sans-serif;font-size:.92rem;font-weight:600;cursor:pointer;transition:all .25s;box-shadow:0 6px 22px rgba(196,85,75,.35)}
+.lp-btn-primary{display:inline-flex;align-items:center;gap:.5rem;padding:.85rem 2rem;background:#C4554B;border:none;border-radius:100px;color:#fff;font-family:'Outfit','Noto Sans Devanagari',sans-serif;font-size:.92rem;font-weight:600;cursor:pointer;transition:all .25s;box-shadow:0 6px 22px rgba(196,85,75,.35)}
 .lp-btn-primary:hover{filter:brightness(1.12);transform:translateY(-2px);box-shadow:0 10px 30px rgba(196,85,75,.5)}
-.lp-btn-secondary{display:inline-flex;align-items:center;gap:.5rem;padding:.85rem 2rem;background:transparent;border:1.5px solid rgba(255,255,255,.13);border-radius:100px;color:rgba(234,229,220,.75);font-family:'Outfit',sans-serif;font-size:.92rem;cursor:pointer;transition:all .25s}
+.lp-btn-secondary{display:inline-flex;align-items:center;gap:.5rem;padding:.85rem 2rem;background:transparent;border:1.5px solid rgba(255,255,255,.13);border-radius:100px;color:rgba(234,229,220,.75);font-family:'Outfit','Noto Sans Devanagari',sans-serif;font-size:.92rem;cursor:pointer;transition:all .25s}
 .lp-btn-secondary:hover{border-color:#7ECECE;color:#7ECECE;transform:translateY(-1px)}
-.lp-phase-tag{display:inline-flex;align-items:center;gap:.4rem;padding:.22rem .65rem;border-radius:100px;font-size:.68rem;font-weight:500;border:1px solid;transition:all .5s ease;font-family:'Fira Code',monospace}
+.lp-phase-tag{display:inline-flex;align-items:center;gap:.4rem;padding:.22rem .65rem;border-radius:100px;font-size:.68rem;font-weight:500;border:1px solid;transition:all .5s ease;font-family:'Fira Code','Noto Sans Devanagari',monospace}
 
 /* CYCLE WHEEL */
 .lp-wheel-wrap{position:relative;flex-shrink:0}
@@ -108,18 +109,18 @@ const CSS = `
 @keyframes spinSlow{to{transform:rotate(360deg)}}
 .lp-wheel-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:3;pointer-events:none}
 .lp-wheel-moon{font-size:2.6rem;animation:moonBob 4s ease-in-out infinite}
-.lp-wheel-sub{font-family:'Fira Code',monospace;font-size:.55rem;color:rgba(234,229,220,.3);letter-spacing:.15em;text-transform:uppercase;margin-top:.3rem}
+.lp-wheel-sub{font-family:'Fira Code','Noto Sans Devanagari',monospace;font-size:.55rem;color:rgba(234,229,220,.3);letter-spacing:.15em;text-transform:uppercase;margin-top:.3rem}
 .lp-spoke{position:absolute;top:50%;left:50%;width:1px;transform-origin:left center;pointer-events:none;z-index:1}
 .lp-segment{position:absolute;width:76px;height:76px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:all .3s cubic-bezier(.4,0,.2,1);border:2px solid;z-index:5}
 .lp-segment:hover{transform:translate(-50%,-50%) scale(1.18) !important;z-index:10}
 .lp-seg-icon{font-size:1.35rem;line-height:1}
-.lp-seg-name{font-size:.5rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;margin-top:2px;font-family:'Fira Code',monospace}
+.lp-seg-name{font-size:.5rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;margin-top:2px;font-family:'Fira Code','Noto Sans Devanagari',monospace}
 
 /* PHASE DETAIL POPOVER */
 .lp-phase-pop{position:absolute;right:-10px;top:50%;transform:translateY(-50%) translateX(100%);width:210px;padding:1rem 1.1rem;border-radius:12px;border:1px solid;background:rgba(10,11,18,.97);box-shadow:0 10px 40px rgba(0,0,0,.6);animation:popIn .22s cubic-bezier(.4,0,.2,1);pointer-events:none;z-index:20}
 @keyframes popIn{from{opacity:0;transform:translateY(-50%) translateX(calc(100% + 8px))}to{opacity:1;transform:translateY(-50%) translateX(100%)}}
 .lp-pop-territory{font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;font-weight:500;opacity:.7;margin-bottom:.22rem}
-.lp-pop-name{font-family:'Cormorant Garamond',serif;font-size:1.1rem;margin-bottom:.45rem}
+.lp-pop-name{font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;font-size:1.1rem;margin-bottom:.45rem}
 .lp-pop-desc{font-size:.74rem;color:rgba(234,229,220,.72);line-height:1.6;margin-bottom:.65rem}
 .lp-pop-trait{display:flex;align-items:center;gap:.4rem;font-size:.67rem;color:rgba(234,229,220,.5);margin-bottom:.2rem}
 .lp-pop-dot{width:4px;height:4px;border-radius:50%;flex-shrink:0}
@@ -128,7 +129,7 @@ const CSS = `
 .lp-marquee-wrap{overflow:hidden;padding:1.1rem 0;background:rgba(13,14,22,.6);border-top:1px solid rgba(255,255,255,.04);border-bottom:1px solid rgba(255,255,255,.04)}
 .lp-marquee-track{display:flex;animation:marquee 28s linear infinite;white-space:nowrap}
 .lp-marquee-track:hover{animation-play-state:paused}
-.lp-marquee-item{display:inline-flex;align-items:center;gap:.5rem;padding:0 2.2rem;font-size:.7rem;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:rgba(234,229,220,.28);font-family:'Fira Code',monospace;flex-shrink:0}
+.lp-marquee-item{display:inline-flex;align-items:center;gap:.5rem;padding:0 2.2rem;font-size:.7rem;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:rgba(234,229,220,.28);font-family:'Fira Code','Noto Sans Devanagari',monospace;flex-shrink:0}
 @keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 
 /* REVEAL */
@@ -154,13 +155,13 @@ const CSS = `
 /* STATS */
 .lp-stat-block{flex:1;min-width:150px;text-align:center;padding:2.2rem 1rem;background:#0D0E16;border-right:1px solid rgba(255,255,255,.05)}
 .lp-stat-block:last-child{border-right:none}
-.lp-stat-num{font-family:'Cormorant Garamond',serif;font-size:2.8rem;line-height:1;font-weight:500}
+.lp-stat-num{font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;font-size:2.8rem;line-height:1;font-weight:500}
 .lp-stat-lbl{font-size:.67rem;color:rgba(234,229,220,.42);text-transform:uppercase;letter-spacing:.12em;margin-top:.3rem;font-weight:500}
 
 /* STEPS */
 .lp-step{text-align:center;transition:all .3s;cursor:default;padding:1.4rem 1rem;border-radius:14px;border:1px solid transparent}
 .lp-step.active{background:rgba(255,255,255,.025);border-color:rgba(255,255,255,.07)}
-.lp-step-num{width:76px;height:76px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:1.75rem;font-weight:500;margin:0 auto 1.1rem;transition:all .4s cubic-bezier(.4,0,.2,1)}
+.lp-step-num{width:76px;height:76px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;font-size:1.75rem;font-weight:500;margin:0 auto 1.1rem;transition:all .4s cubic-bezier(.4,0,.2,1)}
 
 /* PHASE EXPLORER */
 .lp-phase-card{border-radius:14px;padding:1.5rem;cursor:pointer;transition:all .35s cubic-bezier(.4,0,.2,1);border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02)}
@@ -340,9 +341,9 @@ function MiniMap() {
       <div style={{ padding: '9px 14px', borderBottom: '1px solid rgba(255,255,255,.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '.45rem' }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#5FA87A', animation: 'beaconPulse 2.5s ease-in-out infinite' }} />
-          <span style={{ fontSize: '.6rem', fontFamily: "'Fira Code',monospace", color: 'rgba(234,229,220,.4)', letterSpacing: '.08em' }}>JOURNEY MAP · LIVE PREVIEW</span>
+          <span style={{ fontSize: '.6rem', fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", color: 'rgba(234,229,220,.4)', letterSpacing: '.08em' }}>JOURNEY MAP · LIVE PREVIEW</span>
         </div>
-        <span style={{ fontSize: '.58rem', color: 'rgba(234,229,220,.25)', fontFamily: "'Fira Code',monospace" }}>← drag to explore →</span>
+        <span style={{ fontSize: '.58rem', color: 'rgba(234,229,220,.25)', fontFamily: "'Fira Code','Noto Sans Devanagari',monospace" }}>← drag to explore →</span>
       </div>
       <div ref={scrollRef} className="lp-map-scroll"
         onMouseDown={onMD} onMouseMove={onMM} onMouseUp={onMU} onMouseLeave={onMU}>
@@ -351,7 +352,7 @@ function MiniMap() {
           {cells.map((c, i) => <div key={i} style={{ position: 'absolute', left: i * CELL, width: CELL, top: 0, bottom: 0, background: c.bg }} />)}
           {/* Phase labels */}
           {labels.map((l, i) => (
-            <div key={i} style={{ position: 'absolute', top: 8, left: l.x + 3, fontSize: '.55rem', fontFamily: "'Fira Code',monospace", color: l.color, background: l.bg, padding: '2px 6px', borderRadius: 3, borderLeft: `2px solid ${l.color}`, letterSpacing: '.06em', textTransform: 'uppercase', whiteSpace: 'nowrap', zIndex: 4, pointerEvents: 'none' }}>
+            <div key={i} style={{ position: 'absolute', top: 8, left: l.x + 3, fontSize: '.55rem', fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", color: l.color, background: l.bg, padding: '2px 6px', borderRadius: 3, borderLeft: `2px solid ${l.color}`, letterSpacing: '.06em', textTransform: 'uppercase', whiteSpace: 'nowrap', zIndex: 4, pointerEvents: 'none' }}>
               {l.ph?.icon} {l.ph?.name}
             </div>
           ))}
@@ -369,7 +370,7 @@ function MiniMap() {
           {/* Today beacon */}
           <div style={{ position: 'absolute', top: 0, bottom: 0, left: todayX * CELL, width: 2, background: '#D4A040', animation: 'beaconPulse 2.5s ease-in-out infinite', zIndex: 9 }} />
           <div style={{ position: 'absolute', top: '50%', left: todayX * CELL, width: 12, height: 12, borderRadius: '50%', background: '#D4A040', boxShadow: '0 0 14px rgba(212,160,64,.65)', animation: 'float 3s ease-in-out infinite', zIndex: 10 }} />
-          <div style={{ position: 'absolute', bottom: 'calc(50% + 13px)', left: todayX * CELL, transform: 'translateX(-50%)', fontSize: '.54rem', fontFamily: "'Fira Code',monospace", color: '#D4A040', background: 'rgba(212,160,64,.14)', padding: '1px 5px', borderRadius: 2, whiteSpace: 'nowrap', zIndex: 11, pointerEvents: 'none', letterSpacing: '.06em' }}>NOW</div>
+          <div style={{ position: 'absolute', bottom: 'calc(50% + 13px)', left: todayX * CELL, transform: 'translateX(-50%)', fontSize: '.54rem', fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", color: '#D4A040', background: 'rgba(212,160,64,.14)', padding: '1px 5px', borderRadius: 2, whiteSpace: 'nowrap', zIndex: 11, pointerEvents: 'none', letterSpacing: '.06em' }}>NOW</div>
         </div>
       </div>
     </div>
@@ -396,6 +397,7 @@ function Marquee() {
 
 // ─── MAIN LANDING PAGE ────────────────────────────────────────────────────────
 function LandingPage({ onShowAuth } = {}) {
+  useEnglishDocument();
   useEffect(() => { injectCSS(); }, []);
 
   const navigate = useNavigate();
@@ -528,7 +530,7 @@ function LandingPage({ onShowAuth } = {}) {
 
             {/* Live phase indicator */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem' }}>
-              <span style={{ fontSize: '.6rem', color: 'rgba(234,229,220,.3)', fontFamily: "'Fira Code',monospace", letterSpacing: '.08em', textTransform: 'uppercase' }}>Demo phase:</span>
+              <span style={{ fontSize: '.6rem', color: 'rgba(234,229,220,.3)', fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", letterSpacing: '.08em', textTransform: 'uppercase' }}>Demo phase:</span>
               <div className="lp-phase-tag" style={{ color: activePh.color, background: activePh.bg, borderColor: activePh.border }}>
                 {activePh.icon} {activePh.territory}
               </div>
@@ -562,7 +564,7 @@ function LandingPage({ onShowAuth } = {}) {
 
         {/* Scroll hint */}
         <div className="lp-scroll-hint" onClick={() => scrollTo('lp-features')}>
-          <span style={{ fontSize: '.58rem', fontFamily: "'Fira Code',monospace", letterSpacing: '.1em', textTransform: 'uppercase' }}>Explore</span>
+          <span style={{ fontSize: '.58rem', fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", letterSpacing: '.1em', textTransform: 'uppercase' }}>Explore</span>
           <div className="lp-scroll-line" />
         </div>
       </section>
@@ -574,8 +576,8 @@ function LandingPage({ onShowAuth } = {}) {
       <section id="lp-features" style={{ padding: '6rem 2rem', background: '#0D0E16' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <div ref={featRef} className={`lp-reveal ${featIn ? 'in' : ''}`} style={{ textAlign: 'center', marginBottom: '3.2rem' }}>
-            <div style={{ fontSize: '.63rem', fontFamily: "'Fira Code',monospace", letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(234,229,220,.3)', marginBottom: '.9rem' }}>What Luna Offers</div>
-            <h2 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 'clamp(1.8rem,3.5vw,2.8rem)', fontWeight: 500, marginBottom: '.7rem' }}>
+            <div style={{ fontSize: '.63rem', fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(234,229,220,.3)', marginBottom: '.9rem' }}>What Luna Offers</div>
+            <h2 style={{ fontFamily: "'Cormorant Garamond','Noto Sans Devanagari',serif", fontSize: 'clamp(1.8rem,3.5vw,2.8rem)', fontWeight: 500, marginBottom: '.7rem' }}>
               Every Phase, Every Need
             </h2>
             <p style={{ fontSize: '.92rem', color: 'rgba(234,229,220,.48)', maxWidth: 480, margin: '0 auto', lineHeight: 1.75 }}>
@@ -615,8 +617,8 @@ function LandingPage({ onShowAuth } = {}) {
           <div style={{ display: 'flex', gap: '4rem', alignItems: 'center', flexWrap: 'wrap' }}>
 
             <div ref={mapRef} className={`lp-reveal-l ${mapIn ? 'in' : ''}`} style={{ flex: 1, minWidth: 260 }}>
-              <div style={{ fontSize: '.63rem', fontFamily: "'Fira Code',monospace", letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(234,229,220,.3)', marginBottom: '.9rem' }}>The Journey Map</div>
-              <h2 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 'clamp(1.8rem,3vw,2.6rem)', fontWeight: 500, lineHeight: 1.18, marginBottom: '1.1rem' }}>
+              <div style={{ fontSize: '.63rem', fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(234,229,220,.3)', marginBottom: '.9rem' }}>The Journey Map</div>
+              <h2 style={{ fontFamily: "'Cormorant Garamond','Noto Sans Devanagari',serif", fontSize: 'clamp(1.8rem,3vw,2.6rem)', fontWeight: 500, lineHeight: 1.18, marginBottom: '1.1rem' }}>
                 Navigate Your Cycle<br /><em style={{ fontStyle: 'italic', color: 'rgba(234,229,220,.55)' }}>Like a Map</em>
               </h2>
               <p style={{ fontSize: '.88rem', color: 'rgba(234,229,220,.52)', lineHeight: 1.8, marginBottom: '1.8rem' }}>
@@ -628,7 +630,7 @@ function LandingPage({ onShowAuth } = {}) {
                   <div key={ph.id} style={{ display: 'flex', alignItems: 'center', gap: '.7rem' }}>
                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: ph.color, flexShrink: 0, boxShadow: `0 0 7px ${ph.glow}` }} />
                     <span style={{ fontSize: '.76rem', color: ph.color, fontWeight: 500 }}>{ph.territory}</span>
-                    <span style={{ fontSize: '.7rem', color: 'rgba(234,229,220,.38)', fontFamily: "'Fira Code',monospace" }}>— {ph.name} · {ph.days}</span>
+                    <span style={{ fontSize: '.7rem', color: 'rgba(234,229,220,.38)', fontFamily: "'Fira Code','Noto Sans Devanagari',monospace" }}>— {ph.name} · {ph.days}</span>
                   </div>
                 ))}
               </div>
@@ -636,7 +638,7 @@ function LandingPage({ onShowAuth } = {}) {
 
             <div className={`lp-reveal-r ${mapIn ? 'in' : ''}`} style={{ flex: 2, minWidth: 300 }}>
               <MiniMap />
-              <div style={{ textAlign: 'center', marginTop: '.6rem', fontSize: '.6rem', fontFamily: "'Fira Code',monospace", color: 'rgba(234,229,220,.25)', letterSpacing: '.07em' }}>
+              <div style={{ textAlign: 'center', marginTop: '.6rem', fontSize: '.6rem', fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", color: 'rgba(234,229,220,.25)', letterSpacing: '.07em' }}>
                 ← DRAG · CLICK MARKERS FOR DETAILS →
               </div>
             </div>
@@ -649,8 +651,8 @@ function LandingPage({ onShowAuth } = {}) {
       <section id="lp-how" style={{ padding: '6rem 2rem', background: '#07080C' }}>
         <div style={{ maxWidth: 1000, margin: '0 auto' }}>
           <div className={`lp-reveal ${stepsIn ? 'in' : ''}`} style={{ textAlign: 'center', marginBottom: '3.5rem' }}>
-            <div style={{ fontSize: '.63rem', fontFamily: "'Fira Code',monospace", letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(234,229,220,.3)', marginBottom: '.9rem' }}>Getting Started</div>
-            <h2 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 'clamp(1.8rem,3.5vw,2.8rem)', fontWeight: 500 }}>Four Steps to Your Journey</h2>
+            <div style={{ fontSize: '.63rem', fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(234,229,220,.3)', marginBottom: '.9rem' }}>Getting Started</div>
+            <h2 style={{ fontFamily: "'Cormorant Garamond','Noto Sans Devanagari',serif", fontSize: 'clamp(1.8rem,3.5vw,2.8rem)', fontWeight: 500 }}>Four Steps to Your Journey</h2>
           </div>
 
           {/* Progress bar */}
@@ -689,8 +691,8 @@ function LandingPage({ onShowAuth } = {}) {
       <section style={{ padding: '6rem 2rem', background: '#0D0E16' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <div ref={phaseRef} className={`lp-reveal ${phaseIn ? 'in' : ''}`} style={{ textAlign: 'center', marginBottom: '3.2rem' }}>
-            <div style={{ fontSize: '.63rem', fontFamily: "'Fira Code',monospace", letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(234,229,220,.3)', marginBottom: '.9rem' }}>The Four Territories</div>
-            <h2 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 'clamp(1.8rem,3.5vw,2.8rem)', fontWeight: 500 }}>Explore Your Cycle Phases</h2>
+            <div style={{ fontSize: '.63rem', fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(234,229,220,.3)', marginBottom: '.9rem' }}>The Four Territories</div>
+            <h2 style={{ fontFamily: "'Cormorant Garamond','Noto Sans Devanagari',serif", fontSize: 'clamp(1.8rem,3.5vw,2.8rem)', fontWeight: 500 }}>Explore Your Cycle Phases</h2>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(235px,1fr))', gap: '1rem' }}>
@@ -710,11 +712,11 @@ function LandingPage({ onShowAuth } = {}) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '.55rem' }}>
                       <span style={{ fontSize: '1.4rem' }}>{ph.icon}</span>
                       <div>
-                        <div style={{ fontSize: '.58rem', fontFamily: "'Fira Code',monospace", letterSpacing: '.08em', textTransform: 'uppercase', color: ph.color, opacity: .75 }}>{ph.territory}</div>
-                        <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: '1.08rem', color: ph.color, lineHeight: 1.2 }}>{ph.name}</div>
+                        <div style={{ fontSize: '.58rem', fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", letterSpacing: '.08em', textTransform: 'uppercase', color: ph.color, opacity: .75 }}>{ph.territory}</div>
+                        <div style={{ fontFamily: "'Cormorant Garamond','Noto Sans Devanagari',serif", fontSize: '1.08rem', color: ph.color, lineHeight: 1.2 }}>{ph.name}</div>
                       </div>
                     </div>
-                    <div style={{ fontSize: '.58rem', fontFamily: "'Fira Code',monospace", color: 'rgba(234,229,220,.32)', background: 'rgba(255,255,255,.04)', padding: '2px 6px', borderRadius: 3, marginTop: 2 }}>{ph.days}</div>
+                    <div style={{ fontSize: '.58rem', fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", color: 'rgba(234,229,220,.32)', background: 'rgba(255,255,255,.04)', padding: '2px 6px', borderRadius: 3, marginTop: 2 }}>{ph.days}</div>
                   </div>
 
                   <p style={{ fontSize: '.78rem', color: isExp ? 'rgba(234,229,220,.72)' : 'rgba(234,229,220,.42)', lineHeight: 1.68, marginBottom: '.85rem', transition: 'color .3s' }}>{ph.desc}</p>
@@ -743,7 +745,7 @@ function LandingPage({ onShowAuth } = {}) {
 
         <div ref={ctaRef} className={`lp-reveal ${ctaIn ? 'in' : ''}`} style={{ maxWidth: 640, margin: '0 auto', textAlign: 'center', position: 'relative', zIndex: 1 }}>
           <div style={{ fontSize: '2.4rem', animation: 'moonBob 4s ease-in-out infinite', display: 'inline-block', marginBottom: '1.4rem' }}>◐</div>
-          <h2 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 'clamp(2rem,4vw,3.2rem)', fontWeight: 500, lineHeight: 1.2, marginBottom: '1.1rem' }}>
+          <h2 style={{ fontFamily: "'Cormorant Garamond','Noto Sans Devanagari',serif", fontSize: 'clamp(2rem,4vw,3.2rem)', fontWeight: 500, lineHeight: 1.2, marginBottom: '1.1rem' }}>
             Ready to Map<br />
             <em style={{ fontStyle: 'italic' }} className="lp-shimmer">Your Journey?</em>
           </h2>
@@ -758,7 +760,7 @@ function LandingPage({ onShowAuth } = {}) {
               Sign In
             </button>
           </div>
-          <p style={{ marginTop: '1.5rem', fontSize: '.65rem', color: 'rgba(234,229,220,.25)', fontFamily: "'Fira Code',monospace", letterSpacing: '.07em' }}>
+          <p style={{ marginTop: '1.5rem', fontSize: '.65rem', color: 'rgba(234,229,220,.25)', fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", letterSpacing: '.07em' }}>
             Free · No credit card · Private by design
           </p>
         </div>
@@ -768,7 +770,7 @@ function LandingPage({ onShowAuth } = {}) {
       <footer style={{ padding: '3rem 2rem', background: '#0D0E16', borderTop: '1px solid rgba(255,255,255,.05)' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: '2rem', marginBottom: '2rem' }}>
           <div>
-            <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: '1.15rem', color: '#EAE5DC', marginBottom: '.65rem' }}>◐ Luna Health</div>
+            <div style={{ fontFamily: "'Cormorant Garamond','Noto Sans Devanagari',serif", fontSize: '1.15rem', color: '#EAE5DC', marginBottom: '.65rem' }}>◐ Luna Health</div>
             <p style={{ fontSize: '.78rem', color: 'rgba(234,229,220,.38)', lineHeight: 1.7 }}>Your intelligent companion for menstrual health, cycle awareness, and holistic wellness.</p>
           </div>
           {[
@@ -777,7 +779,7 @@ function LandingPage({ onShowAuth } = {}) {
             ...(SUPPORT_EMAIL ? [{ title: 'Support', items: [{ label: 'Contact', href: `mailto:${SUPPORT_EMAIL}` }] }] : []),
           ].map(col => (
             <div key={col.title}>
-              <div style={{ fontSize: '.6rem', fontFamily: "'Fira Code',monospace", letterSpacing: '.1em', textTransform: 'uppercase', color: 'rgba(234,229,220,.28)', marginBottom: '.85rem', fontWeight: 500 }}>{col.title}</div>
+              <div style={{ fontSize: '.6rem', fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", letterSpacing: '.1em', textTransform: 'uppercase', color: 'rgba(234,229,220,.28)', marginBottom: '.85rem', fontWeight: 500 }}>{col.title}</div>
               <ul style={{ listStyle: 'none' }}>
                 {col.items.map(entry => {
                   const item = typeof entry === 'string' ? entry : entry.label;
@@ -797,7 +799,7 @@ function LandingPage({ onShowAuth } = {}) {
           ))}
         </div>
         <div style={{ paddingTop: '1.4rem', borderTop: '1px solid rgba(255,255,255,.04)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-          <p style={{ fontSize: '.68rem', color: 'rgba(234,229,220,.22)', fontFamily: "'Fira Code',monospace" }}>
+          <p style={{ fontSize: '.68rem', color: 'rgba(234,229,220,.22)', fontFamily: "'Fira Code','Noto Sans Devanagari',monospace" }}>
             © {new Date().getFullYear()} Luna Health · Made with care for women's wellness
           </p>
           <div style={{ display: 'flex', gap: '.4rem' }}>

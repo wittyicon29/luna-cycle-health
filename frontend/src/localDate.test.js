@@ -18,3 +18,21 @@ test('formatLongDate returns an empty string for missing or invalid input', () =
   expect(formatLongDate(null)).toBe('');
   expect(formatLongDate('nope')).toBe('');
 });
+
+describe('formatLongDate in Hindi', () => {
+  const i18n = require('./i18n');
+  afterEach(() => i18n.setLanguage('en'));
+
+  test('uses the Hindi month with Latin digits', () => {
+    i18n.setLanguage('hi');
+    const out = formatLongDate('2026-10-25');
+    expect(out).toBe('25 अक्टूबर 2026'); // Node ICU spelling
+    expect(out).toMatch(/\d/);
+    expect(out).not.toMatch(/[०-९]/);
+  });
+
+  test('English output is unchanged', () => {
+    i18n.setLanguage('en');
+    expect(formatLongDate('2026-10-25', 'en-US')).toBe('October 25, 2026');
+  });
+});

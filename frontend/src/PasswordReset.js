@@ -2,8 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import { API } from './api';
 import { injectStyles } from './App';
+import LanguageSwitcher from './i18n/LanguageSwitcher';
+import { t, useLanguage } from './i18n';
+import { translateServer } from './serverMessages';
 
 function PasswordReset() {
+  useLanguage();
   useEffect(() => { injectStyles(); }, []);
   const [token] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -23,13 +27,13 @@ function PasswordReset() {
     setLoading(true);
 
     if (newPassword !== confirmPassword) {
-      setError('Passwords do not match');
+      setError(t('Passwords do not match'));
       setLoading(false);
       return;
     }
 
     if (newPassword.length < 8) {
-      setError('Password must be at least 8 characters long');
+      setError(t('Password must be at least 8 characters long'));
       setLoading(false);
       return;
     }
@@ -40,10 +44,10 @@ function PasswordReset() {
         new_password: newPassword
       });
       
-      setMessage(response.message);
+      setMessage(translateServer(response.message));
       setSuccess(true);
     } catch (err) {
-      setError(err.message || 'Password reset failed');
+      setError(err.message || t('Password reset failed'));
     } finally {
       setLoading(false);
     }
@@ -68,7 +72,7 @@ function PasswordReset() {
           textAlign: 'center'
         }}>
           <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔐</div>
-          <h2>Password Reset Successful!</h2>
+          <h2>{t('Password Reset Successful!')}</h2>
           <p style={{ color: 'var(--muted)', marginBottom: '2rem' }}>{message}</p>
           <button 
             onClick={() => window.location.href = '/login'}
@@ -81,7 +85,7 @@ function PasswordReset() {
               cursor: 'pointer'
             }}
           >
-            Continue to Login
+            {t('Continue to Login')}
           </button>
         </div>
       </div>
@@ -104,24 +108,25 @@ function PasswordReset() {
         maxWidth: '400px',
         width: '100%'
       }}>
+        <div style={{ marginBottom: '1rem' }}><LanguageSwitcher /></div>
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔐</div>
-          <h2>Reset Your Password</h2>
+          <h2>{t('Reset Your Password')}</h2>
           <p style={{ color: 'var(--muted)', fontSize: '.9rem' }}>
-            Enter your new password below
+            {t('Enter your new password below')}
           </p>
         </div>
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--cream)' }}>
-              New Password
+              {t('New Password')}
             </label>
             <input
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Enter new password"
+              placeholder={t('Enter new password')}
               required
               style={{
                 width: '100%',
@@ -137,13 +142,13 @@ function PasswordReset() {
 
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--cream)' }}>
-              Confirm Password
+              {t('Confirm Password')}
             </label>
             <input
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Confirm new password"
+              placeholder={t('Confirm new password')}
               required
               style={{
                 width: '100%',
@@ -198,7 +203,7 @@ function PasswordReset() {
               opacity: loading ? 0.7 : 1
             }}
           >
-            {loading ? 'Resetting...' : 'Reset Password'}
+            {loading ? t('Resetting...') : t('Reset Password')}
           </button>
         </form>
       </div>

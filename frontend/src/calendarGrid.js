@@ -1,5 +1,13 @@
+import { getLanguage } from './i18n';
+
 export const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 export const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+export const monthName = (i, lang = getLanguage()) =>
+  lang === 'hi' ? new Intl.DateTimeFormat('hi-IN-u-nu-latn', { month: 'long' }).format(new Date(2026, i, 1)) : MONTH_NAMES[i];
+
+const HI_WEEKDAYS = ['र', 'सो', 'मं', 'बु', 'गु', 'शु', 'श'];
+export const weekdayLabels = (lang = getLanguage()) => (lang === 'hi' ? HI_WEEKDAYS : WEEKDAY_LABELS);
 
 const pad = n => String(n).padStart(2, '0');
 const fmt = d => `${String(d.getFullYear()).padStart(4, '0')}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;

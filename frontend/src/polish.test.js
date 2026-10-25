@@ -34,7 +34,7 @@ test('reduced motion keeps the loading spinner moving and the avatar is labelled
   const app = read('src/App.js');
 
   expect(app).toMatch(/prefers-reduced-motion[\s\S]*\.spinner\{[^}]*animation-duration:\.6s/);
-  expect(app).toMatch(/className="avatar-btn"[^>]*aria-label="Open profile"|aria-label="Open profile"[^>]*className="avatar-btn"/);
+  expect(app).toMatch(/className="avatar-btn"[^>]*aria-label=(?:"Open profile"|\{t\("Open profile"\)\})|aria-label=(?:"Open profile"|\{t\("Open profile"\)\})[^>]*className="avatar-btn"/);
 });
 
 test('small controls are at least 44px to tap', () => {
@@ -51,10 +51,10 @@ test('close buttons and the new-chat button have a 44px hit area and a label', (
   expect(app).toMatch(/\.mk-card-close\{[^}]*min-width:44px[^}]*min-height:44px/);
   expect(app).toMatch(/\.modal-close\{[^}]*min-width:44px[^}]*min-height:44px/);
   expect(app).toMatch(/\.new-chat-btn\{[^}]*min-width:44px[^}]*min-height:44px/);
-  expect(app).toMatch(/className="modal-close"[^>]*aria-label="Close"|aria-label="Close"[^>]*className="modal-close"/);
-  expect(app).toMatch(/className="mk-card-close"[^>]*aria-label="Close"|aria-label="Close"[^>]*className="mk-card-close"/);
-  expect(app).toMatch(/aria-label="New chat"/);
-  expect(app.match(/className="drawer-close"[^>]*aria-label="Close"/g)).toHaveLength(3);
+  expect(app).toMatch(/className="modal-close"[^>]*aria-label=(?:"Close"|\{t\("Close"\)\})|aria-label=(?:"Close"|\{t\("Close"\)\})[^>]*className="modal-close"/);
+  expect(app).toMatch(/className="mk-card-close"[^>]*aria-label=(?:"Close"|\{t\("Close"\)\})|aria-label=(?:"Close"|\{t\("Close"\)\})[^>]*className="mk-card-close"/);
+  expect(app).toMatch(/aria-label=(?:"New chat"|\{t\("New chat"\)\})/);
+  expect(app.match(/className="drawer-close"[^>]*aria-label=(?:"Close"|\{t\("Close"\)\})/g)).toHaveLength(3);
 });
 
 test('symptom chips are at least 40px tall', () => {
@@ -120,14 +120,14 @@ test('period markers have a 44px hit area without changing the dot', () => {
 test('Insights tiles use lining numerals in the sans font', () => {
   const val = rule(read('src/App.js'), '.pred-val');
 
-  expect(val).toMatch(/font-family:'Outfit',sans-serif/);
+  expect(val).toMatch(/font-family:'Outfit','Noto Sans Devanagari',sans-serif/);
   expect(val).toMatch(/font-variant-numeric:\s*lining-nums/);
 });
 
 test('welcome tour Skip is a real ghost button and the header row can wrap', () => {
   const app = read('src/App.js');
 
-  expect(app).toMatch(/<button[^>]*className="btn btn-g btn-sm"[^>]*onClick=\{finish\}[^>]*>Skip<\/button>/);
+  expect(app).toMatch(/<button[^>]*className="btn btn-g btn-sm"[^>]*onClick=\{finish\}[^>]*>(?:Skip|\{t\("Skip"\)\})<\/button>/);
   expect(app).toMatch(/justifyContent: "space-between", alignItems: "center", flexWrap: "wrap"/);
 });
 

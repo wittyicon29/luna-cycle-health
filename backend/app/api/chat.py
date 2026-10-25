@@ -13,6 +13,7 @@ from ..core.database import get_db
 from ..core.limiter import limiter
 from ..models.models import User, Period, Questionnaire, Analysis, ChatMessage
 from ..schemas.schemas import ChatMessageResponse, ChatRequest, ChatResponse
+from ..services.language import HINDI_MAX_TOKENS, language_instruction
 from ..services.llm_service import llm_service
 from ..services.prediction_service import predict_next_period, get_cycle_summary
 from .auth import get_current_user
@@ -166,8 +167,14 @@ Instructions for how to use this:
 
 Now write your reply to the user following these rules."""
 
+    instruction = language_instruction(payload.language)
+    if instruction:
+        system_prompt = system_prompt + "\n\n" + instruction
+
     try:
-        answer = await llm_service.call_qwen(user_prompt, system_prompt)
+        # Devanagari needs more tokens; English keeps the default cap (no extra argument).
+        extra = {"max_tokens": HINDI_MAX_TOKENS} if payload.language == "hi" else {}
+        answer = await llm_service.call_qwen(user_prompt, system_prompt, **extra)
     except Exception as exc:
         # Log the failure type only: the message may contain provider keys or user text.
         logger.error("Chat LLM call failed: %s", type(exc).__name__)

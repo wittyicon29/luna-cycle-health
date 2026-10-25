@@ -3,6 +3,7 @@ import json
 import re
 from typing import Dict, Any, List
 from ..core.config import settings
+from .language import HINDI_MAX_TOKENS, language_instruction
 from .prediction_service import tracked_cycles_phrase, format_friendly_date, variation_clause
 
 LUNA_PERSONALITY = """You are Luna, a knowledgeable health guide specializing in menstrual health.
@@ -62,7 +63,7 @@ class LLMService:
             result = response.json()
             return result[0]["generated_text"] if isinstance(result, list) else result.get("generated_text", "")
     
-    async def call_qwen(self, prompt: str, system_prompt: str = None) -> str:
+    async def call_qwen(self, prompt: str, system_prompt: str = None, max_tokens: int = 2048) -> str:
         headers = {
             "Authorization": f"Bearer {self.groq_api_key}",
             "Content-Type": "application/json"
@@ -77,7 +78,7 @@ class LLMService:
             "model": self.qwen_model,
             "messages": messages,
             "temperature": 0.7,
-            "max_tokens": 2048,
+            "max_tokens": max_tokens,
         }
         
         async with httpx.AsyncClient(timeout=60.0) as client:
@@ -137,7 +138,7 @@ Breakdown:
 
 {tail}"""
 
-    async def analyze_cycle_health(self, period_data: List[Dict], questionnaire: Dict, stats: Dict, prediction: Dict) -> Dict[str, Any]:
+    async def analyze_cycle_health(self, period_data: List[Dict], questionnaire: Dict, stats: Dict, prediction: Dict, language: str = "en") -> Dict[str, Any]:
         # Step 1: MedGemma
         health_breakdown = stats.get('health_breakdown', {})
         health_grade = stats.get('health_grade', 'Unknown')
@@ -221,9 +222,17 @@ JSON format:
 }}
 
 Use supportive language. Explain uncertainty clearly. Be reassuring about natural variation. Avoid definitive statements. Make it feel personalized while acknowledging statistical limitations."""
+        # v1 scope: the Hindi instruction goes on this user-facing Qwen prompt only. The clinical
+        # MedGemma analysis (medical_analysis / risk_flags / health_insights) stays English, and the
+        # fallback texts below are English.
+        instruction = language_instruction(language, structured=True)
+        if instruction:
+            qwen_prompt = qwen_prompt + "\n\n" + instruction
         
         try:
-            qwen_response = await self.call_qwen(qwen_prompt, LUNA_PERSONALITY)
+            # Devanagari needs several times more tokens than English; English keeps the default cap.
+            qwen_kwargs = {"max_tokens": HINDI_MAX_TOKENS} if language == "hi" else {}
+            qwen_response = await self.call_qwen(qwen_prompt, LUNA_PERSONALITY, **qwen_kwargs)
             user_friendly = self.parse_llm_json(qwen_response)
         except Exception as e:
             print(f"Qwen Error: {e}")

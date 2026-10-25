@@ -165,3 +165,49 @@ test("January 2000 is the lower bound: prev disabled and earlier days disabled",
   expect(screen.getByLabelText(/^January 1, 2000/)).not.toBeDisabled();
   expect(screen.getByLabelText("Next month")).not.toBeDisabled();
 });
+
+test("in Hindi the title and weekday row use Hindi, and switching back restores English", async () => {
+  const i18n = require("./i18n");
+  const { container } = setup();
+  await flush();
+  expect(screen.getByText("October 2026")).toBeInTheDocument();
+  act(() => { i18n.setLanguage("hi"); });
+  expect(screen.getByText("अक्टूबर 2026")).toBeInTheDocument();
+  expect([...container.querySelectorAll(".cal-wd")].map(n => n.textContent)).toEqual(["र", "सो", "मं", "बु", "गु", "शु", "श"]);
+  act(() => { i18n.setLanguage("en"); });
+  expect(screen.getByText("October 2026")).toBeInTheDocument();
+});
+
+test("STYLES font stacks all include the Devanagari fallback", () => {
+  const fs = require("fs");
+  const path = require("path");
+  const files = ["App.js", "EmailVerification.js"].map(f => fs.readFileSync(path.join(__dirname, f), "utf8"));
+  const decls = files.flatMap(src => src.match(/font-family:[^;}]*/g) || []);
+  const bad = decls.filter(d => /Outfit|Cormorant|Fira Code/.test(d) && !/Noto Sans Devanagari/.test(d));
+  expect(bad).toEqual([]);
+  expect(decls.length).toBeGreaterThan(20);
+});
+
+test("no :lang(hi) rule changes the typeface of Latin text", () => {
+  const fs = require("fs");
+  const path = require("path");
+  const src = ["App.js", "EmailVerification.js"].map(f => fs.readFileSync(path.join(__dirname, f), "utf8")).join("\n");
+  const rules = src.match(/:lang\(hi\)[^{]*\{[^}]*\}/g) || [];
+  expect(rules.length).toBeGreaterThan(0);
+  rules.forEach(r => expect(r).not.toMatch(/font-family/));
+});
+
+test("every letter-spaced label in STYLES is reset under :lang(hi) (letter-spacing breaks the Devanagari headline)", () => {
+  const fs = require("fs");
+  const path = require("path");
+  const src = fs.readFileSync(path.join(__dirname, "App.js"), "utf8");
+  const reset = (src.match(/(:lang\(hi\)[^{}]*)\{letter-spacing:0\}/) || [])[1] || "";
+  expect(reset).toContain(":lang(hi) .st-lbl");
+  const spaced = [];
+  src.split("\n").forEach(line => {
+    const m = /^([.a-z][^{@]*)\{[^}]*letter-spacing:\s*\.?\d/.exec(line);
+    if (m && !m[1].startsWith(":lang") ) m[1].split(",").forEach(sel => spaced.push(sel.trim()));
+  });
+  expect(spaced.length).toBeGreaterThan(15);
+  expect(spaced.filter(sel => !reset.includes(`:lang(hi) ${sel}`))).toEqual([]);
+});

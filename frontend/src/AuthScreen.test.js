@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 jest.mock('./api', () => ({
@@ -243,4 +243,13 @@ describe('native Google sign-in', () => {
     expect(screen.queryByText(/failed/i)).not.toBeInTheDocument();
     expect(API.auth.googleIdToken).not.toHaveBeenCalled();
   });
+});
+
+test('the sign-in screen offers the language switcher', () => {
+  const { setLanguage, getLanguage } = require('./i18n');
+  render(<AuthScreen onLogin={jest.fn()} />);
+  userEvent.click(screen.getByRole('radio', { name: 'हिन्दी' }));
+  expect(getLanguage()).toBe('hi');
+  expect(screen.getByRole('radio', { name: 'हिन्दी' })).toHaveAttribute('aria-checked', 'true');
+  act(() => { setLanguage('en'); });
 });

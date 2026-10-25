@@ -1,4 +1,4 @@
-import { addDays, monthGrid, shiftMonth, periodDaySet, predictedRangeSet } from './calendarGrid';
+import { addDays, monthGrid, shiftMonth, periodDaySet, predictedRangeSet, monthName, weekdayLabels } from './calendarGrid';
 
 test('addDays crosses month, year and leap boundaries', () => {
   expect(addDays('2026-10-31', 1)).toBe('2026-11-01');
@@ -133,4 +133,26 @@ test('periods starting after today paint nothing', () => {
 
 test('years are padded to four digits', () => {
   expect(addDays('1000-01-01', -1)).toBe('0999-12-31');
+});
+
+test('monthName follows the language', () => {
+  expect(monthName(9, 'en')).toBe('October');
+  expect(monthName(9, 'hi')).toBe('अक्टूबर'); // Node ICU spelling
+  expect(monthName(0, 'hi')).toBe('जनवरी');
+});
+
+test('weekdayLabels follows the language', () => {
+  expect(weekdayLabels('en')).toEqual(['S', 'M', 'T', 'W', 'T', 'F', 'S']);
+  expect(weekdayLabels('hi')).toEqual(['र', 'सो', 'मं', 'बु', 'गु', 'शु', 'श']);
+});
+
+test('monthName and weekdayLabels default to the current language', () => {
+  const i18n = require('./i18n');
+  i18n.setLanguage('hi');
+  try {
+    expect(monthName(9)).toBe('अक्टूबर');
+    expect(weekdayLabels()[1]).toBe('सो');
+  } finally { i18n.setLanguage('en'); }
+  expect(monthName(9)).toBe('October');
+  expect(weekdayLabels()[1]).toBe('M');
 });

@@ -110,7 +110,7 @@ test("back button", () => {
 
 test("a 422 about the 30 limit shows the server's own message", async () => {
   const msg = "You can keep up to 30 medications. Remove or archive one first.";
-  API.medications.create.mockRejectedValue(Object.assign(new Error(msg), { status: 422 }));
+  API.medications.create.mockRejectedValue(Object.assign(new Error(msg), { status: 422, rawMessage: msg }));
   setup();
   await add("Zinc");
   expect(screen.getByRole("alert")).toHaveTextContent(msg);

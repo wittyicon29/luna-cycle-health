@@ -12,6 +12,9 @@ import AiConsentModal from "./AiConsentModal";
 import PrivacyPanel from "./PrivacyPanel";
 import RemindersPanel from "./RemindersPanel";
 import AppearancePanel from "./AppearancePanel";
+import LanguageSwitcher from "./i18n/LanguageSwitcher";
+import { t, tn, useLanguage, intlLocale, dateLocale } from "./i18n";
+import { translateServer } from "./serverMessages";
 import { getAppearance } from "./launcherAppearance";
 import { useReminders } from "./useReminders";
 import { loadPrefs, savePrefs } from "./reminderPrefs";
@@ -19,7 +22,7 @@ import { teardownReminders } from "./reminderScheduler";
 import PeriodDelete from "./PeriodDelete";
 import CalendarScreen from "./CalendarScreen";
 import DaySheet from "./DaySheet";
-import { SYMPTOMS_LIST } from "./symptoms";
+import { SYMPTOMS_LIST, symptomLabel, flowLabel } from "./symptoms";
 import ProfileBanner from "./ProfileBanner";
 import { localDateString, formatLongDate } from "./localDate";
 import { getAccessToken, getEmail, setSession, clearSession } from "./tokenStore";
@@ -40,6 +43,20 @@ function getPhaseForCycleDay(day, len = 28) {
   if (d <= Math.round(len * 0.46)) return "follicular";
   if (d <= Math.round(len * 0.57)) return "ovulation";
   return "luteal";
+}
+
+// Display text for a phase key. PHASES keeps the English strings as data (and the colours); the screens show these.
+function phaseText(key) {
+  switch (key) {
+    // i18n-note: phase names use माहवारी / फॉलिक्युलर / ओव्यूलेशन / ल्यूटियल (the transliterated medical terms are what Hindi health apps show); territory names (घाटी, चढ़ाई, शिखर, वापसी) are literal
+    // i18n-note: the tip says the body is "releasing and renewing"; kept close to literal and non-clinical
+    case "menstrual": return { name: t("Menstrual"), territory: t("The Valley"), days: t("Days 1–5"), tip: t("Rest, warmth & gentle movement. Your body is releasing and renewing.") };
+    case "follicular": return { name: t("Follicular"), territory: t("The Ascent"), days: t("Days 6–13"), tip: t("Energy rises. Perfect for new projects, social activities and bold decisions.") };
+    case "ovulation": return { name: t("Ovulation"), territory: t("The Summit"), days: t("Day 14±"), tip: t("Energy and confidence often peak around now. Notice how your body feels.") };
+    case "luteal": return { name: t("Luteal"), territory: t("The Return"), days: t("Days 15–28"), tip: t("Turn inward. Good for reflection, creative depth, and completing things.") };
+    // i18n-note: "Uncharted" (a map not yet drawn) is अज्ञात (unknown); unsure whether "अनदेखा" or "अज्ञात" reads better
+    default: return { name: t("Uncharted"), territory: t("Uncharted"), days: PHASES.unknown.days, tip: t("Log a period to calibrate your journey map.") };
+  }
 }
 
 function buildTimeline(periods, avgCycle = 28) {
@@ -142,7 +159,7 @@ const STYLES = `
   --cream:#F5EEF8;--muted:#A889C0;--muted-h:#7A5C90;--r:8px;
   --cta:#FF6B8A;--cta-hover:#FF4D70;
 }
-body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);height:100vh;overflow:hidden;-webkit-font-smoothing:antialiased;font-size:14px;line-height:1.6}
+body{font-family:'Outfit','Noto Sans Devanagari',sans-serif;background:var(--bg);color:var(--cream);height:100vh;overflow:hidden;-webkit-font-smoothing:antialiased;font-size:14px;line-height:1.6}
 #root{height:100vh;display:flex;flex-direction:column}
 ::-webkit-scrollbar{width:3px;height:3px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -159,10 +176,10 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .auth-logo{text-align:center;margin-bottom:2rem}
 .auth-moon{display:block;font-size:2.2rem;margin-bottom:.5rem;animation:moonFloat 4s ease-in-out infinite}
 @keyframes moonFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-.auth-logo h1{font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:500;color:var(--cream);letter-spacing:.02em}
+.auth-logo h1{font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;font-size:2rem;font-weight:500;color:var(--cream);letter-spacing:.02em}
 .auth-logo p{font-size:.7rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-top:.3rem}
 .auth-tabs{display:flex;gap:.3rem;margin-bottom:1.8rem}
-.auth-tab{flex:1;padding:.55rem;background:transparent;border:1px solid transparent;color:var(--muted);font-family:'Outfit',sans-serif;font-size:.75rem;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;border-radius:6px;transition:all .2s}
+.auth-tab{flex:1;padding:.55rem;background:transparent;border:1px solid transparent;color:var(--muted);font-family:'Outfit','Noto Sans Devanagari',sans-serif;font-size:.75rem;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;border-radius:6px;transition:all .2s}
 .auth-tab.on{color:#FF8A80;border-color:rgba(196,84,74,.3);background:rgba(196,84,74,.07)}
 .auth-tab:not(.on):hover{color:var(--cream)}
 .pw-wrap{position:relative}
@@ -177,7 +194,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 /* FORM */
 .f{margin-bottom:1rem}
 .f label{display:block;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem;font-weight:500}
-.f input,.f select,.f textarea{width:100%;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--cream);padding:.62rem .85rem;font-family:'Outfit',sans-serif;font-size:.82rem;outline:none;border-radius:var(--r);transition:border-color .2s,box-shadow .2s,background .2s;appearance:none}
+.f input,.f select,.f textarea{width:100%;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--cream);padding:.62rem .85rem;font-family:'Outfit','Noto Sans Devanagari',sans-serif;font-size:.82rem;outline:none;border-radius:var(--r);transition:border-color .2s,box-shadow .2s,background .2s;appearance:none}
 .f input:focus,.f select:focus,.f textarea:focus{border-color:rgba(196,84,74,.5);background:rgba(255,255,255,.06);box-shadow:0 0 0 3px rgba(196,84,74,.1)}
 .f input:hover:not(:focus),.f select:hover:not(:focus){border-color:var(--border-h)}
 .f textarea{resize:vertical;min-height:70px}
@@ -205,7 +222,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 }
 
 /* BUTTONS */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;padding:.62rem 1.2rem;font-family:'Outfit',sans-serif;font-size:.78rem;font-weight:500;cursor:pointer;border:none;border-radius:var(--r);transition:all .2s cubic-bezier(.4,0,.2,1);user-select:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;padding:.62rem 1.2rem;font-family:'Outfit','Noto Sans Devanagari',sans-serif;font-size:.78rem;font-weight:500;cursor:pointer;border:none;border-radius:var(--r);transition:all .2s cubic-bezier(.4,0,.2,1);user-select:none}
 .btn:active:not(:disabled){transform:scale(.97)}
 .btn-p{background:#FF6B8A;color:#fff;box-shadow:0 0 20px rgba(255, 107, 138, 0.45)}
 .btn-p:hover:not(:disabled){background:#FF4D70;transform:translateY(-1px)}
@@ -224,17 +241,17 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 
 /* TOPBAR */
 .topbar{height:56px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 1.5rem;background:#0F081A;backdrop-filter:blur(12px);border-bottom:1px solid var(--border);z-index:20}
-.tlogo{font-family:'Cormorant Garamond',serif;font-size:1.35rem;font-weight:500;color:var(--cream);letter-spacing:.02em;display:flex;align-items:center;gap:.5rem}
+.tlogo{font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;font-size:1.35rem;font-weight:500;color:var(--cream);letter-spacing:.02em;display:flex;align-items:center;gap:.5rem}
 .tlogo .m{display:inline-block;animation:moonFloat 4s ease-in-out infinite}
 .phase-pill{display:flex;align-items:center;gap:.4rem;padding:.28rem .7rem;border-radius:100px;font-size:.72rem;font-weight:500;letter-spacing:.03em;border:1px solid;white-space:nowrap;transition:all .4s}
-.cday-badge{font-family:'Fira Code',monospace;font-size:.68rem;color:var(--muted);padding:.25rem .6rem;border:1px solid var(--border);border-radius:4px;white-space:nowrap}
+.cday-badge{font-family:'Fira Code','Noto Sans Devanagari',monospace;font-size:.68rem;color:var(--muted);padding:.25rem .6rem;border:1px solid var(--border);border-radius:4px;white-space:nowrap}
 .avatar-btn{width:44px;height:44px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;color:#fff;border:none;transition:transform .2s,box-shadow .2s;flex-shrink:0}
 .avatar-btn:hover{transform:scale(1.08)}
 
 /* JOURNEY CANVAS */
 .j-canvas{flex:1;overflow:hidden;position:relative;background:var(--bg)}
 .j-scroll{width:100%;height:100%;overflow-x:auto;overflow-y:hidden;cursor:grab;user-select:none}
-.j-empty{position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;padding:1rem;text-align:center;pointer-events:none;font-family:'Cormorant Garamond',serif;font-size:1.3rem;color:var(--cream)}
+.j-empty{position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;padding:1rem;text-align:center;pointer-events:none;font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;font-size:1.3rem;color:var(--cream)}
 .j-empty p{background:rgba(26,15,46,.85);background:color-mix(in srgb,var(--bg) 85%,transparent);padding:.6rem 1rem;border-radius:12px;max-width:100%}
 .j-empty .btn{pointer-events:auto;min-height:44px}
 .j-scroll:active{cursor:grabbing}
@@ -242,7 +259,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 
 /* Month row */
 .month-row{height:26px;flex-shrink:0;position:relative;background:rgba(7,8,12,.9);backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
-.month-lbl{position:absolute;bottom:5px;font-size:.58rem;color:var(--muted);font-weight:500;letter-spacing:.1em;text-transform:uppercase;font-family:'Fira Code',monospace;padding-left:6px}
+.month-lbl{position:absolute;bottom:5px;font-size:.58rem;color:var(--muted);font-weight:500;letter-spacing:.1em;text-transform:uppercase;font-family:'Fira Code','Noto Sans Devanagari',monospace;padding-left:6px}
 
 /* Terrain */
 .terrain{flex:1;position:relative;overflow:hidden}
@@ -262,14 +279,14 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .beacon-dot{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:13px;height:13px;border-radius:50%;z-index:16}
 .beacon-dot::after{content:'';position:absolute;inset:-7px;border-radius:50%;animation:ring 2.5s ease-in-out infinite;border:1.5px solid;opacity:0}
 @keyframes ring{0%{transform:scale(1);opacity:.5}100%{transform:scale(3);opacity:0}}
-.beacon-lbl{position:absolute;bottom:calc(50% + 15px);left:50%;transform:translateX(-50%);font-size:.58rem;font-family:'Fira Code',monospace;font-weight:500;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:3px;white-space:nowrap;pointer-events:none}
+.beacon-lbl{position:absolute;bottom:calc(50% + 15px);left:50%;transform:translateX(-50%);font-size:.58rem;font-family:'Fira Code','Noto Sans Devanagari',monospace;font-weight:500;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:3px;white-space:nowrap;pointer-events:none}
 
 /* Predicted stripe */
 .pred-stripe{position:absolute;top:0;bottom:0;pointer-events:none;background:repeating-linear-gradient(90deg,rgba(196,84,74,.07) 0,rgba(196,84,74,.07) 6px,transparent 6px,transparent 14px);z-index:3;border-left:1px dashed rgba(196,84,74,.28)}
 
 /* Phase hover card */
 .ph-card{position:absolute;z-index:25;bottom:12px;background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:.95rem 1.1rem;box-shadow:0 8px 32px rgba(0,0,0,.5);min-width:210px;max-width:270px;animation:cardIn .2s ease;pointer-events:none}
-.ph-card-title{font-family:'Cormorant Garamond',serif;font-size:1.1rem;letter-spacing:.01em;margin-bottom:.2rem;color:var(--cream)}
+.ph-card-title{font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;font-size:1.1rem;letter-spacing:.01em;margin-bottom:.2rem;color:var(--cream)}
 .ph-card-sub{font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem;font-weight:500}
 .ph-card-tip{font-size:.77rem;color:var(--cream);line-height:1.6;opacity:.85}
 
@@ -283,13 +300,13 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .stats-strip{height:58px;flex-shrink:0;border-top:1px solid var(--border);background:#120A22;display:flex;align-items:center;padding:0 1.5rem}
 .st-item{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;border-right:1px solid var(--border)}
 .st-item:last-child{border-right:none}
-.st-val{font-family:'Outfit',sans-serif;font-variant-numeric:lining-nums;font-size:1.4rem;line-height:1;letter-spacing:.01em;color:#FF8FAA}
+.st-val{font-family:'Outfit','Noto Sans Devanagari',sans-serif;font-variant-numeric:lining-nums;font-size:1.4rem;line-height:1;letter-spacing:.01em;color:#FF8FAA}
 .st-val-phase{font-size:.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
 .st-lbl{font-size:.58rem;color:#7A5C90;text-transform:uppercase;letter-spacing:.1em;margin-top:2px;font-weight:500}
 
 /* DOCK */
 .dock{height:64px;flex-shrink:0;background:var(--s1);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-around;padding:0 .25rem;z-index:20}
-.dk{font-family:'Outfit',sans-serif;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:.4rem .25rem;border-radius:8px;transition:all .2s;user-select:none;min-width:44px;min-height:44px;background:transparent;border:none;color:var(--muted)}
+.dk{font-family:'Outfit','Noto Sans Devanagari',sans-serif;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:.4rem .25rem;border-radius:8px;transition:all .2s;user-select:none;min-width:44px;min-height:44px;background:transparent;border:none;color:var(--muted)}
 .dk:hover{color:var(--muted-h);background:var(--s2)}
 .dk.on{color:#64DCB4}
 .dk .di{font-size:1.15rem;transition:transform .2s}
@@ -325,7 +342,14 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .o-backdrop-top{z-index:55}
 .drawer-handle{width:36px;height:4px;border-radius:2px;background:rgba(255,255,255,.13);margin:10px auto 0;flex-shrink:0;cursor:pointer}
 .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.5rem .75rem;flex-shrink:0;border-bottom:1px solid var(--border)}
-.drawer-title{font-family:'Cormorant Garamond',serif;font-size:1.4rem;font-weight:500;letter-spacing:.01em}
+.drawer-title{font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;font-size:1.4rem;font-weight:500;letter-spacing:.01em}
+@font-face{font-family:'Noto Sans Devanagari';font-weight:100 900;font-display:swap;unicode-range:U+0900-097F,U+1CD0-1CF9,U+200C-200D,U+20A8,U+20B9,U+25CC,U+A830-A839,U+A8E0-A8FF;src:url('/fonts/NotoSansDevanagari-Variable.woff2') format('woff2')}
+:lang(hi) body{line-height:1.7}
+:lang(hi) .btn,:lang(hi) .chip,:lang(hi) .dk .dl{line-height:1.4}
+:lang(hi) .auth-logo h1,:lang(hi) .auth-logo p,:lang(hi) .auth-tab,:lang(hi) .f label,:lang(hi) .tlogo,:lang(hi) .phase-pill,:lang(hi) .month-lbl,:lang(hi) .phase-sep-lbl,:lang(hi) .beacon-lbl,:lang(hi) .ph-card-title,:lang(hi) .ph-card-sub,:lang(hi) .st-val,:lang(hi) .st-lbl,:lang(hi) .dk .dl,:lang(hi) .drawer-title,:lang(hi) .ch-lbl,:lang(hi) .bname,:lang(hi) .tk-hd,:lang(hi) .ins-lbl,:lang(hi) .score-num .s,:lang(hi) .pred-lbl,:lang(hi) .badge,:lang(hi) .q-sec-title,:lang(hi) .intro-pill{letter-spacing:0}
+:lang(hi) .st-item{min-width:0}
+:lang(hi) .st-val,:lang(hi) .st-lbl{white-space:nowrap}
+@media(max-width:340px){:lang(hi) .stats-strip{padding:0 .4rem}:lang(hi) .st-val:not(.st-val-phase){font-size:1.05rem}:lang(hi) .st-lbl{font-size:.5rem}}
 .drawer-close{background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--muted);transition:color .2s;padding:.2rem;line-height:1;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
 .drawer-close:hover{color:var(--cream)}
 .modal-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.2rem;line-height:1;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
@@ -355,7 +379,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .bname{font-size:.6rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:.32rem;font-weight:500}
 .bubble.user .bname{color:rgba(196,84,74,.7)}
 .chat-in{padding:.8rem 1.2rem;border-top:1px solid var(--border);background:var(--s2);display:flex;gap:.6rem;align-items:flex-end}
-.chat-in textarea{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--cream);padding:.62rem .9rem;font-family:'Outfit',sans-serif;font-size:.82rem;resize:none;height:44px;min-height:44px;max-height:150px;outline:none;border-radius:var(--r);transition:border-color .2s,box-shadow .2s;line-height:1.5}
+.chat-in textarea{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--cream);padding:.62rem .9rem;font-family:'Outfit','Noto Sans Devanagari',sans-serif;font-size:.82rem;resize:none;height:44px;min-height:44px;max-height:150px;outline:none;border-radius:var(--r);transition:border-color .2s,box-shadow .2s;line-height:1.5}
 .f input:focus-visible,.f select:focus-visible,.f textarea:focus-visible,.chat-in textarea:focus-visible{outline:2px solid #E8A09A;outline-offset:2px}
 .chat-in textarea:focus{border-color:rgba(255,107,138,0.4);box-shadow:0 0 3px rgba(255,107,138,0.15)}
 .tdots{display:flex;gap:4px;align-items:center;padding:.32rem 0}
@@ -369,11 +393,11 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .tk-pulse{width:6px;height:6px;border-radius:50%;background:#FF6B8A;animation:pulse 1.2s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 .tk-lines{border-left:1px solid rgba(255,107,138,0.2);padding-left:.7rem;max-height:100px;overflow:hidden;mask-image:linear-gradient(to bottom,black 60%,transparent);-webkit-mask-image:linear-gradient(to bottom,black 60%,transparent)}
-.tk-line{font-size:.67rem;color:var(--muted);line-height:1.5;opacity:0;animation:tl 1s ease forwards;font-family:'Fira Code',monospace}
+.tk-line{font-size:.67rem;color:var(--muted);line-height:1.5;opacity:0;animation:tl 1s ease forwards;font-family:'Fira Code','Noto Sans Devanagari',monospace}
 @keyframes tl{0%{opacity:0;transform:translateX(-4px)}15%{opacity:.5;transform:none}75%{opacity:.5}100%{opacity:0;transform:translateX(2px)}}
 .tk-toggle{display:inline-flex;align-items:center;gap:.35rem;font-size:.6rem;color:var(--muted);cursor:pointer;padding:.2rem .55rem;background:rgba(255,107,138,0.08);border:1px solid rgba(255,107,138,0.15);border-radius:100px;margin-bottom:.45rem;transition:all .2s}
 .tk-toggle:hover{color:#64DCB4;border-color:rgba(100,220,180,0.25)}
-.tk-exp{border-left:1px solid rgba(100,220,180,0.14);padding-left:.7rem;margin-bottom:.45rem;font-size:.67rem;color:var(--muted);line-height:1.6;max-height:180px;overflow-y:auto;font-family:'Fira Code',monospace;animation:feedIn .3s ease}
+.tk-exp{border-left:1px solid rgba(100,220,180,0.14);padding-left:.7rem;margin-bottom:.45rem;font-size:.67rem;color:var(--muted);line-height:1.6;max-height:180px;overflow-y:auto;font-family:'Fira Code','Noto Sans Devanagari',monospace;animation:feedIn .3s ease}
 
 /* ANALYSIS */
 .ins-quote{font-size:.85rem;line-height:1.75;color:var(--cream);padding:1rem 1.1rem;background:rgba(255,107,138,0.08);border-left:3px solid #FF6B8A;border-radius:0 8px 8px 0;margin-bottom:1.2rem}
@@ -382,7 +406,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .score-ring{flex-shrink:0;position:relative;width:108px;height:108px}
 .score-ring svg{transform:rotate(-90deg)}
 .score-num{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
-.score-num .n{font-family:'Cormorant Garamond',serif;font-size:1.85rem;color:#E8A09A;line-height:1}
+.score-num .n{font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;font-size:1.85rem;color:#E8A09A;line-height:1}
 .score-num .s{font-size:.55rem;color:var(--muted);letter-spacing:.1em}
 .sbar{margin-bottom:.8rem}
 .sbar-lbl{display:flex;justify-content:space-between;font-size:.7rem;color:var(--muted);margin-bottom:.3rem}
@@ -390,17 +414,17 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .sbar-fill{height:3px;background:linear-gradient(90deg,#C4544A,#E8A09A);transition:width 1.2s cubic-bezier(.4,0,.2,1);border-radius:2px}
 .pred-tile{padding:.75rem 1rem;background:rgba(255,255,255,.03);border:1px solid var(--border);flex:1;min-width:120px;border-radius:var(--r)}
 .pred-lbl{font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:.3rem;font-weight:500}
-.pred-val{font-family:'Outfit',sans-serif;font-variant-numeric:lining-nums;font-size:1rem;color:#E8A09A}
+.pred-val{font-family:'Outfit','Noto Sans Devanagari',sans-serif;font-variant-numeric:lining-nums;font-size:1rem;color:#E8A09A}
 
 /* MODAL */
 .modal-ov{position:fixed;inset:0;background:rgba(7,8,12,.85);backdrop-filter:blur(6px);z-index:60;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s ease}
 .modal{background:var(--s1);border:1px solid var(--border);width:100%;max-width:450px;max-height:88vh;overflow-y:auto;padding:2rem;border-radius:12px;box-shadow:0 24px 80px rgba(0,0,0,.6);animation:cardIn .3s cubic-bezier(.4,0,.2,1)}
-.modal-title{font-family:'Cormorant Garamond',serif;font-size:1.35rem;color:#E8A09A;margin-bottom:1.4rem}
+.modal-title{font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;font-size:1.35rem;color:#E8A09A;margin-bottom:1.4rem}
 .modal-foot{display:flex;gap:.65rem;justify-content:flex-end;margin-top:1.4rem;position:sticky;bottom:-2rem;margin-left:-2rem;margin-right:-2rem;margin-bottom:-2rem;padding:1rem 2rem;background:var(--s1);border-top:1px solid var(--border)}
 
 /* CHIPS */
 .chips{display:flex;flex-wrap:wrap;gap:.4rem}
-.chip{min-height:40px;padding:.22rem .8rem;font-size:.7rem;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'Outfit',sans-serif;transition:all .15s;border-radius:100px;user-select:none}
+.chip{min-height:40px;padding:.22rem .8rem;font-size:.7rem;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'Outfit','Noto Sans Devanagari',sans-serif;transition:all .15s;border-radius:100px;user-select:none}
 .chip.on{border-color:#C4544A;color:#C4544A;background:rgba(196,84,74,.1)}
 .chip:hover:not(.on){border-color:var(--border-h);color:var(--cream)}
 
@@ -413,7 +437,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .empty{text-align:center;padding:3rem 2rem}
 .empty .ei{font-size:1.8rem;opacity:.35;margin-bottom:.75rem}
 .empty p{font-size:.8rem;color:var(--muted);line-height:1.7}
-.q-sec-title{font-family:'Cormorant Garamond',serif;font-size:1rem;color:#E8A09A;margin-bottom:.9rem;letter-spacing:.01em}
+.q-sec-title{font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;font-size:1rem;color:#E8A09A;margin-bottom:.9rem;letter-spacing:.01em}
 .q-sec{background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:var(--r);padding:1.1rem;margin-bottom:.7rem}
 
 /* ONBOARDING */
@@ -421,7 +445,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .intro-dots{display:flex;gap:.35rem;margin-top:1rem}
 .intro-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.15);transition:all .2s}
 .intro-dot.on{width:14px;background:#C4544A}
-.intro-kbd{display:inline-flex;align-items:center;justify-content:center;padding:.12rem .45rem;border-radius:4px;border:1px solid rgba(255,255,255,.12);font-size:.68rem;font-family:'Fira Code',monospace;background:rgba(0,0,0,.35);margin-left:.3rem}
+.intro-kbd{display:inline-flex;align-items:center;justify-content:center;padding:.12rem .45rem;border-radius:4px;border:1px solid rgba(255,255,255,.12);font-size:.68rem;font-family:'Fira Code','Noto Sans Devanagari',monospace;background:rgba(0,0,0,.35);margin-left:.3rem}
 
 /* CHAT AVATAR (LUNA) */
 .chat-head-left{display:flex;align-items:center;gap:.65rem}
@@ -460,12 +484,13 @@ function LoadingC({ text }) { return <div className="loading-c"><Spinner /><span
 function Err({ msg }) { if (!msg) return null; return <div className="err">⚠ {msg}</div>; }
 
 function Modal({ title, onClose, children, footer }) {
+  useLanguage();
   return (
     <div className="modal-ov" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.4rem" }}>
           <div className="modal-title">{title}</div>
-          <button className="modal-close" aria-label="Close" onClick={onClose}>×</button>
+          <button className="modal-close" aria-label={t("Close")} onClick={onClose}>×</button>
         </div>
         {children}
         {footer && <div className="modal-foot">{footer}</div>}
@@ -476,32 +501,35 @@ function Modal({ title, onClose, children, footer }) {
 
 // ─── ONBOARDING OVERLAY ─────────────────────────────────────────────────────────
 function Onboarding({ onClose, email }) {
+  useLanguage();
   const [step, setStep] = useState(0);
   const steps = [
     {
-      title: "Set up your health profile",
-      body: "Optional: add your health profile from the banner or Profile → Health Profile so insights can feel more personal. It’s context, not a diagnosis.",
-      badge: "Health Profile",
+      title: t("Set up your health profile"),
+      // i18n-note: "Profile → Health Profile" must match the Hindi names of the Profile screen and its Health Profile section (translated in a later task)
+      body: t("Optional: add your health profile from the banner or Profile → Health Profile so insights can feel more personal. It’s context, not a diagnosis."),
+      badge: t("Health Profile"),
     },
     {
-      title: "Your cycle journey map",
-      body: "Scroll sideways to explore past and predicted cycles. Hover over coloured bands to see which phase you're in and what it means for energy, mood and focus.",
-      badge: "Journey Canvas",
+      title: t("Your cycle journey map"),
+      body: t("Scroll sideways to explore past and predicted cycles. Hover over coloured bands to see which phase you're in and what it means for energy, mood and focus."),
+      badge: t("Journey Canvas"),
     },
     {
-      title: "Logging periods & symptoms",
-      body: "Tap the glowing + button in the dock to log a new period. Add flow, pain and symptoms – Luna uses this to understand your pattern over time.",
-      badge: "Log Periods",
+      title: t("Logging periods & symptoms"),
+      body: t("Tap the glowing + button in the dock to log a new period. Add flow, pain and symptoms – Luna uses this to understand your pattern over time."),
+      badge: t("Log Periods"),
     },
     {
-      title: "AI health insights",
-      body: "In Insights, Luna analyses your last cycles to explain regularity, predicted dates and key patterns, with clear recommendations in everyday language.",
-      badge: "AI Analysis",
+      title: t("AI health insights"),
+      body: t("In Insights, Luna analyses your last cycles to explain regularity, predicted dates and key patterns, with clear recommendations in everyday language."),
+      badge: t("AI Analysis"),
     },
     {
-      title: "Chat with Luna",
-      body: "Use Chat for questions about cramps, cycle changes or patterns you’re worried about. Luna will reference your data when available, but never diagnose.",
-      badge: "Chat",
+      title: t("Chat with Luna"),
+      // i18n-note: "never diagnose" is translated literally on purpose (health disclaimer); keep it unsoftened
+      body: t("Use Chat for questions about cramps, cycle changes or patterns you’re worried about. Luna will reference your data when available, but never diagnose."),
+      badge: t("Chat"),
     },
   ];
 
@@ -520,19 +548,21 @@ function Onboarding({ onClose, email }) {
       <div className="modal" style={{ maxWidth: 520, animationDuration: ".35s" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: ".5rem", marginBottom: "1.2rem" }}>
           <div style={{ flex: "1 1 200px", minWidth: 0 }}>
-            <div className="intro-pill"><span style={{ fontSize: "0.8rem" }}>◐</span>Welcome tour</div>
-            <div className="modal-title" style={{ marginBottom: 0 }}>Meet your Luna journey</div>
+            <div className="intro-pill"><span style={{ fontSize: "0.8rem" }}>◐</span>
+              {t("Welcome tour")}
+            </div>
+            <div className="modal-title" style={{ marginBottom: 0 }}>{t("Meet your Luna journey")}</div>
           </div>
-          <button type="button" className="btn btn-g btn-sm" onClick={finish}>Skip</button>
+          <button type="button" className="btn btn-g btn-sm" onClick={finish}>{t("Skip")}</button>
         </div>
         <div style={{ fontSize: ".86rem", color: "var(--muted)", marginBottom: "1.1rem" }}>
           {active.badge && <span className="badge b-m" style={{ marginBottom: ".5rem", display: "inline-flex" }}>{active.badge}</span>}
-          <h3 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.2rem", color: "var(--cream)", margin: ".25rem 0 .55rem" }}>{active.title}</h3>
+          <h3 style={{ fontFamily: "'Cormorant Garamond','Noto Sans Devanagari',serif", fontSize: "1.2rem", color: "var(--cream)", margin: ".25rem 0 .55rem" }}>{active.title}</h3>
           <p style={{ lineHeight: 1.75 }}>{active.body}</p>
         </div>
         <div style={{ fontSize: ".74rem", color: "var(--muted)", marginBottom: ".8rem" }}>
-          Use your mouse wheel or trackpad to pan across the map. On touch devices, drag sideways with one finger.
-          <span className="intro-kbd">drag</span>
+          {t("Use your mouse wheel or trackpad to pan across the map. On touch devices, drag sideways with one finger.")}
+          <span className="intro-kbd">{t("drag")}</span>
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "1.1rem" }}>
           <div className="intro-dots">
@@ -543,7 +573,7 @@ function Onboarding({ onClose, email }) {
           <div style={{ display: "flex", gap: ".6rem" }}>
             {step > 0 && (
               <button className="btn btn-g btn-sm" type="button" onClick={() => setStep(s => Math.max(0, s - 1))}>
-                Back
+                {t("Back")}
               </button>
             )}
             <button
@@ -554,7 +584,7 @@ function Onboarding({ onClose, email }) {
                 else finish();
               }}
             >
-              {step < steps.length - 1 ? "Next" : "Done"}
+              {step < steps.length - 1 ? t("Next") : t("Done")}
             </button>
           </div>
         </div>
@@ -571,28 +601,30 @@ function parseThink(content) {
 }
 
 function ThinkMsg({ content }) {
+  useLanguage();
   const { think, response } = parseThink(content);
   const [phase, setPhase] = useState(think ? "anim" : "done");
   const [expanded, setExpanded] = useState(false);
   const lines = think ? think.split("\n").filter(l => l.trim()) : [];
   useEffect(() => {
-    if (phase === "anim") { const t = setTimeout(() => setPhase("done"), (lines.length * 0.15 + 1.3) * 1000); return () => clearTimeout(t); }
+    if (phase === "anim") { const timer = setTimeout(() => setPhase("done"), (lines.length * 0.15 + 1.3) * 1000); return () => clearTimeout(timer); }
   }, [phase]);
-  if (!think) return <div style={{ whiteSpace: "pre-wrap" }}>{response}</div>;
+  if (!think) return <div data-i18n-ignore style={{ whiteSpace: "pre-wrap" }}>{response}</div>;
   return (
     <div>
-      {phase === "anim" && <div><div className="tk-hd"><span className="tk-pulse" />Thinking…</div><div className="tk-lines">{lines.map((l, i) => <div key={i} className="tk-line" style={{ animationDelay: `${i * .15}s` }}>{l}</div>)}</div></div>}
+      {phase === "anim" && <div><div className="tk-hd"><span className="tk-pulse" />{/* i18n-note: "सोच रही हूँ" is Luna's own feminine voice */}{t("Thinking…")}</div><div className="tk-lines" data-i18n-ignore>{lines.map((l, i) => <div key={i} className="tk-line" style={{ animationDelay: `${i * .15}s` }}>{l}</div>)}</div></div>}
       {phase === "done" && think && <>
-        <div className="tk-toggle" onClick={() => setExpanded(e => !e)}><span style={{ color: "#7ECECE" }}>{expanded ? "▾" : "▸"}</span>Thought process</div>
-        {expanded && <div className="tk-exp">{lines.map((l, i) => <div key={i}>{l}</div>)}</div>}
+        <div className="tk-toggle" onClick={() => setExpanded(e => !e)}><span style={{ color: "#7ECECE" }}>{expanded ? "▾" : "▸"}</span>{t("Thought process")}</div>
+        {expanded && <div className="tk-exp" data-i18n-ignore>{lines.map((l, i) => <div key={i}>{l}</div>)}</div>}
       </>}
-      {phase === "done" && <div style={{ whiteSpace: "pre-wrap", animation: "feedIn .4s ease both" }}>{response}</div>}
+      {phase === "done" && <div data-i18n-ignore style={{ whiteSpace: "pre-wrap", animation: "feedIn .4s ease both" }}>{response}</div>}
     </div>
   );
 }
 
 // ─── AUTH ─────────────────────────────────────────────────────────────────────
 function AuthScreen({ onLogin, initialMode = "login" }) {
+  useLanguage();
   const [tab, setTab] = useState(initialMode); 
   const [email, setEmail] = useState(""); 
   const [pass, setPass] = useState("");
@@ -615,9 +647,9 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
         : await API.auth.register({ email, accepted_privacy_policy: accepted, confirmed_18_plus: adult });
       
       if (!d.access_token) {
-        if (tab === "login") { setErr("Something went wrong. Please try again."); return; }
+        if (tab === "login") { setErr(t("Something went wrong. Please try again.")); return; }
         // Register: no tokens issued (e.g. email verification required)
-        setMessage("Check your email. Open the link we sent to choose your password and finish signing up.");
+        setMessage(t("Check your email. Open the link we sent to choose your password and finish signing up."));
         return;
       }
       
@@ -636,7 +668,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
         onLogin(res.access_token, res.refresh_token, res.user.email);
       } catch (e) {
         if (e && e.message !== "Google sign-in was cancelled") {
-          setErr(e.code === "consent_required" || e.name === "ApiError" ? e.message : "Failed to sign in with Google");
+          setErr(e.code === "consent_required" || e.name === "ApiError" ? e.message : t("Failed to sign in with Google"));
         }
         setLoading(false);
       }
@@ -647,7 +679,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
       const response = await API.auth.getGoogleAuthUrl();
       window.location.href = buildGoogleRedirect(response.auth_url, newGoogleState());
     } catch (e) {
-      setErr("Failed to initiate Google Sign-In");
+      setErr(t("Failed to initiate Google Sign-In"));
       setLoading(false);
     }
   }
@@ -657,7 +689,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
     setLoading(true);
     try {
       await API.verify.resend(email);
-      setMessage("Verification email sent! Please check your inbox.");
+      setMessage(t("Verification email sent! Please check your inbox."));
       setShowResendVerification(false);
     } catch (e) {
       setErr(e.message);
@@ -671,7 +703,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
     setLoading(true);
     try {
       const response = await API.auth.requestPasswordReset({ email });
-      setMessage(response.message);
+      setMessage(translateServer(response.message));
       setShowPasswordReset(false);
     } catch (e) {
       setErr(e.message);
@@ -680,18 +712,23 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
     }
   }
   
+  const resendLabel = t("Resend Verification Email");
+  const resetLabel = t("Send Reset Link");
+  const submitLabel = tab === "login" ? t("Log in") : t("Create Account");
+
   if (showResendVerification) {
     return (
       <div className="auth-wrap">
         <div className="auth-orb auth-orb-a" /><div className="auth-orb auth-orb-b" />
         <div className="auth-card">
-          <div className="auth-logo"><span className="auth-moon">◐</span><h1>Luna Health</h1><p>Resend Verification</p></div>
+          <div style={{ marginBottom: "1rem" }}><LanguageSwitcher /></div>
+          <div className="auth-logo"><span className="auth-moon">◐</span><h1>Luna Health</h1><p>{t("Resend Verification")}</p></div>
           <form onSubmit={handleResendVerification}>
-            <div className="f"><label>Email</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@gmail.com" required autoFocus /></div>
+            <div className="f"><label>{t("Email")}</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@gmail.com" required autoFocus /></div>
             <Err msg={err} />
             {message && <div style={{ color: "#5FA87A", fontSize: ".8rem", marginBottom: "1rem", textAlign: "center" }}>{message}</div>}
             <button className="btn btn-p btn-full" style={{ marginTop: "1.1rem" }} type="submit" disabled={loading}>
-              {loading ? <><Spinner /> Sending…</> : "Resend Verification Email"}
+              {loading ? <><Spinner /> {t("Sending…")}</> : resendLabel}
             </button>
             <button 
               type="button" 
@@ -699,7 +736,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
               style={{ marginTop: "0.5rem", background: "transparent", border: "1px solid var(--border)" }}
               onClick={() => setShowResendVerification(false)}
             >
-              Back to Login
+              {t("Back to Login")}
             </button>
           </form>
         </div>
@@ -712,13 +749,14 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
       <div className="auth-wrap">
         <div className="auth-orb auth-orb-a" /><div className="auth-orb auth-orb-b" />
         <div className="auth-card">
-          <div className="auth-logo"><span className="auth-moon">◐</span><h1>Luna Health</h1><p>Reset Password</p></div>
+          <div style={{ marginBottom: "1rem" }}><LanguageSwitcher /></div>
+          <div className="auth-logo"><span className="auth-moon">◐</span><h1>Luna Health</h1><p>{t("Reset Password")}</p></div>
           <form onSubmit={handlePasswordReset}>
-            <div className="f"><label>Email</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@gmail.com" required autoFocus /></div>
+            <div className="f"><label>{t("Email")}</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@gmail.com" required autoFocus /></div>
             <Err msg={err} />
             {message && <div style={{ color: "#5FA87A", fontSize: ".8rem", marginBottom: "1rem", textAlign: "center" }}>{message}</div>}
             <button className="btn btn-p btn-full" style={{ marginTop: "1.1rem" }} type="submit" disabled={loading}>
-              {loading ? <><Spinner /> Sending…</> : "Send Reset Link"}
+              {loading ? <><Spinner /> {t("Sending…")}</> : resetLabel}
             </button>
             <button 
               type="button" 
@@ -726,7 +764,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
               style={{ marginTop: "0.5rem", background: "transparent", border: "1px solid var(--border)" }}
               onClick={() => setShowPasswordReset(false)}
             >
-              Back to Login
+              {t("Back to Login")}
             </button>
           </form>
         </div>
@@ -738,31 +776,32 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
     <div className="auth-wrap">
       <div className="auth-orb auth-orb-a" /><div className="auth-orb auth-orb-b" />
       <div className="auth-card">
-        <div className="auth-logo"><span className="auth-moon">◐</span><h1>Luna Health</h1><p>Your Cycle, Your Journey</p></div>
+        <div style={{ marginBottom: "1rem" }}><LanguageSwitcher /></div>
+        <div className="auth-logo"><span className="auth-moon">◐</span><h1>Luna Health</h1><p>{t("Your Cycle, Your Journey")}</p></div>
         <div className="auth-tabs">
-          <button className={`auth-tab ${tab === "login" ? "on" : ""}`} onClick={() => { setTab("login"); setErr(""); setMessage(""); }}>Sign In</button>
-          <button className={`auth-tab ${tab === "register" ? "on" : ""}`} onClick={() => { setTab("register"); setErr(""); setMessage(""); }}>Register</button>
+          <button className={`auth-tab ${tab === "login" ? "on" : ""}`} onClick={() => { setTab("login"); setErr(""); setMessage(""); }}>{t("Sign In")}</button>
+          <button className={`auth-tab ${tab === "register" ? "on" : ""}`} onClick={() => { setTab("register"); setErr(""); setMessage(""); }}>{t("Register")}</button>
         </div>
         <form onSubmit={submit}>
-          <div className="f"><label>Email</label><input type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@gmail.com" required autoFocus /></div>
-          {tab === "login" && <div className="f"><label>Password</label>
+          <div className="f"><label>{t("Email")}</label><input type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@gmail.com" required autoFocus /></div>
+          {tab === "login" && <div className="f"><label>{t("Password")}</label>
             <div className="pw-wrap">
               <input type={showPassword ? "text" : "password"} autoComplete="current-password" value={pass} onChange={e => setPass(e.target.value)} placeholder="•••••••" required />
-              <button type="button" className="pw-toggle" aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword(v => !v)}>{showPassword ? "🙈" : "👁"}</button>
+              <button type="button" className="pw-toggle" aria-label={showPassword ? t("Hide password") : t("Show password")} onClick={() => setShowPassword(v => !v)}>{showPassword ? "🙈" : "👁"}</button>
             </div>
           </div>}
           {tab === "register" && <ConsentCheckboxes adult={adult} accepted={accepted} onAdultChange={setAdult} onAcceptedChange={setAccepted} />}
           <Err msg={err} />
           {message && <div style={{ color: "#5FA87A", fontSize: ".8rem", marginBottom: "1rem", textAlign: "center" }}>{message}</div>}
           <button className="btn btn-p btn-full" style={{ marginTop: "1.1rem" }} type="submit" disabled={loading || registerBlocked}>
-            {loading ? <><Spinner /> Processing…</> : tab === "login" ? "Log in" : "Create Account"}
+            {loading ? <><Spinner /> {t("Processing…")}</> : submitLabel}
           </button>
         </form>
         
         {/* Google Sign-In */}
         <div style={{ margin: "1.5rem 0", textAlign: "center" }}>
           <div style={{ fontSize: ".7rem", color: "var(--muted)", marginBottom: "1rem", position: "relative" }}>
-            <span style={{ background: "var(--s1)", padding: "0 1rem" }}>OR</span>
+            <span style={{ background: "var(--s1)", padding: "0 1rem" }}>{t("OR")}</span>
           </div>
           <button 
             className="btn btn-full" 
@@ -779,7 +818,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
             }}
           >
             <span style={{ fontSize: "1.2rem" }}>G</span>
-            Continue with Google
+            {t("Continue with Google")}
           </button>
         </div>
         
@@ -792,7 +831,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
               style={{ background: "transparent", border: "none", color: "var(--muted)", fontSize: ".75rem" }}
               onClick={() => setShowPasswordReset(true)}
             >
-              Forgot password?
+              {t("Forgot password?")}
             </button>
             <span style={{ margin: "0 0.5rem", color: "var(--muted)" }}>•</span>
             <button 
@@ -801,14 +840,14 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
               style={{ background: "transparent", border: "none", color: "var(--muted)", fontSize: ".75rem" }}
               onClick={() => setShowResendVerification(true)}
             >
-              Resend verification
+              {t("Resend verification")}
             </button>
           </div>
         )}
         
         <p style={{ fontSize: ".65rem", color: "var(--muted)", textAlign: "center", marginTop: "1rem" }}>
-          {tab === "register" && <>Only Gmail addresses are supported for registration.<br /></>}
-          Luna Health is for people aged 18 and over.
+          {tab === "register" && <>{t("Only Gmail addresses are supported for registration.")}<br /></>}
+          {t("Luna Health is for people aged 18 and over.")}
         </p>
       </div>
     </div>
@@ -819,6 +858,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
 const DAY_W = 34, BACK = 90, FWD = 60, TOTAL = BACK + FWD;
 
 function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss, token, onPeriodDeleted, onLogPeriod }) {
+  useLanguage();
   const scrollRef = useRef(null);
   const [hoveredPhase, setHoveredPhase] = useState(null);
   const [phaseCardX, setPhaseCardX] = useState(0);
@@ -858,17 +898,18 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
   // Month labels
   const monthLabels = [];
   let lastM = null;
-  timeline.forEach((d, i) => { const m = d.date.getMonth(); if (m !== lastM) { monthLabels.push({ x: i * DAY_W, label: d.date.toLocaleDateString("en", { month: "short" }) }); lastM = m; } });
+  timeline.forEach((d, i) => { const m = d.date.getMonth(); if (m !== lastM) { monthLabels.push({ x: i * DAY_W, label: d.date.toLocaleDateString(dateLocale(), { month: "short" }) }); lastM = m; } });
 
   const todayDay = timeline.find(d => d.isToday);
   const todayPh = PHASES[todayDay?.phase || "unknown"] || PHASES.unknown;
+  const phText = key => phaseText(PHASES[key] ? key : "unknown");
 
   return (
     <div className="j-canvas" onClick={onDismiss}>
       {periods.length === 0 && onLogPeriod && (
         <div className="j-empty">
-          <p>Your journey starts with your first period.</p>
-          <button type="button" className="btn btn-p" onClick={e => { e.stopPropagation(); onLogPeriod(); }}>Log a period</button>
+          <p>{t("Your journey starts with your first period.")}</p>
+          <button type="button" className="btn btn-p" onClick={e => { e.stopPropagation(); onLogPeriod(); }}>{t("Log a period")}</button>
         </div>
       )}
       <div ref={scrollRef} className="j-scroll" onMouseDown={onMD} onMouseMove={onMM} onMouseUp={onMU} onMouseLeave={onMU}>
@@ -906,7 +947,7 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
                 <div key={i}>
                   <div className="phase-sep" style={{ left: pt.x }} />
                   <div className="phase-sep-lbl" style={{ left: pt.x + 5, color: ph.color, background: ph.muted, borderLeft: `2px solid ${ph.color}` }}>
-                    {ph.icon} {ph.name}
+                    {ph.icon} {phText(pt.phase).name}
                   </div>
                 </div>
               );
@@ -928,7 +969,7 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
                 <div key={i} className="p-dot"
                   style={{ left: i * DAY_W + DAY_W / 2, width: sz, height: sz, background: isPred ? "transparent" : ph.color, border: `2px solid ${ph.color}`, boxShadow: isPred ? "none" : `0 0 0 4px ${ph.muted},0 0 12px ${ph.glow}`, opacity: isPred ? .5 : 1 }}
                   onClick={e => { e.stopPropagation(); onSelectMarker(d, i * DAY_W); }}
-                  title={isPred ? "Predicted period" : `Period: ${d.date.toLocaleDateString()}`}
+                  title={isPred ? t("Predicted period") : t("Period: {date}", { date: d.date.toLocaleDateString(intlLocale()) })}
                 />
               );
             })}
@@ -939,7 +980,7 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
               <div className="beacon-dot" style={{ background: todayPh.color }}>
                 <div style={{ position: "absolute", inset: "-7px", borderRadius: "50%", animation: "ring 2.5s ease-in-out infinite", border: `1.5px solid ${todayPh.color}`, opacity: 0 }} />
               </div>
-              <div className="beacon-lbl" style={{ background: todayPh.muted, color: todayPh.color, border: `1px solid ${todayPh.border}` }}>NOW</div>
+              <div className="beacon-lbl" style={{ background: todayPh.muted, color: todayPh.color, border: `1px solid ${todayPh.border}` }}>{t("NOW")}</div>
             </div>
 
             {/* Phase hover card */}
@@ -952,9 +993,9 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
               const clampedLeft = phaseCardX - (relX + cardW > viewW ? cardW + 8 : 0);
               return (
                 <div className="ph-card" style={{ left: Math.max(scrollLeft + 8, clampedLeft - 20) }}>
-                  <div className="ph-card-title" style={{ color: ph.color }}>{hoveredPhase === "unknown" || ph === PHASES.unknown ? ph.name : `${ph.icon} ${ph.name} · ${ph.territory}`}</div>
-                  <div className="ph-card-sub">{ph.days}</div>
-                  <div className="ph-card-tip">{ph.tip}</div>
+                  <div className="ph-card-title" style={{ color: ph.color }}>{hoveredPhase === "unknown" || ph === PHASES.unknown ? phText(hoveredPhase).name : t("{icon} {phase} · {territory}", { icon: ph.icon, phase: phText(hoveredPhase).name, territory: phText(hoveredPhase).territory })}</div>
+                  <div className="ph-card-sub">{phText(hoveredPhase).days}</div>
+                  <div className="ph-card-tip">{phText(hoveredPhase).tip}</div>
                 </div>
               );
             })()}
@@ -968,18 +1009,18 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
               const cardLeft = Math.max(scrollLeft + 8, Math.min(selectedInfo.x - 100, scrollLeft + (visW || 390) - cardMaxW - 8));
               return (
                 <div className="mk-card" style={{ left: cardLeft, bottom: 14 }} onClick={e => e.stopPropagation()}>
-                  <button className="mk-card-close" aria-label="Close" onClick={onDismiss}>×</button>
+                  <button className="mk-card-close" aria-label={t("Close")} onClick={onDismiss}>×</button>
                   {d.loggedPeriod ? (
                     <>
-                      <div className="mk-card-head" style={{ fontSize: ".62rem", letterSpacing: ".1em", textTransform: "uppercase", color: PHASES.menstrual.color, marginBottom: ".45rem", fontWeight: 500 }}>🩸 Logged Period</div>
-                      <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.05rem", marginBottom: ".35rem" }}>{formatLongDate(d.loggedPeriod.start_date)}</div>
-                      {d.loggedPeriod.end_date && <div style={{ fontSize: ".7rem", color: "var(--muted)" }}>Ended: {formatLongDate(d.loggedPeriod.end_date)}</div>}
-                      {d.loggedPeriod.flow_intensity && <div style={{ marginTop: ".45rem" }}><span className="badge b-r">{d.loggedPeriod.flow_intensity} flow</span></div>}
-                      {d.loggedPeriod.pain_level != null && <div style={{ fontSize: ".7rem", color: "var(--muted)", marginTop: ".35rem", fontFamily: "'Fira Code',monospace" }}>Pain: {d.loggedPeriod.pain_level}/10</div>}
-                      {(d.loggedPeriod.symptoms || []).length > 0 && <div style={{ marginTop: ".5rem", display: "flex", flexWrap: "wrap", gap: ".22rem" }}>{d.loggedPeriod.symptoms.slice(0, 4).map(s => <span key={s} className="badge b-m">{s}</span>)}</div>}
+                      <div className="mk-card-head" style={{ fontSize: ".62rem", letterSpacing: ".1em", textTransform: "uppercase", color: PHASES.menstrual.color, marginBottom: ".45rem", fontWeight: 500 }}>🩸 {t("Logged Period")}</div>
+                      <div style={{ fontFamily: "'Cormorant Garamond','Noto Sans Devanagari',serif", fontSize: "1.05rem", marginBottom: ".35rem" }}>{formatLongDate(d.loggedPeriod.start_date)}</div>
+                      {d.loggedPeriod.end_date && <div style={{ fontSize: ".7rem", color: "var(--muted)" }}>{t("Ended: {date}", { date: formatLongDate(d.loggedPeriod.end_date) })}</div>}
+                      {d.loggedPeriod.flow_intensity && <div style={{ marginTop: ".45rem" }}><span className="badge b-r">{flowLabel(d.loggedPeriod.flow_intensity)}</span></div>}
+                      {d.loggedPeriod.pain_level != null && <div style={{ fontSize: ".7rem", color: "var(--muted)", marginTop: ".35rem", fontFamily: "'Fira Code','Noto Sans Devanagari',monospace" }}>{t("Pain: {level}/10", { level: d.loggedPeriod.pain_level })}</div>}
+                      {(d.loggedPeriod.symptoms || []).length > 0 && <div style={{ marginTop: ".5rem", display: "flex", flexWrap: "wrap", gap: ".22rem" }}>{d.loggedPeriod.symptoms.slice(0, 4).map(s => <span key={s} className="badge b-m">{symptomLabel(s)}</span>)}</div>}
                       <PeriodDelete period={d.loggedPeriod} token={token} onDeleted={onPeriodDeleted} />
                     </>
-                  ) : <div className="mk-card-head" style={{ fontSize: ".77rem", color: "var(--muted)" }}>Predicted period start</div>}
+                  ) : <div className="mk-card-head" style={{ fontSize: ".77rem", color: "var(--muted)" }}>{t("Predicted period start")}</div>}
                 </div>
               );
             })()}
@@ -993,6 +1034,7 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
 
 // ─── LOG PERIOD MODAL ─────────────────────────────────────────────────────────
 function LogModal({ token, onClose, onSave }) {
+  useLanguage();
   const today = localDateString();
   const [startDate, setStartDate] = useState(today); const [endDate, setEndDate] = useState("");
   const [flow, setFlow] = useState("medium"); const [pain, setPain] = useState(3);
@@ -1013,7 +1055,7 @@ function LogModal({ token, onClose, onSave }) {
           setStats(st);
         }
       } catch (e) {
-        if (!cancelled) setStatsErr(e.message || "Unable to load recent pattern");
+        if (!cancelled) setStatsErr(e.message || t("Unable to load recent pattern"));
       } finally {
         if (!cancelled) setStatsLoading(false);
       }
@@ -1021,56 +1063,56 @@ function LogModal({ token, onClose, onSave }) {
     return () => { cancelled = true; };
   }, [token]);
   async function save() {
-    if (!startDate) { setErr("Start date required"); return; }
+    if (!startDate) { setErr(t("Start date required")); return; }
     const todayNow = localDateString();
-    if (endDate && endDate < startDate) { setErr("The end date can't be before the start date."); return; }
-    if (startDate > todayNow || (endDate && endDate > todayNow)) { setErr("Dates can't be in the future."); return; }
+    if (endDate && endDate < startDate) { setErr(t("The end date can't be before the start date.")); return; }
+    if (startDate > todayNow || (endDate && endDate > todayNow)) { setErr(t("Dates can't be in the future.")); return; }
     setSaving(true); setErr("");
     try { await API.periods.create({ start_date: startDate, end_date: endDate || null, flow_intensity: flow, pain_level: pain, symptoms, notes }, token); onSave(); }
     catch (e) { setErr(e.message); } finally { setSaving(false); }
   }
   return (
-    <Modal title="Log New Period" onClose={onClose}
-      footer={<><button className="btn btn-g" onClick={onClose}>Cancel</button><button className="btn btn-p" onClick={save} disabled={saving}>{saving ? <><Spinner /> Saving…</> : "Save to Journey"}</button></>}>
+    <Modal title={t("Log New Period")} onClose={onClose}
+      footer={<><button className="btn btn-g" onClick={onClose}>{t("Cancel")}</button><button className="btn btn-p" onClick={save} disabled={saving}>{saving ? <><Spinner /> {t("Saving…")}</> : t("Save to Journey")}</button></>}>
       <div className="f-row">
-        <div className="f"><label>Start Date *</label><input type="date" value={startDate} max={today} onChange={e => { const v = e.target.value; setStartDate(v); if (endDate && v > endDate) setEndDate(""); }} /></div>
-        <div className="f"><label>End Date</label><input type="date" value={endDate} min={startDate} max={today} onChange={e => setEndDate(e.target.value)} /></div>
+        <div className="f"><label>{t("Start Date *")}</label><input type="date" value={startDate} max={today} onChange={e => { const v = e.target.value; setStartDate(v); if (endDate && v > endDate) setEndDate(""); }} /></div>
+        <div className="f"><label>{t("End Date")}</label><input type="date" value={endDate} min={startDate} max={today} onChange={e => setEndDate(e.target.value)} /></div>
       </div>
-      <div className="f"><label>Flow Intensity</label><select value={flow} onChange={e => setFlow(e.target.value)}><option value="light">Light</option><option value="medium">Medium</option><option value="heavy">Heavy</option></select></div>
+      <div className="f"><label>{t("Flow Intensity")}</label><select value={flow} onChange={e => setFlow(e.target.value)}><option value="light">{t("Light")}</option><option value="medium">{t("Medium")}</option><option value="heavy">{t("Heavy")}</option></select></div>
       <div className="f">
-        <label>Pain Level — <span style={{ color: "#C4544A", fontFamily: "'Fira Code',monospace" }}>{pain}/10</span></label>
+        <label>{t("Pain Level")} — <span style={{ color: "#C4544A", fontFamily: "'Fira Code','Noto Sans Devanagari',monospace" }}>{pain}/10</span></label>
         <input type="range" min="0" max="10" value={pain} onChange={e => setPain(Number(e.target.value))} style={{ accentColor: "#C4544A" }} />
       </div>
-      <div className="f"><label>Symptoms</label><div className="chips">{SYMPTOMS_LIST.map(s => <button key={s} type="button" className={`chip ${symptoms.includes(s) ? "on" : ""}`} onClick={() => toggle(s)}>{s}</button>)}</div></div>
-      <div className="f"><label>Notes</label><textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Any additional observations…" /></div>
+      <div className="f"><label>{t("Symptoms")}</label><div className="chips">{SYMPTOMS_LIST.map(s => <button key={s} type="button" className={`chip ${symptoms.includes(s) ? "on" : ""}`} onClick={() => toggle(s)}>{symptomLabel(s)}</button>)}</div></div>
+      <div className="f"><label>{t("Notes")}</label><textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder={t("Any additional observations…")} /></div>
       <Err msg={err} />
       <div className="divider" style={{ marginTop: "1.2rem", marginBottom: "1rem" }} />
       <div className="q-sec">
-        <div className="q-sec-title">How your cycles usually look</div>
-        {statsLoading && <div style={{ fontSize: ".75rem", color: "var(--muted)" }}>Reading your recent pattern…</div>}
-        {!statsLoading && statsErr && <div style={{ fontSize: ".75rem", color: "var(--muted)" }}>We couldn't load past data ({statsErr}). You can still log this period.</div>}
+        <div className="q-sec-title">{t("How your cycles usually look")}</div>
+        {statsLoading && <div style={{ fontSize: ".75rem", color: "var(--muted)" }}>{t("Reading your recent pattern…")}</div>}
+        {!statsLoading && statsErr && <div style={{ fontSize: ".75rem", color: "var(--muted)" }}>{t("We couldn't load past data ({error}). You can still log this period.", { error: statsErr })}</div>}
         {!statsLoading && !statsErr && !stats && (
           <div style={{ fontSize: ".78rem", color: "var(--muted)" }}>
-            Once you've logged a few periods, we'll summarise your typical cycle length, bleed days and pain pattern here.
+            {t("Once you've logged a few periods, we'll summarise your typical cycle length, bleed days and pain pattern here.")}
           </div>
         )}
         {!statsLoading && stats && (
           <div style={{ display: "flex", flexDirection: "column", gap: ".65rem", fontSize: ".78rem" }}>
             <div style={{ color: "var(--muted)" }}>
-              Based on your last <span style={{ fontFamily: "'Fira Code',monospace" }}>{stats.count}</span> logged periods.
+              {tn(stats.count, "Based on your {count} logged period.", "Based on your last {count} logged periods.")}
             </div>
             {stats.avgCycle && (
               <div>
                 <div className="sbar-lbl">
-                  <span>Typical cycle length</span>
-                  <span style={{ fontFamily: "'Fira Code',monospace", color: "#E8A09A" }}>{stats.avgCycle} days</span>
+                  <span>{t("Typical cycle length")}</span>
+                  <span style={{ fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", color: "#E8A09A" }}>{tn(stats.avgCycle, "{count} day", "{count} days")}</span>
                 </div>
                 <div className="sbar-track">
                   <div className="sbar-fill" style={{ width: `${Math.min((stats.avgCycle / 40) * 100, 100)}%` }} />
                 </div>
                 {(stats.minCycle && stats.maxCycle && stats.minCycle !== stats.maxCycle) && (
                   <div style={{ fontSize: ".7rem", color: "var(--muted)", marginTop: ".2rem" }}>
-                    Most cycles fall between {stats.minCycle}–{stats.maxCycle} days.
+                    {t("Most cycles fall between {min}–{max} days.", { min: stats.minCycle, max: stats.maxCycle })}
                   </div>
                 )}
               </div>
@@ -1078,15 +1120,15 @@ function LogModal({ token, onClose, onSave }) {
             {stats.avgDuration && (
               <div>
                 <div className="sbar-lbl">
-                  <span>Bleeding days</span>
-                  <span style={{ fontFamily: "'Fira Code',monospace", color: "#E8A09A" }}>{stats.avgDuration} days</span>
+                  <span>{t("Bleeding days")}</span>
+                  <span style={{ fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", color: "#E8A09A" }}>{tn(stats.avgDuration, "{count} day", "{count} days")}</span>
                 </div>
                 <div className="sbar-track">
                   <div className="sbar-fill" style={{ width: `${Math.min((stats.avgDuration / 14) * 100, 100)}%`, background: "linear-gradient(90deg,#C4544A,#E8A09A)" }} />
                 </div>
                 {(stats.minDuration && stats.maxDuration && stats.minDuration !== stats.maxDuration) && (
                   <div style={{ fontSize: ".7rem", color: "var(--muted)", marginTop: ".2rem" }}>
-                    Usually between {stats.minDuration}–{stats.maxDuration} days of bleeding.
+                    {t("Usually between {min}–{max} days of bleeding.", { min: stats.minDuration, max: stats.maxDuration })}
                   </div>
                 )}
               </div>
@@ -1094,8 +1136,8 @@ function LogModal({ token, onClose, onSave }) {
             {typeof stats.avgPain === "number" && (
               <div>
                 <div className="sbar-lbl">
-                  <span>Average pain level</span>
-                  <span style={{ fontFamily: "'Fira Code',monospace", color: "#E8A09A" }}>{stats.avgPain}/10</span>
+                  <span>{t("Average pain level")}</span>
+                  <span style={{ fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", color: "#E8A09A" }}>{stats.avgPain}/10</span>
                 </div>
                 <div className="sbar-track">
                   <div className="sbar-fill" style={{ width: `${Math.min((stats.avgPain / 10) * 100, 100)}%`, background: "linear-gradient(90deg,#E07070,#C4544A)" }} />
@@ -1104,8 +1146,8 @@ function LogModal({ token, onClose, onSave }) {
             )}
             {stats.commonFlow && (
               <div style={{ display: "flex", alignItems: "center", gap: ".4rem" }}>
-                <span className="badge b-r" style={{ textTransform: "capitalize" }}>{stats.commonFlow} flow</span>
-                <span style={{ fontSize: ".74rem", color: "var(--muted)" }}>This is the most common flow pattern you log.</span>
+                <span className="badge b-r" style={{ textTransform: "capitalize" }}>{flowLabel(stats.commonFlow)}</span>
+                <span style={{ fontSize: ".74rem", color: "var(--muted)" }}>{t("This is the most common flow pattern you log.")}</span>
               </div>
             )}
           </div>
@@ -1116,22 +1158,22 @@ function LogModal({ token, onClose, onSave }) {
 }
 
 // ─── CHAT DRAWER ──────────────────────────────────────────────────────────────
+// The welcome message is stored as a marker and rendered through t(), so it follows the app language.
+const CHAT_WELCOME = { role: "assistant", welcome: true };
+
 function ChatDrawer({ token, onClose }) {
-  const defaultMsg = { 
-  role: "assistant", 
-  content: "Hey there! 👋 I'm Luna. I can help you understand your cycle, your symptoms and how you're feeling.\n\nWhat's on your mind today? 💜",
-  quickActions: [
-    "What does my health score mean?",
-    "How can I track symptoms better?", 
-    "When will my next period arrive?",
-    "Tips for managing cramps",
-    "Is my cycle regular?"
-  ]
-};
+  useLanguage();
+  const defaultMsg = CHAT_WELCOME;
+  const quickActions = [
+    t("What does my health score mean?"),
+    t("How can I track symptoms better?"),
+    t("When will my next period arrive?"),
+    t("Tips for managing cramps"),
+    t("Is my cycle regular?"),
+  ];
   const [sessions, setSessions] = useState([]);
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const [input, setInput] = useState(""); const [sending, setSending] = useState(false);
-  const [err, setErr] = useState("");
   const [histOpen, setHistOpen] = useState(false);
   const bottomRef = useRef(null); const taRef = useRef(null);
 
@@ -1161,7 +1203,7 @@ function ChatDrawer({ token, onClose }) {
 
   async function send() {
     const msg = input.trim(); if (!msg || sending) return;
-    setInput(""); setErr("");
+    setInput("");
     
     let activeSid = currentSessionId;
     const isNew = !activeSid;
@@ -1189,8 +1231,8 @@ function ChatDrawer({ token, onClose }) {
       setSessions(prev => prev.map(s => s.id === tempSid ? { ...s, id: finalSid, messages: [...s.messages, newAsstMsg] } : s));
       if (isNew) setCurrentSessionId(finalSid);
     } catch (e) {
-      setErr(e.message);
-      setSessions(prev => prev.map(s => s.id === tempSid ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ Error: ${e.message}` }] } : s));
+      // The failure is shown once, as an error bubble in the conversation (it follows a language switch).
+      setSessions(prev => prev.map(s => s.id === tempSid ? { ...s, messages: [...s.messages, { role: "assistant", errorText: e?.message ?? "" }] } : s));
     } finally {
       setSending(false);
     }
@@ -1219,24 +1261,24 @@ function ChatDrawer({ token, onClose }) {
             <div className="drawer-title">Luna</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: ".75rem" }}>
-            <button type="button" className="chat-hist-toggle" aria-label="Conversation history" aria-expanded={histOpen} onClick={() => setHistOpen(o => !o)}>History</button>
-            <div className="chat-ai-label" style={{ fontSize: ".65rem", color: "var(--muted)", fontFamily: "'Fira Code',monospace" }}>AI companion</div>
-            <button className="drawer-close" aria-label="Close" onClick={onClose}>×</button>
+            <button type="button" className="chat-hist-toggle" aria-label={t("Conversation history")} aria-expanded={histOpen} onClick={() => setHistOpen(o => !o)}>{t("History")}</button>
+            <div className="chat-ai-label" style={{ fontSize: ".65rem", color: "var(--muted)", fontFamily: "'Fira Code','Noto Sans Devanagari',monospace" }}>{t("AI companion")}</div>
+            <button className="drawer-close" aria-label={t("Close")} onClick={onClose}>×</button>
           </div>
         </div>
         <div className="chat-layout">
           <div className={`chat-hist-panel${histOpen ? " open" : ""}`}>
             <div className="ch-head">
-              <span className="ch-lbl">History</span>
-              <button type="button" className="chat-hist-back" onClick={() => setHistOpen(false)}>Back to chat</button>
-              <button className="new-chat-btn" aria-label="New chat" onClick={() => { setCurrentSessionId(null); setHistOpen(false); setInput(""); taRef.current?.focus(); }}>+</button>
+              <span className="ch-lbl">{t("History")}</span>
+              <button type="button" className="chat-hist-back" onClick={() => setHistOpen(false)}>{t("Back to chat")}</button>
+              <button className="new-chat-btn" aria-label={t("New chat")} onClick={() => { setCurrentSessionId(null); setHistOpen(false); setInput(""); taRef.current?.focus(); }}>+</button>
             </div>
             <div className="ch-list">
-              {sessions.length === 0 ? <div className="ch-empty">No messages yet.<br />Start a conversation.</div> :
+              {sessions.length === 0 ? <div className="ch-empty">{t("No messages yet.")}<br />{t("Start a conversation.")}</div> :
                 sessions.map((s) => {
                   const firstUserMsg = s.messages.find(m => m.role === "user");
-                  const title = firstUserMsg ? firstUserMsg.content : "New Chat";
-                  return <div key={s.id} onClick={() => { setCurrentSessionId(s.id); setHistOpen(false); }} className={`ch-item ${s.id === currentSessionId ? "on" : ""}`}>{title?.slice(0, 44)}{title?.length > 44 ? "…" : ""}</div>
+                  const title = firstUserMsg ? firstUserMsg.content : t("New Chat");
+                  return <div key={s.id} onClick={() => { setCurrentSessionId(s.id); setHistOpen(false); }} className={`ch-item ${s.id === currentSessionId ? "on" : ""}`} {...(firstUserMsg ? { "data-i18n-ignore": "" } : {})}>{title?.slice(0, 44)}{title?.length > 44 ? "…" : ""}</div>
                 })}
             </div>
           </div>
@@ -1244,12 +1286,15 @@ function ChatDrawer({ token, onClose }) {
             <div className="chat-msgs">
               {currentMessages.map((m, i) => (
                 <div key={i} className={`bubble ${m.role === "user" ? "user" : "asst"}`} style={{ animationDelay: `${Math.min(i * .03, .15)}s` }}>
-                  <div className="bname">{m.role === "user" ? "You" : "◐ Luna"}</div>
-                  {m.role === "assistant" ? <ThinkMsg content={m.content} /> : <div style={{ whiteSpace: "pre-wrap" }}>{m.content}</div>}
+                  <div className="bname">{m.role === "user" ? t("You") : "◐ Luna"}</div>
+                  {/* i18n-note: the welcome message addresses the user with the neutral "आप कैसा महसूस कर रहे हैं" and uses feminine verbs for Luna (मदद कर सकती हूँ) */}
+                  {m.welcome ? <div style={{ whiteSpace: "pre-wrap" }}>{t("Hey there! 👋 I'm Luna. I can help you understand your cycle, your symptoms and how you're feeling.\n\nWhat's on your mind today? 💜")}</div>
+                    : "errorText" in m ? <div style={{ whiteSpace: "pre-wrap" }}>{t("⚠ Error: {message}", { message: m.errorText })}</div>
+                    : m.role === "assistant" ? <ThinkMsg content={m.content} /> : <div data-i18n-ignore style={{ whiteSpace: "pre-wrap" }}>{m.content}</div>}
                   {/* Show quick actions for the default welcome message */}
-                  {m.role === "assistant" && i === 0 && m.quickActions && (
+                  {m.role === "assistant" && i === 0 && m.welcome && (
                     <div style={{ marginTop: "0.75rem", display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-                      {m.quickActions.map((action, idx) => (
+                      {quickActions.map((action, idx) => (
                         <button
                           key={idx}
                           onClick={() => setInput(action)}
@@ -1283,19 +1328,19 @@ function ChatDrawer({ token, onClose }) {
               {sending && <div className="bubble asst"><div className="bname">◐ Luna</div><div className="tdots"><span /><span /><span /></div></div>}
               <div ref={bottomRef} />
             </div>
-            {err && <div style={{ padding: "0 1.2rem .5rem" }}><Err msg={err} /></div>}
             <div className="chat-in">
               <textarea ref={taRef} value={input} onChange={e => setInput(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-                placeholder="Ask Luna about your cycle…"
+                placeholder={t("Ask Luna about your cycle…")}
                 rows={1} style={{ height: "44px" }}
                 onInput={e => { e.target.style.height = "44px"; e.target.style.height = Math.min(e.target.scrollHeight, 150) + "px"; }}
               />
               <button className="btn btn-p btn-sm" onClick={send} disabled={sending || !input.trim()} style={{ height: "44px", padding: "0 1rem", flexShrink: 0 }}>
-                {sending ? <Spinner /> : "Send"}
+                {sending ? <Spinner /> : t("Send")}
               </button>
             </div>
-            <div className="chat-disclaimer">Luna is an AI companion, not a doctor. For medical concerns, please see a clinician.</div>
+            {/* i18n-note: literal "not a doctor" wording, as the style guide requires */}
+            <div className="chat-disclaimer">{t("Luna is an AI companion, not a doctor. For medical concerns, please see a clinician.")}</div>
           </div>
         </div>
       </div>
@@ -1304,7 +1349,26 @@ function ChatDrawer({ token, onClose }) {
 }
 
 // ─── INSIGHTS COMPONENT ──────────────────────────────────────────────────────────
-const Insights = ({ raw, medicalAnalysis, userReport }) => { 
+// Labels for a few fixed values the API returns (urgency, confidence, data quality). Unknown values show as returned.
+// i18n-note: levelLabel maps urgency / confidence / data-quality words; "Confidence" is भरोसा, "Fair" is ठीक-ठाक, "Limited" is सीमित; unsure these read naturally as tile values
+function levelLabel(value) {
+  switch (String(value || "").toLowerCase()) {
+    case "high": return t("high");
+    case "medium": return t("medium");
+    case "low": return t("low");
+    case "none": return t("none");
+    case "excellent": return t("excellent");
+    case "good": return t("good");
+    case "fair": return t("fair");
+    case "limited": return t("limited");
+    case "insufficient": return t("insufficient");
+    default: return value;
+  }
+}
+
+// ruleBasedEnglish: the text comes from the backend's fixed English rules (questionnaire result), not the AI, so it is marked lang=en.
+const Insights = ({ raw, medicalAnalysis, userReport, ruleBasedEnglish = false }) => { 
+  useLanguage();
   let p = null; 
   try { 
     p = typeof raw === "string" ? JSON.parse(raw) : raw; 
@@ -1317,15 +1381,15 @@ const Insights = ({ raw, medicalAnalysis, userReport }) => {
   return (
     <div>
       {/* User-friendly report */}
-      {userData.simple_summary && <div className="ins-quote">{userData.simple_summary}</div>}
+      {userData.simple_summary && <div className="ins-quote" data-i18n-ignore>{userData.simple_summary}</div>}
       
       {userData.key_insights?.length > 0 && (
         <>
-          <div className="ins-lbl">Key Insights</div>
+          <div className="ins-lbl">{t("Key Insights")}</div>
           {userData.key_insights.map((it, i) => (
             <div key={i} className="ins-row">
               <span style={{ color: "#7ECECE", flexShrink: 0 }}>◆</span>
-              <span>{it}</span>
+              <span data-i18n-ignore>{it}</span>
             </div>
           ))}
           <div className="divider" />
@@ -1334,11 +1398,11 @@ const Insights = ({ raw, medicalAnalysis, userReport }) => {
       
       {userData.why_this_result?.length > 0 && (
         <>
-          <div className="ins-lbl">Why This Result</div>
+          <div className="ins-lbl">{t("Why This Result")}</div>
           {userData.why_this_result.map((it, i) => (
             <div key={i} className="ins-row">
               <span style={{ color: "#D4A040", flexShrink: 0 }}>•</span>
-              <span>{it}</span>
+              <span data-i18n-ignore>{it}</span>
             </div>
           ))}
           <div className="divider" />
@@ -1347,11 +1411,11 @@ const Insights = ({ raw, medicalAnalysis, userReport }) => {
       
       {userData.recommendations?.length > 0 && (
         <>
-          <div className="ins-lbl">Recommendations</div>
+          <div className="ins-lbl">{t("Recommendations")}</div>
           {userData.recommendations.map((it, i) => (
             <div key={i} className="ins-row">
               <span style={{ color: "#5FA87A", flexShrink: 0 }}>✓</span>
-              <span>{it}</span>
+              <span data-i18n-ignore>{it}</span>
             </div>
           ))}
           <div className="divider" />
@@ -1361,10 +1425,10 @@ const Insights = ({ raw, medicalAnalysis, userReport }) => {
       {/* Probabilistic Disclaimer */}
       {userData.prediction_disclaimer && (
         <>
-          <div className="ins-lbl">Prediction Notice</div>
+          <div className="ins-lbl">{t("Prediction Notice")}</div>
           <div className="ins-row" style={{ fontSize: ".8rem", fontStyle: "italic", color: "var(--muted)" }}>
             <span style={{ color: "#FFB84D", flexShrink: 0 }}>ℹ️</span>
-            <span>{userData.prediction_disclaimer}</span>
+            <span data-i18n-ignore>{userData.prediction_disclaimer}</span>
           </div>
           <div className="divider" />
         </>
@@ -1373,15 +1437,15 @@ const Insights = ({ raw, medicalAnalysis, userReport }) => {
       {/* Medical Analysis Section */}
       {(medicalData.clinical_findings?.length > 0 || medicalData.risk_factors?.length > 0 || medicalData.medical_recommendations?.length > 0) && (
         <>
-          <div className="ins-lbl" style={{ color: "#E07070" }}>Medical Analysis (MedGemma)</div>
+          <div className="ins-lbl" style={{ color: "#E07070" }}>{/* i18n-note: MedGemma is a model name and stays in Latin script */}{t("Medical Analysis (MedGemma)")}</div>
           
           {medicalData.clinical_findings?.length > 0 && (
             <>
-              <div style={{ fontSize: ".75rem", color: "var(--muted)", marginBottom: ".4rem" }}>Clinical Findings:</div>
+              <div style={{ fontSize: ".75rem", color: "var(--muted)", marginBottom: ".4rem" }}>{t("Clinical Findings:")}</div>
               {medicalData.clinical_findings.map((it, i) => (
                 <div key={i} className="ins-row" style={{ fontSize: ".8rem" }}>
                   <span style={{ color: "#E07070", flexShrink: 0 }}>▸</span>
-                  <span>{it}</span>
+                  <span data-i18n-ignore>{it}</span>
                 </div>
               ))}
             </>
@@ -1389,11 +1453,11 @@ const Insights = ({ raw, medicalAnalysis, userReport }) => {
           
           {medicalData.risk_factors?.length > 0 && (
             <>
-              <div style={{ fontSize: ".75rem", color: "var(--muted)", marginBottom: ".4rem", marginTop: ".6rem" }}>Risk Factors:</div>
+              <div style={{ fontSize: ".75rem", color: "var(--muted)", marginBottom: ".4rem", marginTop: ".6rem" }}>{t("Risk Factors:")}</div>
               {medicalData.risk_factors.map((it, i) => (
                 <div key={i} className="ins-row" style={{ fontSize: ".8rem" }}>
                   <span style={{ color: "#D4A040", flexShrink: 0 }}>⚠</span>
-                  <span>{it}</span>
+                  <span data-i18n-ignore>{it}</span>
                 </div>
               ))}
             </>
@@ -1401,11 +1465,11 @@ const Insights = ({ raw, medicalAnalysis, userReport }) => {
           
           {medicalData.medical_recommendations?.length > 0 && (
             <>
-              <div style={{ fontSize: ".75rem", color: "var(--muted)", marginBottom: ".4rem", marginTop: ".6rem" }}>Medical Recommendations:</div>
+              <div style={{ fontSize: ".75rem", color: "var(--muted)", marginBottom: ".4rem", marginTop: ".6rem" }}>{t("Medical Recommendations:")}</div>
               {medicalData.medical_recommendations.map((it, i) => (
                 <div key={i} className="ins-row" style={{ fontSize: ".8rem" }}>
                   <span style={{ color: "#4A9E6E", flexShrink: 0 }}>‣</span>
-                  <span>{it}</span>
+                  <span data-i18n-ignore>{it}</span>
                 </div>
               ))}
             </>
@@ -1422,9 +1486,10 @@ const Insights = ({ raw, medicalAnalysis, userReport }) => {
               marginTop: ".6rem"
             }}>
               <span style={{ fontSize: ".62rem", textTransform: "uppercase", letterSpacing: ".1em", color: medicalData.urgency === "high" ? "#E07070" : "#D4A040", display: "block", marginBottom: ".2rem", fontWeight: 500 }}>
-                Urgency Level: {medicalData.urgency}
+                {/* i18n-note: "Urgency Level" is rendered as "ध्यान देने की ज़रूरत" (how much attention is needed) to stay calm rather than clinical */}
+                {t("Urgency Level: {level}", { level: levelLabel(medicalData.urgency) })}
               </span>
-              {medicalData.urgency === "high" ? "Consider consulting with a healthcare provider soon." : "Monitor symptoms and consult if they worsen."}
+              {medicalData.urgency === "high" ? t("Consider consulting with a healthcare provider soon.") : t("Monitor symptoms and consult if they worsen.")}
             </div>
           )}
           
@@ -1434,8 +1499,8 @@ const Insights = ({ raw, medicalAnalysis, userReport }) => {
       
       {userData.what_to_expect && (
         <>
-          <div className="ins-lbl">What to Expect</div>
-          <div style={{ fontSize: ".82rem", lineHeight: 1.6, color: "var(--cream)", padding: ".4rem 0" }}>
+          <div className="ins-lbl">{t("What to Expect")}</div>
+          <div style={{ fontSize: ".82rem", lineHeight: 1.6, color: "var(--cream)", padding: ".4rem 0" }} data-i18n-ignore>
             {userData.what_to_expect}
           </div>
           <div className="divider" />
@@ -1444,11 +1509,11 @@ const Insights = ({ raw, medicalAnalysis, userReport }) => {
       
       {userData.next_steps?.length > 0 && (
         <>
-          <div className="ins-lbl">Next Steps</div>
+          <div className="ins-lbl">{t("Next Steps")}</div>
           {userData.next_steps.map((it, i) => (
             <div key={i} className="ins-row">
               <span style={{ color: "#7C66C0", flexShrink: 0 }}>→</span>
-              <span>{it}</span>
+              <span data-i18n-ignore {...(ruleBasedEnglish ? { lang: "en" } : {})}>{it}</span>
             </div>
           ))}
         </>
@@ -1464,9 +1529,9 @@ const Insights = ({ raw, medicalAnalysis, userReport }) => {
           lineHeight: 1.65 
         }}>
           <span style={{ fontSize: ".62rem", textTransform: "uppercase", letterSpacing: ".1em", color: "#E07070", display: "block", marginBottom: ".3rem", fontWeight: 500 }}>
-            When to See a Doctor
+            {t("When to See a Doctor")}
           </span>
-          {userData.when_to_see_doctor}
+          <span data-i18n-ignore>{userData.when_to_see_doctor}</span>
         </div>
       )}
     </div>
@@ -1475,6 +1540,7 @@ const Insights = ({ raw, medicalAnalysis, userReport }) => {
 
 // ─── ANALYSIS DRAWER ──────────────────────────────────────────────────────────
 function AnalysisDrawer({ token, onClose }) {
+  useLanguage();
   const [latest, setLatest] = useState(null); const [loading, setLoading] = useState(true);
   const [history, setHistory] = useState([]);
   const [tab, setTab] = useState("overview");
@@ -1511,8 +1577,8 @@ function AnalysisDrawer({ token, onClose }) {
   const score = active?.cycle_health_score ?? null;
   const ScoreRing = ({ score = null }) => { const hasScore = typeof score === "number" && Number.isFinite(score); const r = 44, c = 2 * Math.PI * r, off = c - ((hasScore ? score : 0) / 100) * c; return (<div className="score-ring"><svg width="108" height="108" viewBox="0 0 108 108"><circle cx="54" cy="54" r={r} fill="none" stroke="rgba(255,255,255,.05)" strokeWidth="7" /><circle cx="54" cy="54" r={r} fill="none" stroke="url(#rg2)" strokeWidth="7" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={off} style={{ transition: "stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1)" }} /><defs><linearGradient id="rg2" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#C4544A" /><stop offset="100%" stopColor="#7ECECE" /></linearGradient></defs></svg><div className="score-num"><span className="n">{hasScore ? score : "—"}</span>{hasScore ? <span className="s">/ 100</span> : null}</div></div>); };
 
-  const fmt = d => { try { return new Date(d + "T00:00:00").toLocaleDateString("en", { month: "short", day: "numeric" }); } catch { return d; } };
-  const fmtDT = d => { try { return new Date(d).toLocaleString("en", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }); } catch { return d; } };
+  const fmt = d => { try { return new Date(d + "T00:00:00").toLocaleDateString(dateLocale(), { month: "short", day: "numeric" }); } catch { return d; } };
+  const fmtDT = d => { try { return new Date(d).toLocaleString(dateLocale(), { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }); } catch { return d; } };
 
   return (
     <>
@@ -1520,16 +1586,16 @@ function AnalysisDrawer({ token, onClose }) {
       <div className="drawer" style={{ height: "84vh" }}>
         <div className="drawer-handle" onClick={onClose} />
         <div className="drawer-head">
-          <div className="drawer-title">AI Analysis</div>
+          <div className="drawer-title">{t("AI Analysis")}</div>
           <div style={{ display: "flex", alignItems: "center", gap: ".75rem" }}>
-            <button className="btn btn-p btn-sm" onClick={generate} disabled={generating}>{generating ? <><Spinner />Analysing…</> : "✦ Run Analysis"}</button>
-            <button className="drawer-close" aria-label="Close" onClick={onClose}>×</button>
+            <button className="btn btn-p btn-sm" onClick={generate} disabled={generating}>{generating ? <><Spinner />{t("Analysing…")}</> : <>✦ {t("Run Analysis")}</>}</button>
+            <button className="drawer-close" aria-label={t("Close")} onClick={onClose}>×</button>
           </div>
         </div>
         <div className="drawer-body">
-          {loading ? <LoadingC text="Loading analyses…" /> : <>
+          {loading ? <LoadingC text={t("Loading analyses…")} /> : <>
             <Err msg={err} />
-            {generating && <div style={{ display: "flex", alignItems: "center", gap: "1rem", padding: ".9rem 1.1rem", background: "rgba(126,206,206,.05)", border: "1px solid rgba(126,206,206,.15)", borderRadius: "var(--r)", marginBottom: "1rem" }}><Spinner /><div><div style={{ fontSize: ".82rem", color: "#7ECECE" }}>Running MedGemma…</div><div style={{ fontSize: ".7rem", color: "var(--muted)" }}>5–15 seconds</div></div></div>}
+            {generating && <div style={{ display: "flex", alignItems: "center", gap: "1rem", padding: ".9rem 1.1rem", background: "rgba(126,206,206,.05)", border: "1px solid rgba(126,206,206,.15)", borderRadius: "var(--r)", marginBottom: "1rem" }}><Spinner /><div><div style={{ fontSize: ".82rem", color: "#7ECECE" }}>{t("Running MedGemma…")}</div><div style={{ fontSize: ".7rem", color: "var(--muted)" }}>{t("5–15 seconds")}</div></div></div>}
             <div style={{ display: "flex", gap: ".4rem", marginBottom: "1rem", borderBottom: "1px solid var(--border)" }}>
               <button
                 className="btn btn-g btn-sm"
@@ -1541,7 +1607,7 @@ function AnalysisDrawer({ token, onClose }) {
                   marginBottom: "-1px"
                 }}
               >
-                Overview
+                {t("Overview")}
               </button>
               <button
                 className="btn btn-g btn-sm"
@@ -1553,7 +1619,7 @@ function AnalysisDrawer({ token, onClose }) {
                   marginBottom: "-1px"
                 }}
               >
-                History
+                {t("History")}
               </button>
             </div>
             {tab === "overview" && (
@@ -1562,35 +1628,35 @@ function AnalysisDrawer({ token, onClose }) {
                   <div style={{ display: "flex", gap: "1.5rem", alignItems: "flex-start", flexWrap: "wrap", marginBottom: "1.2rem" }}>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: ".4rem" }}>
                       <ScoreRing score={score} />
-                      {score == null && <div style={{ fontSize: ".66rem", color: "var(--muted)", textAlign: "center", maxWidth: 120 }}>Needs 3+ cycles for a score</div>}
+                      {score == null && <div style={{ fontSize: ".66rem", color: "var(--muted)", textAlign: "center", maxWidth: 120 }}>{t("Needs 3+ cycles for a score")}</div>}
                     </div>
                     <div style={{ flex: 1, minWidth: 180 }}>
-                      {active.avg_cycle_length && <div className="sbar"><div className="sbar-lbl"><span>Avg Cycle</span><span style={{ fontFamily: "'Fira Code',monospace", color: "#E8A09A" }}>{active.avg_cycle_length}d</span></div><div className="sbar-track"><div className="sbar-fill" style={{ width: `${Math.min((active.avg_cycle_length / 35) * 100, 100)}%` }} /></div></div>}
-                      {active.cycle_std_deviation != null && <div className="sbar"><div className="sbar-lbl"><span>Regularity</span><span style={{ fontFamily: "'Fira Code',monospace", color: "#E8A09A" }}>σ={active.cycle_std_deviation}</span></div><div className="sbar-track"><div className="sbar-fill" style={{ width: `${Math.max(0, 100 - active.cycle_std_deviation * 10)}%`, background: "linear-gradient(90deg,#4A9E6E,#7ECECE)" }} /></div></div>}
+                      {active.avg_cycle_length && <div className="sbar"><div className="sbar-lbl"><span>{t("Avg Cycle")}</span><span style={{ fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", color: "#E8A09A" }}>{t("{days}d", { days: active.avg_cycle_length })}</span></div><div className="sbar-track"><div className="sbar-fill" style={{ width: `${Math.min((active.avg_cycle_length / 35) * 100, 100)}%` }} /></div></div>}
+                      {active.cycle_std_deviation != null && <div className="sbar"><div className="sbar-lbl"><span>{t("Regularity")}</span><span style={{ fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", color: "#E8A09A" }}>σ={active.cycle_std_deviation}</span></div><div className="sbar-track"><div className="sbar-fill" style={{ width: `${Math.max(0, 100 - active.cycle_std_deviation * 10)}%`, background: "linear-gradient(90deg,#4A9E6E,#7ECECE)" }} /></div></div>}
                     </div>
                   </div>
                   {active.predictions && <div style={{ display: "flex", flexWrap: "wrap", gap: ".6rem", marginBottom: "1.1rem" }}>
-                    {active.predictions.predicted_next_period && <div className="pred-tile"><div className="pred-lbl">📅 Next Period</div><div className="pred-val">{fmt(active.predictions.predicted_next_period)}</div></div>}
+                    {active.predictions.predicted_next_period && <div className="pred-tile"><div className="pred-lbl">📅 {t("Next Period")}</div><div className="pred-val">{fmt(active.predictions.predicted_next_period)}</div></div>}
                     {active.predictions.prediction_range && (
                       <div className="pred-tile">
-                        <div className="pred-lbl">📅 Range</div>
+                        <div className="pred-lbl">📅 {t("Range")}</div>
                         <div className="pred-val">{fmt(active.predictions.prediction_range.earliest)} - {fmt(active.predictions.prediction_range.latest)}</div>
                       </div>
                     )}
-                    {active.predictions.ovulation_date && <div className="pred-tile"><div className="pred-lbl">✦ Ovulation</div><div className="pred-val">{fmt(active.predictions.ovulation_date)}</div></div>}
+                    {active.predictions.ovulation_date && <div className="pred-tile"><div className="pred-lbl">✦ {t("Ovulation")}</div><div className="pred-val">{fmt(active.predictions.ovulation_date)}</div></div>}
                     {active.predictions.confidence && (
                       <div className="pred-tile">
-                        <div className="pred-lbl">Confidence</div>
+                        <div className="pred-lbl">{t("Confidence")}</div>
                         <div className="pred-val" style={{ textTransform: "capitalize" }}>
-                          {active.predictions.confidence.level} ({active.predictions.confidence.percentage}%)
+                          {t("{level} ({percentage}%)", { level: levelLabel(active.predictions.confidence.level), percentage: active.predictions.confidence.percentage })}
                         </div>
                       </div>
                     )}
                     {active.predictions.statistics?.data_quality && (
                       <div className="pred-tile">
-                        <div className="pred-lbl">Data Quality</div>
+                        <div className="pred-lbl">{t("Data Quality")}</div>
                         <div className="pred-val" style={{ textTransform: "capitalize" }}>
-                          {active.predictions.statistics.data_quality}
+                          {levelLabel(active.predictions.statistics.data_quality)}
                         </div>
                       </div>
                     )}
@@ -1599,7 +1665,10 @@ function AnalysisDrawer({ token, onClose }) {
                   {active.llm_response && <Insights raw={active.llm_response} medicalAnalysis={active.medical_analysis} userReport={active.user_report} />}
                 </>
               ) : (
-                <div className="empty"><div className="ei">🔮</div><p>No insights yet.<br />Log at least two periods (about a month apart), then tap <strong style={{ color: "#7ECECE" }}>Run Analysis</strong>.</p></div>
+                <div className="empty"><div className="ei">🔮</div><p>{t("No insights yet.")}<br />{(() => {
+                  const [before, after] = t("Log at least two periods (about a month apart), then tap {action}.", { action: "\u0000" }).split("\u0000");
+                  return <>{before}<strong style={{ color: "#7ECECE" }}>{t("Run Analysis")}</strong>{after}</>;
+                })()}</p></div>
               )
             )}
             {tab === "history" && (
@@ -1622,23 +1691,23 @@ function AnalysisDrawer({ token, onClose }) {
                     >
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: ".4rem" }}>
                         <div style={{ fontSize: ".8rem", color: "var(--cream)" }}>
-                          {a.analysis_type === "cycle_health" ? "Cycle health analysis" : (a.analysis_type || "Analysis")}
+                          {a.analysis_type === "cycle_health" ? t("Cycle health analysis") : (a.analysis_type || t("Analysis"))}
                         </div>
-                        <div style={{ fontSize: ".7rem", color: "var(--muted)", fontFamily: "'Fira Code',monospace" }}>{fmtDT(a.created_at)}</div>
+                        <div style={{ fontSize: ".7rem", color: "var(--muted)", fontFamily: "'Fira Code','Noto Sans Devanagari',monospace" }}>{fmtDT(a.created_at)}</div>
                       </div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: ".5rem", alignItems: "center" }}>
                         {typeof a.cycle_health_score === "number" && (
-                          <span className="badge b-g">Score {a.cycle_health_score}/100</span>
+                          <span className="badge b-g">{t("Score {score}/100", { score: a.cycle_health_score })}</span>
                         )}
                         {a.predictions?.predicted_next_period && (
-                          <span className="badge b-m">Next period: {fmt(a.predictions.predicted_next_period)}</span>
+                          <span className="badge b-m">{t("Next period: {date}", { date: fmt(a.predictions.predicted_next_period) })}</span>
                         )}
                         {Array.isArray(a.risk_flags) && a.risk_flags.length > 0 && (
-                          <span className="badge b-r">Risk flags: {a.risk_flags.slice(0, 2).join(", ")}{a.risk_flags.length > 2 ? " +" : ""}</span>
+                          <span className="badge b-r">{t("Risk flags:")} <span data-i18n-ignore>{a.risk_flags.slice(0, 2).join(", ")}{a.risk_flags.length > 2 ? " +" : ""}</span></span>
                         )}
                       </div>
                       {a.llm_response && (
-                        <div style={{ marginTop: ".5rem", fontSize: ".75rem", color: "var(--muted)", maxHeight: 88, overflow: "hidden", maskImage: "linear-gradient(to bottom, black 70%, transparent)" }}>
+                        <div style={{ marginTop: ".5rem", fontSize: ".75rem", color: "var(--muted)", maxHeight: 88, overflow: "hidden", maskImage: "linear-gradient(to bottom, black 70%, transparent)" }} data-i18n-ignore>
                           {(() => {
                             try {
                               const parsed = JSON.parse(a.llm_response);
@@ -1657,7 +1726,7 @@ function AnalysisDrawer({ token, onClose }) {
               ) : (
                 <div className="empty">
                   <div className="ei">📚</div>
-                  <p>No past analyses yet.<br />As you run analyses, they’ll appear here with scores and key dates.</p>
+                  <p>{t("No past analyses yet.")}<br />{t("As you run analyses, they’ll appear here with scores and key dates.")}</p>
                 </div>
               )
             )}
@@ -1670,8 +1739,9 @@ function AnalysisDrawer({ token, onClose }) {
 
 // ─── PROFILE DRAWER ───────────────────────────────────────────────────────────
 function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent, reminderPrefs, onReminderPrefsChange, appearance, onAppearanceChange, initialView = "main" }) {
+  useLanguage();
   const [view, setView] = useState(initialView);
-  const [saving, setSaving] = useState(false); const [err, setErr] = useState(""); const [done, setDone] = useState(false);
+  const [saving, setSaving] = useState(false); const [err, setErr] = useState(null); const [done, setDone] = useState(false);
   const [age, setAge] = useState(25); const [sex, setSex] = useState("female"); const [wt, setWt] = useState(60); const [ht, setHt] = useState(165);
   const [lmp, setLmp] = useState(""); const [cl, setCl] = useState(28); const [cv, setCv] = useState(2);
   const [bd, setBd] = useState(5); const [bv, setBv] = useState("moderate"); const [prod, setProd] = useState(4);
@@ -1685,22 +1755,24 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
   const [questionnaireAnalysis, setQuestionnaireAnalysis] = useState(null);
 
   async function submitQ(e) {
-    e.preventDefault(); if (!lmp) { setErr("Last period date required"); return; }
-    if (!consent) { setErr("Please tick the consent box to save your health profile."); return; }
-    setSaving(true); setErr("");
+    e.preventDefault(); if (!lmp) { setErr({ code: "lmp" }); return; }
+    if (!consent) { setErr({ code: "consent" }); return; }
+    setSaving(true); setErr(null);
     const payload = { basic_demographic: { age, biological_sex: sex, weight_kg: wt, height_cm: ht }, cycle_pattern: { last_menstrual_period: lmp, typical_cycle_length: cl, cycle_variability_days: cv, typical_bleeding_duration: bd, bleeding_volume: bv, sanitary_products_per_day: prod, passes_large_clots: clots, intermenstrual_bleeding: ib }, pain_symptoms: { has_cramping: cramp, pain_severity: psev, pain_timing: pt, painkiller_effectiveness: pe, has_nausea: nausea, has_vomiting: vomit, has_fainting: faint, has_diarrhea: diarr }, pms_symptoms: { mood_swings: ms, severe_sadness: sad, anger: ang, anxiety: anx, poor_concentration: conc, breast_tenderness: bt, bloating: bloat, headaches: head, interferes_with_daily_activities: interf, interference_severity: interf ? intSev : null }, optional_data: { additional_notes: notes || null, data_consent_given: consent } };
     try {
       const response = await API.questionnaires.submit(payload, token);
       setQuestionnaireAnalysis(response.analysis);
       setDone(true);
     } catch (e) {
-      setErr(e.message);
+      setErr({ text: e.message });
     } finally {
       setSaving(false);
     }
   }
 
-  const R = (label, val, set, min, max) => (<div className="f"><label>{label}: <span style={{ color: "#C4544A", fontFamily: "'Fira Code',monospace" }}>{val}/{max}</span></label><input type="range" min={min} max={max} value={val} onChange={e => set(Number(e.target.value))} style={{ accentColor: "#C4544A" }} /></div>);
+  // err is { code } for our own messages and { text } for server text (already translated)
+  const errText = err && (err.code === "lmp" ? t("Last period date required") : err.code === "consent" ? t("Please tick the consent box to save your health profile.") : err.text);
+  const R = (label, val, set, min, max) => (<div className="f"><label>{label}: <span style={{ color: "#C4544A", fontFamily: "'Fira Code','Noto Sans Devanagari',monospace" }}>{val}/{max}</span></label><input type="range" min={min} max={max} value={val} onChange={e => set(Number(e.target.value))} style={{ accentColor: "#C4544A" }} /></div>);
   const CB = (label, val, set) => (<div className="f"><label style={{ display: "flex", alignItems: "center", gap: ".5rem", cursor: "pointer", textTransform: "none", letterSpacing: 0 }}><input type="checkbox" checked={val} onChange={e => set(e.target.checked)} style={{ width: "auto", accentColor: "#C4544A" }} /><span style={{ fontSize: ".82rem", color: "var(--cream)" }}>{label}</span></label></div>);
 
   return (
@@ -1709,11 +1781,11 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
       <div className="drawer" style={{ height: "88vh" }}>
         <div className="drawer-handle" onClick={onClose} />
         <div className="drawer-head">
-          <div className="drawer-title">{view === "questionnaire" ? "Health Profile" : "Profile"}</div>
+          <div className="drawer-title">{view === "questionnaire" ? t("Health Profile") : t("Profile")}</div>
           <div style={{ display: "flex", alignItems: "center", gap: ".75rem" }}>
-            {view === "main" && <button className="btn btn-g btn-sm" onClick={() => setView("questionnaire")}>Health Profile →</button>}
-            {view === "questionnaire" && <button className="btn btn-g btn-sm" onClick={() => setView("main")}>← Back</button>}
-            <button className="drawer-close" aria-label="Close" onClick={onClose}>×</button>
+            {view === "main" && <button className="btn btn-g btn-sm" onClick={() => setView("questionnaire")}>{t("Health Profile →")}</button>}
+            {view === "questionnaire" && <button className="btn btn-g btn-sm" onClick={() => setView("main")}>{t("← Back")}</button>}
+            <button className="drawer-close" aria-label={t("Close")} onClick={onClose}>×</button>
           </div>
         </div>
         <div className="drawer-body">
@@ -1721,12 +1793,17 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1.5rem" }}>
                 <div style={{ width: 50, height: 50, borderRadius: "50%", background: "linear-gradient(135deg,#C4544A,#7C66C0)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.15rem", fontWeight: 600, color: "#fff", flexShrink: 0 }}>{email[0]?.toUpperCase()}</div>
-                <div><div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.1rem" }}>{email}</div><div style={{ fontSize: ".7rem", color: "var(--muted)", marginTop: ".1rem" }}>Luna Health member</div></div>
+                <div><div style={{ fontFamily: "'Cormorant Garamond','Noto Sans Devanagari',serif", fontSize: "1.1rem" }}>{email}</div><div style={{ fontSize: ".7rem", color: "var(--muted)", marginTop: ".1rem" }}>{t("Luna Health member")}</div></div>
               </div>
               <div className="divider" />
               <div style={{ display: "flex", flexDirection: "column", gap: ".45rem" }}>
-                <button className="btn btn-g" style={{ justifyContent: "flex-start", gap: ".6rem" }} onClick={() => setView("questionnaire")}><span aria-hidden="true" className="btn-ico">📋</span>Update Health Profile</button>
-                <button className="btn btn-g" style={{ justifyContent: "flex-start", gap: ".6rem", color: "#E07070", borderColor: "rgba(224,112,112,.2)" }} onClick={onLogout}><span aria-hidden="true" className="btn-ico">⏻</span>Sign Out</button>
+                <button className="btn btn-g" style={{ justifyContent: "flex-start", gap: ".6rem" }} onClick={() => setView("questionnaire")}><span aria-hidden="true" className="btn-ico">📋</span>{t("Update Health Profile")}</button>
+                <button className="btn btn-g" style={{ justifyContent: "flex-start", gap: ".6rem", color: "#E07070", borderColor: "rgba(224,112,112,.2)" }} onClick={onLogout}><span aria-hidden="true" className="btn-ico">⏻</span>{t("Sign Out")}</button>
+              </div>
+              <div className="divider" />
+              <div style={{ display: "flex", flexDirection: "column", gap: ".5rem" }}>
+                <div className="ins-lbl">{t("Language")}</div>
+                <LanguageSwitcher />
               </div>
               <div className="divider" />
               <AppearancePanel appearance={appearance} onChange={onAppearanceChange} />
@@ -1739,13 +1816,14 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
           {view === "questionnaire" && (done ? (
             <div style={{ paddingTop: "2rem" }}>
               <div className="ei">🌸</div>
-              <h3 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.25rem", color: "#E8A09A", marginBottom: ".6rem", fontWeight: 400 }}>Profile Saved</h3>
-              <p>Your health profile has been updated.</p>
+              <h3 style={{ fontFamily: "'Cormorant Garamond','Noto Sans Devanagari',serif", fontSize: "1.25rem", color: "#E8A09A", marginBottom: ".6rem", fontWeight: 400 }}>{t("Profile Saved")}</h3>
+              <p>{t("Your health profile has been updated.")}</p>
               
               {questionnaireAnalysis && (
                 <div style={{ marginTop: "1.5rem" }}>
-                  <div className="ins-lbl">Initial Analysis</div>
+                  <div className="ins-lbl">{t("Initial Analysis")}</div>
                   <Insights 
+                    ruleBasedEnglish
                     raw={JSON.stringify(questionnaireAnalysis)} 
                     medicalAnalysis={questionnaireAnalysis.medical_analysis} 
                     userReport={questionnaireAnalysis} 
@@ -1753,40 +1831,43 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
                 </div>
               )}
               
-              <button className="btn btn-p" style={{ marginTop: "1.2rem" }} onClick={() => setDone(false)}>Update Again</button>
+              <button className="btn btn-p" style={{ marginTop: "1.2rem" }} onClick={() => setDone(false)}>{t("Update Again")}</button>
             </div>
           ) : (
             <form onSubmit={submitQ}>
               <div style={{ fontSize: ".78rem", color: "var(--muted)", marginBottom: ".8rem", padding: ".6rem .75rem", borderRadius: "8px", background: "rgba(255,255,255,.02)", border: "1px dashed var(--border)" }}>
-                This is your health questionnaire. It helps Luna understand your body and symptoms. You can always edit these answers later under <strong>Profile → Health Profile</strong>.
+                {(() => {
+                  const [before, after] = t("This is your health questionnaire. It helps Luna understand your body and symptoms. You can always edit these answers later under {name}.", { name: "\u0000" }).split("\u0000");
+                  return <>{before}<strong>{t("Profile → Health Profile")}</strong>{after}</>;
+                })()}
               </div>
-              <div className="q-sec"><div className="q-sec-title">Basic Info</div>
-                <div className="f-row"><div className="f"><label>Age</label><input type="number" value={age} onChange={e => setAge(Number(e.target.value))} min="18" max="100" required /></div><div className="f"><label>Biological Sex</label><select value={sex} onChange={e => setSex(e.target.value)}><option value="female">Female</option><option value="male">Male</option><option value="other">Other</option></select></div></div>
-                <div className="f-row"><div className="f"><label>Weight (kg)</label><input type="number" value={wt} onChange={e => setWt(Number(e.target.value))} min="30" max="200" /></div><div className="f"><label>Height (cm)</label><input type="number" value={ht} onChange={e => setHt(Number(e.target.value))} min="100" max="250" /></div></div>
+              <div className="q-sec"><div className="q-sec-title">{t("Basic Info")}</div>
+                <div className="f-row"><div className="f"><label>{t("Age")}</label><input type="number" value={age} onChange={e => setAge(Number(e.target.value))} min="18" max="100" required /></div><div className="f"><label>{t("Biological Sex")}</label><select value={sex} onChange={e => setSex(e.target.value)}><option value="female">{t("Female")}</option><option value="male">{t("Male")}</option><option value="other">{t("Other")}</option></select></div></div>
+                <div className="f-row"><div className="f"><label>{t("Weight (kg)")}</label><input type="number" value={wt} onChange={e => setWt(Number(e.target.value))} min="30" max="200" /></div><div className="f"><label>{t("Height (cm)")}</label><input type="number" value={ht} onChange={e => setHt(Number(e.target.value))} min="100" max="250" /></div></div>
               </div>
-              <div className="q-sec"><div className="q-sec-title">Cycle Pattern</div>
-                <div className="f"><label>Last Menstrual Period *</label><input type="date" value={lmp} onChange={e => setLmp(e.target.value)} required /></div>
-                <div className="f-row"><div className="f"><label>Cycle Length (days)</label><input type="number" value={cl} onChange={e => setCl(Number(e.target.value))} min="10" max="120" /></div><div className="f"><label>Variability (days)</label><input type="number" value={cv} onChange={e => setCv(Number(e.target.value))} min="0" max="30" /></div></div>
-                <div className="f-row"><div className="f"><label>Bleed Duration</label><input type="number" value={bd} onChange={e => setBd(Number(e.target.value))} min="1" max="15" /></div><div className="f"><label>Bleed Volume</label><select value={bv} onChange={e => setBv(e.target.value)}><option value="light">Light</option><option value="moderate">Moderate</option><option value="heavy">Heavy</option></select></div></div>
-                {CB("Passes large clots", clots, setClots)}{CB("Intermenstrual bleeding", ib, setIb)}
+              <div className="q-sec"><div className="q-sec-title">{t("Cycle Pattern")}</div>
+                <div className="f"><label>{t("Last Menstrual Period *")}</label><input type="date" value={lmp} onChange={e => setLmp(e.target.value)} required /></div>
+                <div className="f-row"><div className="f"><label>{t("Cycle Length (days)")}</label><input type="number" value={cl} onChange={e => setCl(Number(e.target.value))} min="10" max="120" /></div><div className="f"><label>{t("Variability (days)")}</label><input type="number" value={cv} onChange={e => setCv(Number(e.target.value))} min="0" max="30" /></div></div>
+                <div className="f-row"><div className="f"><label>{t("Bleed Duration")}</label><input type="number" value={bd} onChange={e => setBd(Number(e.target.value))} min="1" max="15" /></div><div className="f"><label>{t("Bleed Volume")}</label><select value={bv} onChange={e => setBv(e.target.value)}><option value="light">{t("Light")}</option><option value="moderate">{t("Moderate")}</option><option value="heavy">{t("Heavy")}</option></select></div></div>
+                {CB(t("Passes large clots"), clots, setClots)}{CB(t("Intermenstrual bleeding"), ib, setIb)}
               </div>
-              <div className="q-sec"><div className="q-sec-title">Pain & Symptoms</div>
-                {CB("Has cramping", cramp, setCramp)}{R("Pain Severity", psev, setPsev, 0, 10)}
-                <div className="f"><label>Pain Timing</label><select value={pt} onChange={e => setPt(e.target.value)}><option value="before_menses">Before</option><option value="during_menses">During</option><option value="after_menses">After</option></select></div>
-                <div className="f"><label>Painkiller Effectiveness</label><select value={pe} onChange={e => setPe(e.target.value)}><option value="none">None</option><option value="partial">Partial</option><option value="complete">Complete</option></select></div>
-                <div className="f-row">{CB("Nausea", nausea, setNausea)}{CB("Vomiting", vomit, setVomit)}</div>
+              <div className="q-sec"><div className="q-sec-title">{t("Pain & Symptoms")}</div>
+                {CB(t("Has cramping"), cramp, setCramp)}{R(t("Pain Severity"), psev, setPsev, 0, 10)}
+                <div className="f"><label>{t("Pain Timing")}</label><select value={pt} onChange={e => setPt(e.target.value)}><option value="before_menses">{t("Before")}</option><option value="during_menses">{t("During")}</option><option value="after_menses">{t("After")}</option></select></div>
+                <div className="f"><label>{t("Painkiller Effectiveness")}</label><select value={pe} onChange={e => setPe(e.target.value)}><option value="none">{t("None")}</option><option value="partial">{t("Partial")}</option><option value="complete">{t("Complete")}</option></select></div>
+                <div className="f-row">{CB(t("Nausea"), nausea, setNausea)}{CB(t("Vomiting"), vomit, setVomit)}</div>
               </div>
-              <div className="q-sec"><div className="q-sec-title">PMS Symptoms (0–3)</div>
-                {R("Mood Swings", ms, setMs, 0, 3)}{R("Anxiety", anx, setAnx, 0, 3)}{R("Bloating", bloat, setBloat, 0, 3)}{R("Headaches", head, setHead, 0, 3)}
-                {CB("Interferes with daily life", interf, setInterf)}
-                {interf && R("Interference Severity", intSev, setIntSev, 0, 10)}
+              <div className="q-sec"><div className="q-sec-title">{t("PMS Symptoms (0–3)")}</div>
+                {R(t("Mood Swings"), ms, setMs, 0, 3)}{R(t("Anxiety"), anx, setAnx, 0, 3)}{R(t("Bloating"), bloat, setBloat, 0, 3)}{R(t("Headaches"), head, setHead, 0, 3)}
+                {CB(t("Interferes with daily life"), interf, setInterf)}
+                {interf && R(t("Interference Severity"), intSev, setIntSev, 0, 10)}
               </div>
               <div className="q-sec">
-                <div className="f"><label>Additional Notes</label><textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Any other health information…" /></div>
-                {CB("I consent to data analysis", consent, setConsent)}
+                <div className="f"><label>{t("Additional Notes")}</label><textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder={t("Any other health information…")} /></div>
+                {CB(t("I consent to data analysis"), consent, setConsent)}
               </div>
-              <Err msg={err} />
-              <button className="btn btn-p btn-full" type="submit" disabled={saving} style={{ marginTop: ".5rem" }}>{saving ? <><Spinner />Saving…</> : "Save Health Profile"}</button>
+              <Err msg={errText} />
+              <button className="btn btn-p btn-full" type="submit" disabled={saving} style={{ marginTop: ".5rem" }}>{saving ? <><Spinner />{t("Saving…")}</> : t("Save Health Profile")}</button>
             </form>
           ))}
         </div>
@@ -1797,6 +1878,7 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
 
 // ─── MAIN JOURNEY APP ─────────────────────────────────────────────────────────
 function JourneyApp({ token, email, onLogout }) {
+  useLanguage();
   const [periods, setPeriods] = useState([]); const [loading, setLoading] = useState(true);
   const [overlay, setOverlay] = useState(null);
   const [dayDate, setDayDate] = useState(null);
@@ -1867,14 +1949,14 @@ function JourneyApp({ token, email, onLogout }) {
       <div className="auth-wrap">
         <div className="auth-card">
           <Err msg={consentError} />
-          <button className="btn btn-p btn-full" style={{ marginTop: "1rem" }} onClick={reloadConsents}>Retry</button>
-          <button className="btn btn-g btn-full" style={{ marginTop: ".5rem" }} onClick={onLogout}>Sign out</button>
+          <button className="btn btn-p btn-full" style={{ marginTop: "1rem" }} onClick={reloadConsents}>{t("Retry")}</button>
+          <button className="btn btn-g btn-full" style={{ marginTop: ".5rem" }} onClick={onLogout}>{t("Sign out")}</button>
         </div>
       </div>
     );
   }
   if (!consents) {
-    return <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><LoadingC text="Loading your privacy settings…" /></div>;
+    return <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><LoadingC text={t("Loading your privacy settings…")} /></div>;
   }
   if (!consents.terms_privacy || !consents.age_18_plus) {
     return (
@@ -1908,6 +1990,7 @@ function JourneyApp({ token, email, onLogout }) {
   }
 
   const ph = PHASES[currentPhase] || PHASES.unknown;
+  const phText = phaseText(PHASES[currentPhase] ? currentPhase : "unknown");
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
@@ -1920,20 +2003,20 @@ function JourneyApp({ token, email, onLogout }) {
         <div style={{ display: "flex", alignItems: "center", gap: ".5rem" }}>
           {currentPhase !== "unknown" && (
             <div className="phase-pill" style={{ color: ph.color, background: ph.bg, borderColor: ph.border }}>
-              {ph.icon} {ph.territory}
+              {ph.icon} {phText.territory}
             </div>
           )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: ".65rem" }}>
-          {cycleDay && <div className="cday-badge">Day {cycleDay} · {ph.name}</div>}
-          <button className="avatar-btn" aria-label="Open profile" onClick={() => setOverlay("profile")} style={{ background: `linear-gradient(135deg,${ph.color},#7C66C0)` }}>{email[0]?.toUpperCase()}</button>
+          {cycleDay && <div className="cday-badge">{t("Day {day} · {phase}", { day: cycleDay, phase: phText.name })}</div>}
+          <button className="avatar-btn" aria-label={t("Open profile")} onClick={() => setOverlay("profile")} style={{ background: `linear-gradient(135deg,${ph.color},#7C66C0)` }}>{email[0]?.toUpperCase()}</button>
         </div>
       </div>
 
       {/* JOURNEY MAP */}
       {loading ? (
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <LoadingC text="Loading your journey…" />
+          <LoadingC text={t("Loading your journey…")} />
         </div>
       ) : (
         <JourneyMap periods={periods} avgCycle={avgCycle} selectedInfo={selectedInfo}
@@ -1952,22 +2035,23 @@ function JourneyApp({ token, email, onLogout }) {
       )}
 
       {/* STATS STRIP */}
+      {/* i18n-note: "Next in" is shown as अगली माहवारी above "N दिन"; the label is long for a five-column strip, check the layout */}
       <div className="stats-strip">
-        <div className="st-item"><div className="st-val" style={{ color: ph.color, fontFamily: "'Fira Code',monospace", fontSize: "1.2rem" }}>{cycleDay ?? "—"}</div><div className="st-lbl">Cycle Day</div></div>
-        <div className="st-item"><div className="st-val">{daysToNext != null ? `${daysToNext}d` : "—"}</div><div className="st-lbl">Next in</div></div>
-        <div className="st-item"><div className="st-val">{avgCycle}</div><div className="st-lbl">Avg Cycle</div></div>
-        <div className="st-item"><div className="st-val">{periods.length}</div><div className="st-lbl">Logged</div></div>
-        <div className="st-item"><div className="st-val st-val-phase" style={{ color: ph.color, lineHeight: 1.2, fontFamily: "'Outfit',sans-serif" }}>{ph.name}</div><div className="st-lbl">Phase</div></div>
+        <div className="st-item"><div className="st-val" style={{ color: ph.color, fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", fontSize: "1.2rem" }}>{cycleDay ?? "—"}</div><div className="st-lbl">{t("Cycle Day")}</div></div>
+        <div className="st-item"><div className="st-val">{daysToNext != null ? t("{days}d", { days: daysToNext }) : "—"}</div><div className="st-lbl">{t("Next in")}</div></div>
+        <div className="st-item"><div className="st-val">{avgCycle}</div><div className="st-lbl">{t("Avg Cycle")}</div></div>
+        <div className="st-item"><div className="st-val">{periods.length}</div><div className="st-lbl">{t("Logged")}</div></div>
+        <div className="st-item"><div className="st-val st-val-phase" style={{ color: ph.color, lineHeight: 1.2, fontFamily: "'Outfit','Noto Sans Devanagari',sans-serif" }}>{phText.name}</div><div className="st-lbl">{t("Phase")}</div></div>
       </div>
 
       {/* BOTTOM DOCK */}
       <div className="dock">
-        <button className="dk on"><span className="di">🗺</span><span className="dl">Journey</span></button>
-        <button className="dk" onClick={() => setOverlay("calendar")}><span className="di">🗓</span><span className="dl">Calendar</span></button>
-        <button className="dk" onClick={() => openAi("analysis")}><span className="di">✦</span><span className="dl">Insights</span></button>
-        <button className="dock-log" onClick={() => setOverlay("log")} title="Log period">+</button>
-        <button className="dk" onClick={() => openAi("chat")}><span className="di">💬</span><span className="dl">Chat</span></button>
-        <button className="dk" onClick={() => setOverlay("profile")}><span className="di">👤</span><span className="dl">Profile</span></button>
+        <button className="dk on"><span className="di">🗺</span><span className="dl">{t("Journey")}</span></button>
+        <button className="dk" onClick={() => setOverlay("calendar")}><span className="di">🗓</span><span className="dl">{t("Calendar")}</span></button>
+        <button className="dk" onClick={() => openAi("analysis")}><span className="di">✦</span><span className="dl">{t("Insights")}</span></button>
+        <button className="dock-log" onClick={() => setOverlay("log")} title={t("Log period")}>+</button>
+        <button className="dk" onClick={() => openAi("chat")}><span className="di">💬</span><span className="dl">{t("Chat")}</span></button>
+        <button className="dk" onClick={() => setOverlay("profile")}><span className="di">👤</span><span className="dl">{t("Profile")}</span></button>
       </div>
 
       {/* OVERLAYS */}

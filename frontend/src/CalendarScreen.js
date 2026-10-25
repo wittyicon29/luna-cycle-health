@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { API } from "./api";
 import { localDateString } from "./localDate";
-import { monthGrid, shiftMonth, periodDaySet, predictedRangeSet, addDays, MONTH_NAMES, WEEKDAY_LABELS } from "./calendarGrid";
+import { monthGrid, shiftMonth, periodDaySet, predictedRangeSet, addDays, monthName, weekdayLabels } from "./calendarGrid";
+import { t, useLanguage } from "./i18n";
+import { flowAria } from "./symptoms";
 
 // Latest selectable day: mirrors the backend limit (UTC today + 1) and never exceeds local tomorrow.
 export function maxSelectableDay(now = new Date()) {
@@ -14,6 +16,7 @@ export function maxSelectableDay(now = new Date()) {
 export const MIN_LOG_DAY = "2000-01-01";
 
 export default function CalendarScreen({ token, periods, logsVersion, onClose, onOpenDay }) {
+  useLanguage();
   const [today, setToday] = useState(() => localDateString());
   const maxDay = maxSelectableDay();
   useEffect(() => {
@@ -22,8 +25,8 @@ export default function CalendarScreen({ token, periods, logsVersion, onClose, o
     document.addEventListener("visibilitychange", onVis);
     const now = new Date();
     const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 1);
-    const t = setTimeout(refresh, Math.max(1000, next - now));
-    return () => { document.removeEventListener("visibilitychange", onVis); clearTimeout(t); };
+    const timer = setTimeout(refresh, Math.max(1000, next - now));
+    return () => { document.removeEventListener("visibilitychange", onVis); clearTimeout(timer); };
   }, [today]);
   const [view, setView] = useState(() => {
     const [y, m] = today.split("-").map(Number);
@@ -66,38 +69,40 @@ export default function CalendarScreen({ token, periods, logsVersion, onClose, o
   const go = useCallback(delta => setView(v => shiftMonth(v, delta)), []);
 
   const label = (cell) => {
-    const parts = [`${MONTH_NAMES[Number(cell.date.slice(5, 7)) - 1]} ${cell.day}, ${cell.date.slice(0, 4)}`];
-    if (cell.date === today) parts.push("today");
-    if (periodDays.has(cell.date)) parts.push("period day");
-    if (predicted.has(cell.date)) parts.push("expected period");
+    // The date word order comes from the catalog; the state words are a list joined with commas.
+    const parts = [t("{month} {day}, {year}", { month: monthName(Number(cell.date.slice(5, 7)) - 1), day: cell.day, year: cell.date.slice(0, 4) })];
+    // i18n-note: these state words are read aloud after the date by screen readers, e.g. "5 अक्टूबर 2026, आज, माहवारी का दिन"; unsure about the phrasing
+    if (cell.date === today) parts.push(t("today"));
+    if (periodDays.has(cell.date)) parts.push(t("period day"));
+    if (predicted.has(cell.date)) parts.push(t("expected period"));
     const log = logs[cell.date];
-    if (log) parts.push("logged");
-    if (log && log.flow) parts.push(`flow ${log.flow}`);
+    if (log) parts.push(t("logged"));
+    if (log && log.flow) parts.push(flowAria(log.flow));
     return parts.join(", ");
   };
 
   return (
     <>
       <div className="o-backdrop" onClick={onClose} />
-      <div className="drawer" style={{ height: "88vh" }} role="dialog" aria-label="Calendar">
+      <div className="drawer" style={{ height: "88vh" }} role="dialog" aria-label={t("Calendar")}>
         <div className="drawer-head">
-          <span className="drawer-title">Calendar</span>
-          <button className="drawer-close" aria-label="Close" onClick={onClose}>×</button>
+          <span className="drawer-title">{t("Calendar")}</span>
+          <button className="drawer-close" aria-label={t("Close")} onClick={onClose}>×</button>
         </div>
         <div className="cal-body">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: ".5rem" }}>
-            <button type="button" className="drawer-close" aria-label="Previous month" disabled={view.year === 2000 && view.month === 0} onClick={() => go(-1)}>‹</button>
-            <h2 className="drawer-title" style={{ margin: 0 }}>{MONTH_NAMES[view.month]} {view.year}</h2>
-            <button type="button" className="drawer-close" aria-label="Next month" onClick={() => go(1)}>›</button>
+            <button type="button" className="drawer-close" aria-label={t("Previous month")} disabled={view.year === 2000 && view.month === 0} onClick={() => go(-1)}>‹</button>
+            <h2 className="drawer-title" style={{ margin: 0 }}>{monthName(view.month)} {view.year}</h2>
+            <button type="button" className="drawer-close" aria-label={t("Next month")} onClick={() => go(1)}>›</button>
           </div>
           {loadError && (
             <div role="alert" style={{ display: "flex", alignItems: "center", gap: ".5rem", flexWrap: "wrap", margin: ".5rem 0", fontSize: ".85rem", color: "var(--muted)" }}>
-              <span>Couldn't load your logs. Tap Retry.</span>
-              <button type="button" className="cal-retry" style={{ minHeight: 44, minWidth: 44 }} onClick={() => setRetry(n => n + 1)}>Retry</button>
+              <span>{t("Couldn't load your logs. Tap Retry.")}</span>
+              <button type="button" className="cal-retry" style={{ minHeight: 44, minWidth: 44 }} onClick={() => setRetry(n => n + 1)}>{t("Retry")}</button>
             </div>
           )}
           <div className="cal-grid" aria-hidden="true">
-            {WEEKDAY_LABELS.map((w, i) => <div key={i} className="cal-wd">{w}</div>)}
+            {weekdayLabels().map((w, i) => <div key={i} className="cal-wd">{w}</div>)}
           </div>
           <div className="cal-grid">
             {grid.weeks.flat().map(cell => {
@@ -120,12 +125,12 @@ export default function CalendarScreen({ token, periods, logsVersion, onClose, o
             })}
           </div>
           <div className="cal-legend" style={{ display: "flex", gap: ".75rem", flexWrap: "wrap", fontSize: ".75rem", color: "var(--muted)", margin: ".75rem 0" }}>
-            <span><span className="cal-sw period" /> Period</span>
-            <span><span className="cal-sw predicted" /> Expected period</span>
-            <span>● Logged</span>
-            <span>▾ Flow</span>
+            <span><span className="cal-sw period" /> {t("Period")}</span>
+            <span><span className="cal-sw predicted" /> {t("Expected period")}</span>
+            <span>● {t("Logged")}</span>
+            <span>▾ {t("Flow")}</span>
           </div>
-          <button type="button" className="cal-today-btn" style={{ minHeight: 44 }} onClick={() => onOpenDay(today)}>Log today</button>
+          <button type="button" className="cal-today-btn" style={{ minHeight: 44 }} onClick={() => onOpenDay(today)}>{t("Log today")}</button>
         </div>
       </div>
     </>

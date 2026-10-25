@@ -2,6 +2,7 @@ import { isNative } from './platform';
 import { planReminders } from './reminderPlanner';
 import { anyEnabled, clearPrefs } from './reminderPrefs';
 import { getAppearance, isDiscreet } from './launcherAppearance';
+import { t, tn } from './i18n';
 
 const CHANNEL_NEUTRAL = 'reminders';
 const CHANNEL_DETAILS = 'reminders_details';
@@ -10,7 +11,6 @@ const CHANNELS = {
   // SECRET (-1): hidden entirely on the lock screen, so explicit wording never shows while locked.
   [CHANNEL_DETAILS]: { id: CHANNEL_DETAILS, name: 'Reminders with details', description: 'Check-in reminders that name the reminder type', importance: 3, visibility: -1 },
 };
-const NEUTRAL = { title: 'Luna', body: 'Time for your check-in.' };
 
 // The plugin object is a Capacitor Proxy whose `then` throws on native: never return it from an
 // async function; resolve with a plain wrapper instead (same pitfall as tokenStore.js).
@@ -27,16 +27,18 @@ async function plugin() {
   };
 }
 
+// Text is translated in the language that is current when the notifications are scheduled; changing the
+// language re-plans them (useReminders). Notification channel names stay English.
 export function reminderText(kind, prefs, appearance = 'default') {
   // In a non-default appearance the title is generic too, so it never names the real app.
-  const title = isDiscreet(appearance) ? 'Reminder' : 'Luna';
-  if (!prefs || prefs.explicit !== true) return { ...NEUTRAL, title };
+  const title = isDiscreet(appearance) ? t('Reminder') : 'Luna';
+  if (!prefs || prefs.explicit !== true) return { title, body: t('Time for your check-in.') };
   if (kind === 'periodExpected') {
     const n = prefs.periodExpected.daysBefore;
-    return { title, body: `Your period is expected in ${n} day${n === 1 ? '' : 's'}.` };
+    return { title, body: tn(n, 'Your period is expected in {count} day.', 'Your period is expected in {count} days.') };
   }
-  if (kind === 'lateCheckIn') return { title, body: 'Your period may be a little late. Tap to log or check in.' };
-  return { title, body: 'Have you logged today?' };
+  if (kind === 'lateCheckIn') return { title, body: t('Your period may be a little late. Tap to log or check in.') };
+  return { title, body: t('Have you logged today?') };
 }
 
 export async function getReminderPermission() {

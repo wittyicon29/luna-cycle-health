@@ -7,12 +7,16 @@ import GoogleCallback from './GoogleCallback';
 import LegalPage from './LegalPage';
 import PasswordReset from './PasswordReset';
 import { getAccessToken } from './tokenStore';
+import { isNative } from './platform';
 import { PRIVACY_POLICY, TERMS } from './legalContent';
 
 // A stored session skips the marketing page; an expired one is handled by the app's own
-// session-expired flow once /app loads.
+// session-expired flow once /app loads. In the native app the marketing page (English only) is skipped too:
+// signed-out users go straight to the sign-in screen, which has the language switcher.
 function LandingOrApp() {
-  return getAccessToken() ? <Navigate to="/app" replace /> : <LandingPage />;
+  if (getAccessToken()) return <Navigate to="/app" replace />;
+  if (isNative()) return <Navigate to="/login" replace />;
+  return <LandingPage />;
 }
 
 function AppRouter() {

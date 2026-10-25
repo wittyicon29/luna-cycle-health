@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 jest.mock('./api', () => ({
@@ -84,5 +84,19 @@ describe('first-run empty state', () => {
     await waitFor(() => expect(API.periods.list).toHaveBeenCalled());
     await screen.findByText('NOW');
     expect(screen.queryByText('Your journey starts with your first period.')).not.toBeInTheDocument();
+  });
+});
+
+describe('profile language switcher', () => {
+  test('the Profile drawer offers the language switcher above Appearance', async () => {
+    const { setLanguage, getLanguage } = require('./i18n');
+    render(<JourneyApp token="tok" email="u@gmail.com" onLogout={jest.fn()} />);
+    userEvent.click(await screen.findByLabelText('Open profile'));
+    const heading = await screen.findByText('Language');
+    const switcher = screen.getByRole('radiogroup', { name: 'Language' });
+    expect(heading.compareDocumentPosition(switcher) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    userEvent.click(screen.getByRole('radio', { name: 'हिन्दी' }));
+    expect(getLanguage()).toBe('hi');
+    act(() => { setLanguage('en'); });
   });
 });
