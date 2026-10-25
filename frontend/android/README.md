@@ -149,6 +149,21 @@ any non-Markdown file under `frontend/android` or in `capacitor.config.json` (bu
 The Google sign-in plugin `@capgo/capacitor-social-login` is licensed under MPL-2.0. It is used
 unmodified; keep its licence notices when redistributing the app. Other Capacitor plugins are MIT.
 
+## Reminders
+
+Optional check-in reminders are scheduled on the device with `@capacitor/local-notifications`
+(pinned 7.0.7). Preferences are stored locally and nothing about them leaves the device.
+
+- Delivery is inexact on purpose: no exact-alarm permission is requested, so a reminder can arrive a
+  few minutes late.
+- Phone-maker battery optimisation can delay or drop alarms further; users may need to exempt the app.
+- Wording is neutral ("Time for your check-in.") unless the user opts in to explicit text.
+- Android 13+ shows a notification permission prompt; it is only requested when the user turns a reminder on.
+- Test with `adb shell dumpsys alarm | grep -A3 <app id>` (pending alarms) and
+  `adb shell dumpsys notification` (channel `reminders` and posted notifications).
+- The plugin adds a boot receiver (not exported) that re-creates alarms after a reboot, which is why
+  `RECEIVE_BOOT_COMPLETED` appears in the merged manifest.
+
 ## Known behaviours
 
 - If the app process is killed in the middle of a token refresh, the next launch may require one

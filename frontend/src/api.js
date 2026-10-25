@@ -140,6 +140,7 @@ export const API = {
   },
   periods: {
     list: t => req('/periods/', {}, t),
+    prediction: t => req('/periods/prediction', {}, t),
     create: (d, t) => post('/periods/', d, t),
     update: (id, d, t) => req(`/periods/${id}`, { method: 'PUT', body: JSON.stringify(d) }, t),
     remove: (id, t) => req(`/periods/${id}`, { method: 'DELETE' }, t),

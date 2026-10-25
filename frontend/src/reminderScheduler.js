@@ -1,0 +1,108 @@
+import { isNative } from './platform';
+import { planReminders } from './reminderPlanner';
+import { anyEnabled, clearPrefs } from './reminderPrefs';
+
+const CHANNEL_ID = 'reminders';
+const NEUTRAL = { title: 'Luna', body: 'Time for your check-in.' };
+
+// The plugin object is a Capacitor Proxy whose `then` throws on native: never return it from an
+// async function; resolve with a plain wrapper instead (same pitfall as tokenStore.js).
+async function plugin() {
+  const { LocalNotifications: ln } = await import('@capacitor/local-notifications');
+  return {
+    checkPermissions: () => ln.checkPermissions(),
+    requestPermissions: () => ln.requestPermissions(),
+    createChannel: c => ln.createChannel(c),
+    getPending: () => ln.getPending(),
+    cancel: c => ln.cancel(c),
+    removeAllDeliveredNotifications: () => ln.removeAllDeliveredNotifications(),
+    schedule: s => ln.schedule(s),
+  };
+}
+
+export function reminderText(kind, prefs) {
+  if (!prefs || prefs.explicit !== true) return { ...NEUTRAL };
+  if (kind === 'periodExpected') {
+    const n = prefs.periodExpected.daysBefore;
+    return { title: 'Luna', body: `Your period is expected in ${n} day${n === 1 ? '' : 's'}.` };
+  }
+  if (kind === 'lateCheckIn') return { title: 'Luna', body: 'Your period may be a little late. Tap to log or check in.' };
+  return { title: 'Luna', body: 'Have you logged today?' };
+}
+
+export async function getReminderPermission() {
+  if (!isNative()) return 'unavailable';
+  try {
+    const { display } = await (await plugin()).checkPermissions();
+    return display === 'granted' || display === 'denied' ? display : 'prompt';
+  } catch (e) {
+    return 'unavailable';
+  }
+}
+
+export async function requestReminderPermission() {
+  if (!isNative()) return 'denied';
+  try {
+    const { display } = await (await plugin()).requestPermissions();
+    return display === 'granted' ? 'granted' : 'denied';
+  } catch (e) {
+    return 'denied';
+  }
+}
+
+async function cancelPending(ln) {
+  const { notifications } = await ln.getPending();
+  if (notifications && notifications.length) await ln.cancel({ notifications: notifications.map(n => ({ id: n.id })) });
+}
+
+export async function cancelAllReminders() {
+  if (!isNative()) return;
+  try {
+    const ln = await plugin();
+    await cancelPending(ln);
+    await ln.removeAllDeliveredNotifications();
+  } catch (e) { /* nothing more to do */ }
+}
+
+export async function teardownReminders() {
+  clearPrefs();
+  await cancelAllReminders();
+}
+
+// Rebuilds run one at a time so a cancel/schedule pair is never interleaved with another.
+let queue = Promise.resolve();
+
+export function rebuildReminders(args) {
+  const run = () => doRebuild(args);
+  const next = queue.then(run, run);
+  queue = next.catch(() => {});
+  return next;
+}
+
+async function doRebuild({ prefs, prediction = null, lastPeriodStart = null, lastLoggedOn = null, now = new Date() }) {
+  if (!isNative()) return { skipped: 'web' };
+  try {
+    const ln = await plugin();
+    await cancelPending(ln);
+    if (!anyEnabled(prefs)) return { skipped: 'disabled' };
+    const { display } = await ln.checkPermissions();
+    if (display !== 'granted') return { skipped: 'no-permission' };
+    await ln.createChannel({
+      id: CHANNEL_ID, name: 'Reminders', description: 'Private check-in reminders',
+      importance: 3, visibility: 0,
+    });
+    const plan = planReminders({ prefs, prediction, lastPeriodStart, lastLoggedOn, now });
+    if (plan.length === 0) return { scheduled: 0 };
+    await ln.schedule({
+      notifications: plan.map(item => ({
+        id: item.id,
+        ...reminderText(item.kind, prefs),
+        channelId: CHANNEL_ID,
+        schedule: { at: item.at, allowWhileIdle: true },
+      })),
+    });
+    return { scheduled: plan.length };
+  } catch (e) {
+    return { skipped: 'error' };
+  }
+}
