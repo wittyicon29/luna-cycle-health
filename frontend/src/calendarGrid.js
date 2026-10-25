@@ -2,7 +2,7 @@ export const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'Jun
 export const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 const pad = n => String(n).padStart(2, '0');
-const fmt = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const fmt = d => `${String(d.getFullYear()).padStart(4, '0')}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
 function parse(ymd) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || ''));
@@ -36,6 +36,9 @@ export function shiftMonth({ year, month }, delta) {
   return { year: Math.floor(total / 12), month: ((total % 12) + 12) % 12 };
 }
 
+const MAX_PERIOD_DAYS = 31;
+const MAX_PREDICTION_DAYS = 60;
+
 function eachDay(from, to, visit) {
   for (let d = from; d && d <= to; d = addDays(d, 1)) visit(d);
 }
@@ -44,13 +47,17 @@ export function periodDaySet(periods, today) {
   const out = new Set();
   const list = (periods || []).filter(p => parse(p.start_date)).slice().sort((a, b) => (a.start_date < b.start_date ? -1 : 1));
   list.forEach((p, i) => {
+    if (p.start_date > today) return;
     let end;
     if (p.end_date && parse(p.end_date) && p.end_date >= p.start_date) end = p.end_date;
     else if (p.end_date) end = p.start_date;
     else end = addDays(p.start_date, 4) < today ? addDays(p.start_date, 4) : today;
     if (end < p.start_date) end = p.start_date;
-    const next = list[i + 1];
-    if (next && next.start_date > p.start_date) {
+    const maxEnd = addDays(p.start_date, MAX_PERIOD_DAYS - 1);
+    if (end > maxEnd) end = maxEnd;
+    if (end > today) end = today;
+    const next = list.slice(i + 1).find(q => q.start_date > p.start_date);
+    if (next) {
       const cap = addDays(next.start_date, -1);
       if (end > cap) end = cap;
     }
@@ -64,8 +71,10 @@ export function predictedRangeSet(prediction, today) {
   if (!prediction) return out;
   const { predicted_next_period: mid, earliest, latest } = prediction;
   const lo = parse(earliest) && parse(latest) ? earliest : mid;
-  const hi = parse(earliest) && parse(latest) ? latest : mid;
+  let hi = parse(earliest) && parse(latest) ? latest : mid;
   if (!parse(lo) || !parse(hi) || hi < lo) return out;
+  const maxHi = addDays(lo, MAX_PREDICTION_DAYS - 1);
+  if (hi > maxHi) hi = maxHi;
   eachDay(lo, hi, d => { if (d >= today) out.add(d); });
   return out;
 }

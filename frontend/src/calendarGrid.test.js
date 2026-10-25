@@ -98,3 +98,39 @@ test('predicted: missing range falls back to the single day; nothing usable → 
 test('works under any local time zone (dates are strings, not UTC instants)', () => {
   expect(monthGrid(2026, 9).from).toBe('2026-09-27');
 });
+
+test('a huge end_date is clamped to 31 days', () => {
+  const set = periodDaySet([{ start_date: '2026-01-01', end_date: '9999-12-31' }], '2026-10-25');
+  expect(set.size).toBe(31);
+  expect(set.has('2026-01-31')).toBe(true);
+  expect(set.has('2026-02-01')).toBe(false);
+});
+
+test('a huge predicted range is bounded and fast', () => {
+  const t0 = performance.now();
+  const set = predictedRangeSet({ predicted_next_period: null, earliest: '2000-01-01', latest: '9999-12-31' }, '2026-10-25');
+  expect(set.size).toBeLessThanOrEqual(60);
+  expect(performance.now() - t0).toBeLessThan(100);
+  const near = predictedRangeSet({ predicted_next_period: null, earliest: '2026-10-25', latest: '9999-12-31' }, '2026-10-25');
+  expect(near.size).toBe(60);
+});
+
+test('duplicate start dates are capped at the next distinct start', () => {
+  const set = periodDaySet([
+    { start_date: '2026-10-01', end_date: '2026-10-20' },
+    { start_date: '2026-10-01', end_date: null },
+    { start_date: '2026-10-10', end_date: '2026-10-12' },
+  ], '2026-10-25');
+  expect(set.has('2026-10-09')).toBe(true);
+  expect(set.has('2026-10-12')).toBe(true);
+  for (const d of ['2026-10-13', '2026-10-15', '2026-10-20']) expect(set.has(d)).toBe(false);
+});
+
+test('periods starting after today paint nothing', () => {
+  expect(periodDaySet([{ start_date: '2026-11-10', end_date: null }], '2026-10-25').size).toBe(0);
+  expect(periodDaySet([{ start_date: '2026-11-10', end_date: '2026-11-14' }], '2026-10-25').size).toBe(0);
+});
+
+test('years are padded to four digits', () => {
+  expect(addDays('1000-01-01', -1)).toBe('0999-12-31');
+});
