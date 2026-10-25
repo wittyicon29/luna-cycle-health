@@ -1,21 +1,13 @@
 import * as store from './store';
 import { addDays } from '../calendarGrid';
+import { localDateString } from '../localDate';
+import { createSerial } from './serial';
 
 // Last server data per user, one encrypted blob per slice: { v: value, at: ms }.
 export const LOG_WINDOW_DAYS = 400;
 const SLICES = ['periods', 'logs', 'medications', 'consents', 'authStatus'];
 const nameOf = slice => `snap_${slice}`;
-const chains = new Map();
-
-function serial(email, task) {
-  const key = String(email || '').trim().toLowerCase();
-  const prev = chains.get(key) || Promise.resolve();
-  const run = prev.then(task, task);
-  const tail = run.catch(() => {});
-  chains.set(key, tail);
-  tail.then(() => { if (chains.get(key) === tail) chains.delete(key); });
-  return run;
-}
+const serial = createSerial();
 
 const isMap = v => v && typeof v === 'object' && !Array.isArray(v);
 
@@ -43,6 +35,7 @@ export function loadSnapshot(email) {
 // Entries older than 400 days before the latest cached date are pruned.
 export function saveSlice(email, slice, value, range) {
   if (!SLICES.includes(slice)) return Promise.resolve();
+  const gen = store.currentGeneration();
   return serial(email, async () => {
     let next = value;
     if (slice === 'logs') {
@@ -54,13 +47,17 @@ export function saveSlice(email, slice, value, range) {
       Object.assign(merged, isMap(value) ? value : {});
       const dates = Object.keys(merged).sort();
       if (dates.length) {
-        const cutoff = addDays(dates[dates.length - 1], -LOG_WINDOW_DAYS);
+        // Anchor on the latest plausible date: a far-future entry must not wipe real history.
+        const limit = addDays(localDateString(), 1);
+        const plausible = dates.filter(d => d <= limit);
+        const anchor = plausible.length ? plausible[plausible.length - 1] : null;
+        const cutoff = anchor ? addDays(anchor, -LOG_WINDOW_DAYS) : null;
         if (cutoff) dates.forEach(d => { if (d < cutoff) delete merged[d]; });
       }
       next = {};
       Object.keys(merged).sort().forEach(d => { next[d] = merged[d]; });
     }
-    await store.write(email, nameOf(slice), { v: next, at: Date.now() });
+    await store.writeChecked(email, nameOf(slice), { v: next, at: Date.now() }, gen);
   });
 }
 

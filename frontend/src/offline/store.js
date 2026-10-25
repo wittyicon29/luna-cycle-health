@@ -53,20 +53,33 @@ function enqueueGuarded(task) {
   return enqueue(async () => { if (generation === queuedAt) await task(); });
 }
 
-export function write(email, name, value) {
-  if (!usable(email)) return Promise.resolve();
-  return enqueueGuarded(async () => {
+// Resolves true only when the sealed blob was really stored; false on vault/storage failure or when a clearAll()
+// issued after it was queued dropped it.
+// `since` (from currentGeneration()) lets a caller that read first and writes later be dropped by a clearAll() in between.
+export const currentGeneration = () => generation;
+
+export function writeChecked(email, name, value, since) {
+  if (!usable(email)) return Promise.resolve(false);
+  const queuedAt = since === undefined ? generation : since;
+  return enqueue(async () => {
+    if (generation !== queuedAt) return false;
     try {
       const hash = await emailHash(email);
       const key = keyFor(hash, name);
       localStorage.setItem(key, await vault.seal(value, aadFor(hash, name)));
       lastError = null;
+      return true;
     } catch (e) {
       // Keep the previous blob: it still holds older queued changes, and replaying an item that already synced is
       // idempotent, so a stale outbox is harmless while a deleted one would lose real changes.
       lastError = e;
+      return false;
     }
   });
+}
+
+export function write(email, name, value) {
+  return writeChecked(email, name, value).then(() => {});
 }
 
 export function remove(email, name) {

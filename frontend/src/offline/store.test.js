@@ -171,3 +171,24 @@ test('clearAll on web only clears localStorage keys', async () => {
   expect(offlineKeys()).toHaveLength(0);
   expect(mockSecure.remove).not.toHaveBeenCalled();
 });
+
+test('writeChecked is true only when the blob was really stored', async () => {
+  expect(await store.writeChecked('a@x.com', 'c', { i: 1 })).toBe(true);
+  expect(await store.read('a@x.com', 'c')).toEqual({ i: 1 });
+  expect(await store.writeChecked('', 'c', 1)).toBe(false);
+  const spy = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
+  expect(await store.writeChecked('a@x.com', 'c', { i: 2 })).toBe(false);
+  spy.mockRestore();
+  expect(await store.read('a@x.com', 'c')).toEqual({ i: 1 });
+});
+
+test('writeChecked is false on vault failure and when clearAll dropped it', async () => {
+  mockSecure.get.mockRejectedValue(new Error('keystore down'));
+  expect(await store.writeChecked('a@x.com', 'c', 1)).toBe(false);
+  mockSecure.get.mockImplementation(async k => (mockData.has(k) ? mockData.get(k) : null));
+  const p = store.writeChecked('a@x.com', 'c', 2);
+  const cleared = store.clearAll();
+  expect(await p).toBe(false);
+  await cleared;
+  expect(await store.read('a@x.com', 'c')).toBeNull();
+});

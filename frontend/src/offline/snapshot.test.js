@@ -85,3 +85,12 @@ test('a corrupt slice reads as empty', async () => {
   localStorage.setItem(key, 'garbage');
   expect((await snapshot.loadSnapshot(E)).periods).toBeNull();
 });
+
+test('a far-future date does not wipe real history from the prune anchor', async () => {
+  const { localDateString } = require('../localDate');
+  const { addDays } = require('../calendarGrid');
+  const recent = addDays(localDateString(), -10);
+  await snapshot.saveSlice(E, 'logs', { [recent]: { mood: 1 }, '2999-01-01': { mood: 2 } });
+  const { logs } = await snapshot.loadSnapshot(E);
+  expect(Object.keys(logs)).toEqual([recent, '2999-01-01']);
+});
