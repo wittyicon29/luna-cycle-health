@@ -34,10 +34,19 @@ describe("PLAYFUL_CSS", () => {
       '[data-playful="quiet"] .lc-animate, [data-playful="quiet"] .lc-hop, [data-playful="quiet"] .lc-spark, [data-playful="quiet"] .fog-lift, [data-playful="quiet"] .sky-pulse{animation:none !important}'
     );
   });
+  test("quiet bob rule", () => {
+    expect(PLAYFUL_CSS).toContain('[data-playful="quiet"] .lc-animate .lc-body{animation:none !important}');
+  });
   test("reduced motion disables animations", () => {
-    const i = PLAYFUL_CSS.indexOf("@media (prefers-reduced-motion: reduce)");
-    expect(i).toBeGreaterThan(-1);
-    const block = PLAYFUL_CSS.slice(i);
+    const start = PLAYFUL_CSS.indexOf("@media (prefers-reduced-motion: reduce){");
+    expect(start).toBeGreaterThan(-1);
+    let depth = 0, i = PLAYFUL_CSS.indexOf("{", start);
+    const open = i;
+    for (; i < PLAYFUL_CSS.length; i++) {
+      if (PLAYFUL_CSS[i] === "{") depth++;
+      else if (PLAYFUL_CSS[i] === "}" && --depth === 0) break;
+    }
+    const block = PLAYFUL_CSS.slice(open, i + 1);
     ["lc-body", "lc-hop", "lc-spark", "fog-lift", "sky-pulse"].forEach((c) => expect(block).toContain(c));
     expect(block).toContain("animation:none !important");
   });

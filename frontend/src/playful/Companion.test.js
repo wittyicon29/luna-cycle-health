@@ -6,10 +6,11 @@ const MOODS = ["neutral", "happy", "sleepy", "cozy"];
 
 describe("Companion", () => {
   test.each(MOODS)("%s renders with its own face", (m) => {
-    const { container } = render(<Companion mood={m} aria-label="x" />);
+    const { container } = render(<Companion mood={m} ariaLabel="Luna" />);
     const svg = container.querySelector('svg[viewBox="0 0 64 64"]');
     expect(svg).toBeTruthy();
     expect(svg.getAttribute("role")).toBe("img");
+    expect(svg.getAttribute("aria-label")).toBe("Luna");
     expect(svg.querySelectorAll("[data-face]")).toHaveLength(1);
     expect(svg.querySelector("[data-face]").getAttribute("data-face")).toBe(m);
   });
@@ -34,6 +35,12 @@ describe("Companion", () => {
     expect(container.querySelector(".lc-spark")).toBeNull();
     expect(container.querySelector(".lc-hop")).toBeNull();
     expect(container.querySelector(".lc-body")).toBeTruthy();
+  });
+  test("without a label it is aria-hidden", () => {
+    const svg = render(<Companion />).container.querySelector("svg");
+    expect(svg.getAttribute("aria-hidden")).toBe("true");
+    expect(svg.hasAttribute("role")).toBe(false);
+    expect(svg.hasAttribute("aria-label")).toBe(false);
   });
   test("size applies", () => {
     const { container } = render(<Companion size={96} />);

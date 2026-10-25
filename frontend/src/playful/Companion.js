@@ -48,7 +48,7 @@ function Face({ mood }) {
   }
 }
 
-export default function Companion({ mood = "neutral", size = 64, animate = false, sparkles = false }) {
+export default function Companion({ mood = "neutral", size = 64, animate = false, sparkles = false, ariaLabel }) {
   const m = ["neutral", "happy", "sleepy", "cozy"].includes(mood) ? mood : "neutral";
   const hop = animate && m === "happy";
   const showSparks = sparkles && animate && m === "happy";
@@ -57,7 +57,7 @@ export default function Companion({ mood = "neutral", size = 64, animate = false
       viewBox="0 0 64 64"
       width={size}
       height={size}
-      role="img"
+      {...(ariaLabel ? { role: "img", "aria-label": ariaLabel } : { "aria-hidden": "true" })}
       focusable="false"
       className={animate ? "lc-animate" : undefined}
     >

@@ -3,8 +3,9 @@ export const PLAYFUL_CSS = `
 @keyframes lcBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
 .lc-hop{animation:lcHop .7s ease-out 1}
 @keyframes lcHop{0%{transform:translateY(0)}35%{transform:translateY(-9px)}70%{transform:translateY(0)}85%{transform:translateY(-2px)}100%{transform:translateY(0)}}
-.lc-spark{opacity:0;animation:lcSpark 1.1s ease-out 1 both;transform-box:fill-box;transform-origin:center}
+.lc-spark{opacity:0;animation:lcSpark 1.1s ease-out 1 both;transform-origin:0 0}
 @keyframes lcSpark{0%{opacity:0;transform:scale(.4)}30%{opacity:1;transform:scale(1)}100%{opacity:0;transform:translateY(-8px) scale(.6)}}
+/* Under Quiet mode / reduced motion this animation is none, so no animationend fires: consumers must remove lifted fog with a timer fallback, not only onAnimationEnd. */
 .fog-lift{animation:fogLift .6s ease-out 1 both}
 @keyframes fogLift{from{opacity:1}to{opacity:0}}
 .sky-pulse{animation:skyPulse .5s ease-out 1}
