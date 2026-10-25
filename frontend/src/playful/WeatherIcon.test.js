@@ -25,9 +25,25 @@ describe("WeatherIcon", () => {
     const { container } = render(<WeatherIcon name="nope" />);
     expect(container.firstChild).toBeNull();
   });
-  test.each(NAMES)("%s has no defs, filter or ids", (n) => {
+  test.each(NAMES)("%s has no filter and every url() resolves to an id", (n) => {
     const { container } = render(<WeatherIcon name={n} />);
     const html = container.innerHTML;
-    expect(html).not.toMatch(/<defs|filter|\sid=/);
+    expect(html).not.toMatch(/filter/);
+    const ids = [...container.querySelectorAll("[id]")].map((e) => e.id);
+    [...html.matchAll(/url\(#([^)]+)\)/g)].forEach((m) => expect(ids).toContain(m[1]));
+  });
+  test("gradient ids are unique across instances", () => {
+    const { container } = render(<>{NAMES.map((n) => <WeatherIcon key={n} name={n} />)}<WeatherIcon name="overcast" /></>);
+    const ids = [...container.querySelectorAll("[id]")].map((e) => e.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+  test("plate={false} omits the ring and disc", () => {
+    const withPlate = render(<WeatherIcon name="storm" />).container.querySelectorAll("circle").length;
+    const without = render(<WeatherIcon name="storm" plate={false} />).container.querySelectorAll("circle").length;
+    expect(withPlate - without).toBe(1);
+  });
+  test("active plate adds the gold disc", () => {
+    const { container } = render(<WeatherIcon name="storm" active />);
+    expect(container.innerHTML).toContain('stroke="#FFC84A"');
   });
 });

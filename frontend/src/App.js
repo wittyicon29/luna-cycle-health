@@ -24,6 +24,7 @@ import CalendarScreen from "./CalendarScreen";
 import DaySheet from "./DaySheet";
 import { SYMPTOMS_LIST, symptomLabel, flowLabel } from "./symptoms";
 import ProfileBanner from "./ProfileBanner";
+import DockIcon from "./playful/DockIcon";
 import { localDateString, formatLongDate } from "./localDate";
 import { getAccessToken, getEmail, setSession, clearSession } from "./tokenStore";
 
@@ -308,14 +309,16 @@ body{font-family:'Outfit','Noto Sans Devanagari',sans-serif;background:var(--bg)
 .dock{height:64px;flex-shrink:0;background:var(--s1);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-around;padding:0 .25rem;z-index:20}
 .dk{font-family:'Outfit','Noto Sans Devanagari',sans-serif;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:.4rem .25rem;border-radius:8px;transition:all .2s;user-select:none;min-width:44px;min-height:44px;background:transparent;border:none;color:var(--muted)}
 .dk:hover{color:var(--muted-h);background:var(--s2)}
-.dk.on{color:#64DCB4}
-.dk .di{font-size:1.15rem;transition:transform .2s}
+.dk.on{color:var(--cream)}
+.dk .di{position:relative;display:flex;margin-bottom:3px;transition:transform .2s}
+.dk.on .di::after{content:"";position:absolute;left:50%;bottom:-6px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:#FF6B8A}
 .dk:hover .di{transform:translateY(-2px)}
 .dk .dl{font-size:.58rem;font-weight:500;letter-spacing:.05em;text-transform:uppercase}
 @media(max-width:340px){.dk .dl{font-size:.54rem;letter-spacing:.02em}.dk{padding:.4rem .15rem}}
-.dock-log{width:46px;height:46px;border-radius:50%;background:#FF6B8A;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1.4rem;color:#fff;box-shadow:0 0 20px rgba(255, 107, 138, 0.45);transition:all .2s;user-select:none;flex-shrink:0}
-.dock-log:hover{transform:scale(1.1) rotate(8deg);background:#FF4D70;box-shadow:0 0 25px rgba(255, 107, 138, 0.6)}
-.dock-log:active{transform:scale(.95)}
+.log-fab{position:absolute;right:14px;bottom:14px;z-index:20;display:flex;align-items:center;gap:.4rem;min-height:44px;padding:0 1.1rem 0 .9rem;border:none;border-radius:999px;background:#FF6B8A;color:#fff;font-family:'Outfit','Noto Sans Devanagari',sans-serif;font-size:.85rem;font-weight:600;cursor:pointer;user-select:none;transition:transform .2s}
+.log-fab:hover{transform:scale(1.05)}
+.log-fab:active{transform:scale(.96)}
+.log-fab svg{flex-shrink:0}
 
 /* OVERLAY / DRAWER */
 .cal-body{flex:1;overflow-y:auto;padding:1rem 1rem 1.5rem}
@@ -517,7 +520,7 @@ function Onboarding({ onClose, email }) {
     },
     {
       title: t("Logging periods & symptoms"),
-      body: t("Tap the glowing + button in the dock to log a new period. Add flow, pain and symptoms – Luna uses this to understand your pattern over time."),
+      body: t("Tap the pink Log period button on the map to log a new period. Add flow, pain and symptoms – Luna uses this to understand your pattern over time."),
       badge: t("Log Periods"),
     },
     {
@@ -911,6 +914,12 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
           <p>{t("Your journey starts with your first period.")}</p>
           <button type="button" className="btn btn-p" onClick={e => { e.stopPropagation(); onLogPeriod(); }}>{t("Log a period")}</button>
         </div>
+      )}
+      {!(periods.length === 0 && onLogPeriod) && onLogPeriod && (
+        <button type="button" className="log-fab" onClick={e => { e.stopPropagation(); onLogPeriod(); }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14" /></svg>
+          {t("Log period")}
+        </button>
       )}
       <div ref={scrollRef} className="j-scroll" onMouseDown={onMD} onMouseMove={onMM} onMouseUp={onMU} onMouseLeave={onMU}>
         <div className="j-inner" style={{ width: canvasW }}>
@@ -2046,12 +2055,11 @@ function JourneyApp({ token, email, onLogout }) {
 
       {/* BOTTOM DOCK */}
       <div className="dock">
-        <button className="dk on"><span className="di">🗺</span><span className="dl">{t("Journey")}</span></button>
-        <button className="dk" onClick={() => setOverlay("calendar")}><span className="di">🗓</span><span className="dl">{t("Calendar")}</span></button>
-        <button className="dk" onClick={() => openAi("analysis")}><span className="di">✦</span><span className="dl">{t("Insights")}</span></button>
-        <button className="dock-log" onClick={() => setOverlay("log")} title={t("Log period")}>+</button>
-        <button className="dk" onClick={() => openAi("chat")}><span className="di">💬</span><span className="dl">{t("Chat")}</span></button>
-        <button className="dk" onClick={() => setOverlay("profile")}><span className="di">👤</span><span className="dl">{t("Profile")}</span></button>
+        <button className="dk on" aria-current="page"><span className="di"><DockIcon name="journey" active size={24} /></span><span className="dl">{t("Journey")}</span></button>
+        <button className="dk" onClick={() => setOverlay("calendar")}><span className="di"><DockIcon name="calendar" size={24} /></span><span className="dl">{t("Calendar")}</span></button>
+        <button className="dk" onClick={() => openAi("analysis")}><span className="di"><DockIcon name="insights" size={24} /></span><span className="dl">{t("Insights")}</span></button>
+        <button className="dk" onClick={() => openAi("chat")}><span className="di"><DockIcon name="chat" size={24} /></span><span className="dl">{t("Chat")}</span></button>
+        <button className="dk" onClick={() => setOverlay("profile")}><span className="di"><DockIcon name="profile" size={24} /></span><span className="dl">{t("Profile")}</span></button>
       </div>
 
       {/* OVERLAYS */}

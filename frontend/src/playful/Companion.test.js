@@ -2,7 +2,7 @@ import React from "react";
 import { render } from "@testing-library/react";
 import Companion from "./Companion";
 
-const MOODS = ["neutral", "happy", "sleepy", "cozy"];
+const MOODS = ["neutral", "happy", "sleepy", "cozy", "curious"];
 
 describe("Companion", () => {
   test.each(MOODS)("%s renders with its own face", (m) => {
@@ -16,7 +16,7 @@ describe("Companion", () => {
   });
   test("faces are distinct", () => {
     const html = MOODS.map((m) => render(<Companion mood={m} />).container.querySelector("[data-face]").innerHTML);
-    expect(new Set(html).size).toBe(4);
+    expect(new Set(html).size).toBe(5);
   });
   test("animate=false has no animation markup", () => {
     const { container } = render(<Companion mood="happy" sparkles />);
@@ -30,7 +30,7 @@ describe("Companion", () => {
     expect(container.querySelectorAll(".lc-spark")).toHaveLength(3);
     expect(container.querySelector(".lc-hop")).toBeTruthy();
   });
-  test.each(["neutral", "sleepy", "cozy"])("%s never sparkles or hops", (m) => {
+  test.each(["neutral", "sleepy", "cozy", "curious"])("%s never sparkles or hops", (m) => {
     const { container } = render(<Companion mood={m} animate sparkles />);
     expect(container.querySelector(".lc-spark")).toBeNull();
     expect(container.querySelector(".lc-hop")).toBeNull();
@@ -47,5 +47,21 @@ describe("Companion", () => {
     const svg = container.querySelector("svg");
     expect(svg.getAttribute("width")).toBe("96");
     expect(svg.getAttribute("height")).toBe("96");
+  });
+  test("gradient ids are unique per instance and every url() resolves", () => {
+    const { container } = render(<><Companion /><Companion mood="happy" /></>);
+    const ids = [...container.querySelectorAll("[id]")].map((n) => n.id);
+    expect(ids.length).toBeGreaterThan(0);
+    expect(new Set(ids).size).toBe(ids.length);
+    const refs = [...container.innerHTML.matchAll(/url\(#([^)]+)\)/g)].map((m) => m[1]);
+    refs.forEach((r) => expect(ids).toContain(r));
+  });
+  test("accent colours the scarf", () => {
+    const { container } = render(<Companion accent="#64DCB4" />);
+    expect(container.innerHTML).toContain('fill="#64DCB4"');
+  });
+  test("unknown mood falls back to neutral", () => {
+    const { container } = render(<Companion mood="nope" />);
+    expect(container.querySelector("[data-face]").getAttribute("data-face")).toBe("neutral");
   });
 });
