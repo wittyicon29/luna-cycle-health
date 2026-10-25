@@ -103,6 +103,12 @@ class PeriodResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
+class PeriodPredictionResponse(BaseModel):
+    predicted_next_period: Optional[date] = None
+    earliest: Optional[date] = None
+    latest: Optional[date] = None
+
 class QuestionnaireCreate(BaseModel):
     responses: Dict[str, Any]
 

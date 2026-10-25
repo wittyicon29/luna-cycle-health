@@ -149,6 +149,36 @@ any non-Markdown file under `frontend/android` or in `capacitor.config.json` (bu
 The Google sign-in plugin `@capgo/capacitor-social-login` is licensed under MPL-2.0. It is used
 unmodified; keep its licence notices when redistributing the app. Other Capacitor plugins are MIT.
 
+## Reminders
+
+Optional check-in reminders are scheduled on the device with `@capacitor/local-notifications`
+(pinned 7.0.7). Preferences are stored locally and nothing about them leaves the device.
+
+- We request no exact-alarm permission (no SCHEDULE_EXACT_ALARM / USE_EXACT_ALARM). Delivery is
+  inexact on Android 12+ (API 31+) and may be exact on Android 11 and below, where the plugin uses
+  `setExactAndAllowWhileIdle`, which needs no permission. Expect a few minutes of slack.
+- Plugin-declared permissions: WAKE_LOCK, RECEIVE_BOOT_COMPLETED (restore alarms after reboot) and
+  POST_NOTIFICATIONS.
+- Phone-maker battery optimisation can delay or drop alarms further; users may need to exempt the app.
+- Wording is neutral ("Time for your check-in.") unless the user opts in to explicit text.
+- Two notification channels: `reminders` (neutral text, visibility PRIVATE) and `reminders_details`
+  (explicit text, visibility SECRET, hidden on the lock screen). A channel's PRIVATE visibility only
+  hides content if the user chose "Hide sensitive content" in system settings (the default shows
+  everything), so explicit wording is kept on its own SECRET channel. Android normalises channel
+  lock-screen visibility on some images; the per-notification visibility is what the e2e run observed.
+- Scheduling horizon: nothing runs in the background, so reminders are rebuilt each time the app opens
+  or resumes. Daily nudges cover the next 14 days; "period expected" and "late check-in" are scheduled
+  whenever strictly in the future, up to 90 days ahead, so a user who only opens the app to log a
+  period still gets the alarm ~28 days later.
+- After a reboot the plugin moves every missed alarm to boot+15s, so several may fire together.
+  Force-stopping the app clears its alarms until the app is next opened. Changing the time zone keeps
+  the old wall-clock times until the app is next opened (it rebuilds on resume).
+- Android 13+ shows a notification permission prompt; it is only requested when the user turns a reminder on.
+- Test with `adb shell dumpsys alarm | grep -A3 <app id>` (pending alarms) and
+  `adb shell dumpsys notification` (channels `reminders`/`reminders_details` and posted notifications).
+- The plugin adds a boot receiver (not exported) that re-creates alarms after a reboot, which is why
+  `RECEIVE_BOOT_COMPLETED` appears in the merged manifest.
+
 ## Known behaviours
 
 - If the app process is killed in the middle of a token refresh, the next launch may require one

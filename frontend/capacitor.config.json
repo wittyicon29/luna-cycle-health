@@ -20,6 +20,10 @@
         "apple": false,
         "twitter": false
       }
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_luna",
+      "iconColor": "#7C66C0"
     }
   }
 }

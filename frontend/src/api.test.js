@@ -325,3 +325,13 @@ test('periods.remove sends DELETE to the period', async () => {
   expect(url).toMatch(/\/periods\/p1$/);
   expect(opts.method).toBe('DELETE');
 });
+
+test('periods.prediction GETs the prediction with the bearer token', async () => {
+  fetch.mockResolvedValue(reply(200, {}));
+
+  await API.periods.prediction('tok');
+
+  const [url, opts] = fetch.mock.calls[0];
+  expect(url).toMatch(/\/periods\/prediction$/);
+  expect(opts.headers.Authorization).toBe('Bearer tok');
+});
