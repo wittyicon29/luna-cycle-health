@@ -1,9 +1,10 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.exc import StaleDataError
 
 from ..core.database import get_db
 from ..models.models import DailyLog, Medication, User
@@ -31,7 +32,7 @@ def entry_dict(row: DailyLog) -> dict:
 
 
 def _check_date(day: date) -> None:
-    if day < EARLIEST or day > date.today() + timedelta(days=1):
+    if day < EARLIEST or day > datetime.now(timezone.utc).date() + timedelta(days=1):
         raise HTTPException(status_code=422, detail="Date is out of range")
 
 
@@ -91,7 +92,7 @@ def put_log(log_date: date, payload: DailyLogData, current_user: User = Depends(
 
     try:
         row = save(existing)
-    except IntegrityError:  # two concurrent first saves for the same day: update the winner
+    except (IntegrityError, StaleDataError):  # concurrent first save, or concurrent delete: re-find and retry once
         db.rollback()
         row = save(_find(db, current_user, log_date))
     return entry_dict(row)

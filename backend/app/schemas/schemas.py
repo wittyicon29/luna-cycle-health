@@ -208,10 +208,10 @@ class DailyLogData(BaseModel):
     mood: Optional[int] = Field(default=None, ge=1, le=5, strict=True)
     symptoms: List[Literal[SYMPTOM_CHOICES]] = Field(default_factory=list, max_length=10)  # cap applies to the raw list, before de-duplication
     flow: Optional[Literal["spotting", "light", "medium", "heavy"]] = None
-    sleep_hours: Optional[float] = Field(default=None, ge=0, le=24)
+    sleep_hours: Optional[float] = Field(default=None, ge=0, le=24, strict=True)
     water_glasses: Optional[int] = Field(default=None, ge=0, le=30, strict=True)
     medications_taken: List[UUID] = Field(default_factory=list, max_length=30)
-    note: Optional[str] = Field(default=None, max_length=1000)
+    note: Optional[str] = Field(default=None, max_length=5000)  # hard raw cap; 1000 enforced after trimming
 
     @field_validator("symptoms")
     @classmethod
@@ -228,7 +228,7 @@ class DailyLogData(BaseModel):
     def _half_hours(cls, v):
         if v is not None and (v * 2) != int(v * 2):
             raise ValueError("Sleep must be in half-hour steps")
-        return v
+        return None if v is None else v + 0.0  # normalise -0.0
 
     @field_validator("note")
     @classmethod
@@ -236,6 +236,8 @@ class DailyLogData(BaseModel):
         if v is None:
             return None
         v = v.strip()
+        if len(v) > 1000:
+            raise ValueError("Note must be at most 1000 characters")
         return v or None
 
     def is_empty(self) -> bool:

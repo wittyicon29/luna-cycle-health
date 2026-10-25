@@ -1,10 +1,11 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import text
 
 from app.core.security import create_access_token
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.exc import StaleDataError
 
 from app.models.models import DailyLog, Medication
 
@@ -88,7 +89,7 @@ def test_validation(client, db, make_user):
 
 def test_date_limits(client, make_user):
     user = make_user()
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     assert _put(client, user, str(today), {"mood": 3}).status_code == 200
     assert _put(client, user, str(today + timedelta(days=1)), {"mood": 3}).status_code == 200  # time-zone tolerance
     assert _put(client, user, str(today + timedelta(days=2)), {"mood": 3}).status_code == 422
@@ -191,3 +192,43 @@ def test_concurrent_first_save_recovers_to_a_single_row(client, db, make_user, m
     assert response.status_code == 200 and response.json()["mood"] == 4
     assert state["raced"] is True
     assert db.execute(text("select count(*) from daily_logs")).scalar_one() == 1
+
+
+def test_concurrent_delete_before_update_recovers(client, db, make_user, monkeypatch):
+    user = make_user()
+    _put(client, user, "2026-10-20", {"mood": 1})
+    real_commit = Session.commit
+    state = {"raced": False}
+
+    def racing_commit(self):
+        if not state["raced"] and any(isinstance(o, DailyLog) for o in self.dirty):
+            state["raced"] = True
+            self.rollback()
+            self.query(DailyLog).delete()
+            real_commit(self)  # another request deleted the row
+            raise StaleDataError("row vanished")
+        return real_commit(self)
+
+    monkeypatch.setattr(Session, "commit", racing_commit)
+    response = _put(client, user, "2026-10-20", {"mood": 5, "note": "mine"})
+    assert response.status_code == 200 and state["raced"] is True
+    rows = db.query(DailyLog).all()
+    assert len(rows) == 1 and rows[0].data == {"mood": 5, "note": "mine"}
+
+
+def test_sleep_hours_strictness(client, make_user):
+    user = make_user()
+    for bad in [True, False, "7.5"]:
+        assert _put(client, user, "2026-10-20", {"sleep_hours": bad}).status_code == 422, bad
+    assert _put(client, user, "2026-10-20", {"sleep_hours": 7}).json()["sleep_hours"] == 7
+    assert _put(client, user, "2026-10-20", {"sleep_hours": 7.5}).json()["sleep_hours"] == 7.5
+    out = _put(client, user, "2026-10-20", {"sleep_hours": -0.0}).json()["sleep_hours"]
+    assert out == 0 and str(out) == "0.0"
+
+
+def test_note_limit_applies_after_trimming(client, make_user):
+    user = make_user()
+    ok = _put(client, user, "2026-10-20", {"note": "x" * 1000 + "   "})
+    assert ok.status_code == 200 and len(ok.json()["note"]) == 1000
+    assert _put(client, user, "2026-10-20", {"note": "  " + "x" * 1001}).status_code == 422
+    assert _put(client, user, "2026-10-20", {"note": "x" * 5001}).status_code == 422
