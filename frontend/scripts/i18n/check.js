@@ -175,7 +175,7 @@ function skipExpression(source, mask, pos) {
   return -1;
 }
 
-function extract(rawSource, file = '') {
+function extractDetailed(rawSource, file = '') {
   const { code: source, mask } = tokenize(rawSource);
   const calls = [];
   const invalid = [];
@@ -208,7 +208,7 @@ function extract(rawSource, file = '') {
       const s = readString(source, start);
       const after = s ? source[nextNonSpace(source, s.end)] : null;
       if (!s || (after !== ',' && after !== ')')) bad();
-      else calls.push({ kind, text: s.value });
+      else calls.push({ kind, text: s.value, line: lineOf(source, at) });
     } else {
       const comma = skipExpression(source, mask, start);
       const one = comma < 0 ? null : readString(source, comma + 1);
@@ -216,10 +216,16 @@ function extract(rawSource, file = '') {
       const other = sep === ',' ? readString(source, nextNonSpace(source, one.end) + 1) : null;
       const after = other ? source[nextNonSpace(source, other.end)] : null;
       if (!one || !other || (after !== ',' && after !== ')')) bad();
-      else calls.push({ kind, text: one.value, other: other.value });
+      else calls.push({ kind, text: one.value, other: other.value, line: lineOf(source, at) });
     }
   }
   return { calls, invalid };
+}
+
+// Same as extractDetailed without the `line` field, which callers of the checker do not see.
+function extract(rawSource, file = '') {
+  const { calls, invalid } = extractDetailed(rawSource, file);
+  return { calls: calls.map(({ line, ...rest }) => rest), invalid };
 }
 
 const uniqSorted = list => [...new Set(list)].sort();
@@ -265,7 +271,7 @@ function checkCatalog({ srcDir, catalogPath, exclude = [] }) {
   };
 }
 
-module.exports = { checkCatalog, extract, collect };
+module.exports = { checkCatalog, extract, extractDetailed, collect };
 
 if (require.main === module) {
   const srcDir = path.join(__dirname, '..', '..', 'src');

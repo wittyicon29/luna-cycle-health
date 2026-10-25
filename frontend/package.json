@@ -31,6 +31,7 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "i18n:check": "node scripts/i18n/check.js",
+    "i18n:review": "node scripts/i18n/review-sheet.js",
     "android:sync": "react-scripts build && cap sync android",
     "android:debug": "npm run android:sync && cd android && ./gradlew assembleDebug"
   },
