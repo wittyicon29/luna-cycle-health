@@ -3,6 +3,7 @@ import json
 import re
 from typing import Dict, Any, List
 from ..core.config import settings
+from .language import language_instruction
 from .prediction_service import tracked_cycles_phrase, format_friendly_date, variation_clause
 
 LUNA_PERSONALITY = """You are Luna, a knowledgeable health guide specializing in menstrual health.
@@ -137,7 +138,7 @@ Breakdown:
 
 {tail}"""
 
-    async def analyze_cycle_health(self, period_data: List[Dict], questionnaire: Dict, stats: Dict, prediction: Dict) -> Dict[str, Any]:
+    async def analyze_cycle_health(self, period_data: List[Dict], questionnaire: Dict, stats: Dict, prediction: Dict, language: str = "en") -> Dict[str, Any]:
         # Step 1: MedGemma
         health_breakdown = stats.get('health_breakdown', {})
         health_grade = stats.get('health_grade', 'Unknown')
@@ -221,6 +222,9 @@ JSON format:
 }}
 
 Use supportive language. Explain uncertainty clearly. Be reassuring about natural variation. Avoid definitive statements. Make it feel personalized while acknowledging statistical limitations."""
+        instruction = language_instruction(language, structured=True)
+        if instruction:
+            qwen_prompt = qwen_prompt + "\n\n" + instruction
         
         try:
             qwen_response = await self.call_qwen(qwen_prompt, LUNA_PERSONALITY)

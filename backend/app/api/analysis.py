@@ -59,7 +59,7 @@ async def create_analysis(request: AnalysisRequest, current_user: User = Depends
     stats = get_cycle_summary(periods)
 
     if request.analysis_type == "cycle_health":
-        llm_result = await llm_service.analyze_cycle_health(period_data, questionnaire_data, stats, prediction)
+        llm_result = await llm_service.analyze_cycle_health(period_data, questionnaire_data, stats, prediction, language=request.language)
         
         # Parse the complete LLM result
         medical_analysis = llm_result.get("medical_analysis", {})

@@ -123,6 +123,7 @@ class QuestionnaireResponse(BaseModel):
 class AnalysisRequest(BaseModel):
     analysis_type: str
     include_history: bool = True
+    language: Literal["en", "hi"] = "en"
 
 class AnalysisResponse(BaseModel):
     id: UUID
@@ -146,6 +147,7 @@ class ChatRequest(BaseModel):
     question: str = Field(min_length=1, max_length=1000)
     include_context: bool = True
     session_id: Optional[str] = None
+    language: Literal["en", "hi"] = "en"
 
 class ChatResponse(BaseModel):
     answer: str

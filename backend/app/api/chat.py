@@ -13,6 +13,7 @@ from ..core.database import get_db
 from ..core.limiter import limiter
 from ..models.models import User, Period, Questionnaire, Analysis, ChatMessage
 from ..schemas.schemas import ChatMessageResponse, ChatRequest, ChatResponse
+from ..services.language import language_instruction
 from ..services.llm_service import llm_service
 from ..services.prediction_service import predict_next_period, get_cycle_summary
 from .auth import get_current_user
@@ -165,6 +166,10 @@ Instructions for how to use this:
 - In the NO case, respond like a casual friend: maximum 5 short sentences, no bullet lists, no sections, no clinical language, just natural conversation.
 
 Now write your reply to the user following these rules."""
+
+    instruction = language_instruction(payload.language)
+    if instruction:
+        system_prompt = system_prompt + "\n\n" + instruction
 
     try:
         answer = await llm_service.call_qwen(user_prompt, system_prompt)
