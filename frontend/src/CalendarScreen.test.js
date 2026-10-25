@@ -165,3 +165,15 @@ test("January 2000 is the lower bound: prev disabled and earlier days disabled",
   expect(screen.getByLabelText(/^January 1, 2000/)).not.toBeDisabled();
   expect(screen.getByLabelText("Next month")).not.toBeDisabled();
 });
+
+test("in Hindi the title and weekday row use Hindi, and switching back restores English", async () => {
+  const i18n = require("./i18n");
+  const { container } = setup();
+  await flush();
+  expect(screen.getByText("October 2026")).toBeInTheDocument();
+  act(() => { i18n.setLanguage("hi"); });
+  expect(screen.getByText("अक्टूबर 2026")).toBeInTheDocument();
+  expect([...container.querySelectorAll(".cal-wd")].map(n => n.textContent)).toEqual(["र", "सो", "मं", "बु", "गु", "शु", "श"]);
+  act(() => { i18n.setLanguage("en"); });
+  expect(screen.getByText("October 2026")).toBeInTheDocument();
+});

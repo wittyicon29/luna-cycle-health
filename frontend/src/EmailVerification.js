@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { API } from './api';
 import ConsentCheckboxes from './ConsentCheckboxes';
 import { setSession } from './tokenStore';
+import LanguageSwitcher from './i18n/LanguageSwitcher';
 
 const utf8Bytes = value => unescape(encodeURIComponent(value)).length;
 
@@ -65,6 +66,9 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .vpw-toggle{position:absolute;top:50%;right:0;transform:translateY(-50%);width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1rem;border-radius:var(--r)}
 .vpw-toggle:hover{color:var(--cream)}
 .vpw-toggle:focus-visible{outline:2px solid #FF8A80;outline-offset:-2px}
+@font-face{font-family:'Noto Sans Devanagari';font-weight:400 600;font-display:swap;unicode-range:U+0900-097F,U+1CD0-1CF9,U+200C-200D,U+20A8,U+20B9,U+25CC,U+A830-A839,U+A8E0-A8FF;src:url('/fonts/NotoSansDevanagari-Variable.woff2') format('woff2')}
+:lang(hi){font-family:'Outfit','Noto Sans Devanagari',sans-serif;line-height:1.7}
+:lang(hi) .verify-title,:lang(hi) h1,:lang(hi) h2,:lang(hi) h3{font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;line-height:1.35}
 `;
 
 function injectStyles() {
@@ -79,6 +83,7 @@ function Shell({ children }) {
       <div className="verify-orb verify-orb-a" />
       <div className="verify-orb verify-orb-b" />
       <div className="verify-card">
+        <div style={{ marginBottom: '1rem' }}><LanguageSwitcher /></div>
         <div className="verify-logo">
           <span className="verify-moon">◐</span>
           <h1>Luna Health</h1>

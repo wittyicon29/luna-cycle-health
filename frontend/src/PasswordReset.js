@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { API } from './api';
 import { injectStyles } from './App';
+import LanguageSwitcher from './i18n/LanguageSwitcher';
 
 function PasswordReset() {
   useEffect(() => { injectStyles(); }, []);
@@ -104,6 +105,7 @@ function PasswordReset() {
         maxWidth: '400px',
         width: '100%'
       }}>
+        <div style={{ marginBottom: '1rem' }}><LanguageSwitcher /></div>
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔐</div>
           <h2>Reset Your Password</h2>

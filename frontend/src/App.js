@@ -12,6 +12,7 @@ import AiConsentModal from "./AiConsentModal";
 import PrivacyPanel from "./PrivacyPanel";
 import RemindersPanel from "./RemindersPanel";
 import AppearancePanel from "./AppearancePanel";
+import LanguageSwitcher from "./i18n/LanguageSwitcher";
 import { getAppearance } from "./launcherAppearance";
 import { useReminders } from "./useReminders";
 import { loadPrefs, savePrefs } from "./reminderPrefs";
@@ -326,6 +327,9 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .drawer-handle{width:36px;height:4px;border-radius:2px;background:rgba(255,255,255,.13);margin:10px auto 0;flex-shrink:0;cursor:pointer}
 .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.5rem .75rem;flex-shrink:0;border-bottom:1px solid var(--border)}
 .drawer-title{font-family:'Cormorant Garamond',serif;font-size:1.4rem;font-weight:500;letter-spacing:.01em}
+@font-face{font-family:'Noto Sans Devanagari';font-weight:400 600;font-display:swap;unicode-range:U+0900-097F,U+1CD0-1CF9,U+200C-200D,U+20A8,U+20B9,U+25CC,U+A830-A839,U+A8E0-A8FF;src:url('/fonts/NotoSansDevanagari-Variable.woff2') format('woff2')}
+:lang(hi){font-family:'Outfit','Noto Sans Devanagari',sans-serif;line-height:1.7}
+:lang(hi) .drawer-title,:lang(hi) h1,:lang(hi) h2,:lang(hi) h3{font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;line-height:1.35}
 .drawer-close{background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--muted);transition:color .2s;padding:.2rem;line-height:1;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
 .drawer-close:hover{color:var(--cream)}
 .modal-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.2rem;line-height:1;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
@@ -685,6 +689,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
       <div className="auth-wrap">
         <div className="auth-orb auth-orb-a" /><div className="auth-orb auth-orb-b" />
         <div className="auth-card">
+          <div style={{ marginBottom: "1rem" }}><LanguageSwitcher /></div>
           <div className="auth-logo"><span className="auth-moon">◐</span><h1>Luna Health</h1><p>Resend Verification</p></div>
           <form onSubmit={handleResendVerification}>
             <div className="f"><label>Email</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@gmail.com" required autoFocus /></div>
@@ -712,6 +717,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
       <div className="auth-wrap">
         <div className="auth-orb auth-orb-a" /><div className="auth-orb auth-orb-b" />
         <div className="auth-card">
+          <div style={{ marginBottom: "1rem" }}><LanguageSwitcher /></div>
           <div className="auth-logo"><span className="auth-moon">◐</span><h1>Luna Health</h1><p>Reset Password</p></div>
           <form onSubmit={handlePasswordReset}>
             <div className="f"><label>Email</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@gmail.com" required autoFocus /></div>
@@ -738,6 +744,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
     <div className="auth-wrap">
       <div className="auth-orb auth-orb-a" /><div className="auth-orb auth-orb-b" />
       <div className="auth-card">
+        <div style={{ marginBottom: "1rem" }}><LanguageSwitcher /></div>
         <div className="auth-logo"><span className="auth-moon">◐</span><h1>Luna Health</h1><p>Your Cycle, Your Journey</p></div>
         <div className="auth-tabs">
           <button className={`auth-tab ${tab === "login" ? "on" : ""}`} onClick={() => { setTab("login"); setErr(""); setMessage(""); }}>Sign In</button>
@@ -1727,6 +1734,11 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
               <div style={{ display: "flex", flexDirection: "column", gap: ".45rem" }}>
                 <button className="btn btn-g" style={{ justifyContent: "flex-start", gap: ".6rem" }} onClick={() => setView("questionnaire")}><span aria-hidden="true" className="btn-ico">📋</span>Update Health Profile</button>
                 <button className="btn btn-g" style={{ justifyContent: "flex-start", gap: ".6rem", color: "#E07070", borderColor: "rgba(224,112,112,.2)" }} onClick={onLogout}><span aria-hidden="true" className="btn-ico">⏻</span>Sign Out</button>
+              </div>
+              <div className="divider" />
+              <div style={{ display: "flex", flexDirection: "column", gap: ".5rem" }}>
+                <div className="ins-lbl">Language</div>
+                <LanguageSwitcher />
               </div>
               <div className="divider" />
               <AppearancePanel appearance={appearance} onChange={onAppearanceChange} />

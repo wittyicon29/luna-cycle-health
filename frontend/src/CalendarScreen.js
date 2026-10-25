@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { API } from "./api";
 import { localDateString } from "./localDate";
-import { monthGrid, shiftMonth, periodDaySet, predictedRangeSet, addDays, MONTH_NAMES, WEEKDAY_LABELS } from "./calendarGrid";
+import { monthGrid, shiftMonth, periodDaySet, predictedRangeSet, addDays, monthName, weekdayLabels } from "./calendarGrid";
+import { useLanguage } from "./i18n";
 
 // Latest selectable day: mirrors the backend limit (UTC today + 1) and never exceeds local tomorrow.
 export function maxSelectableDay(now = new Date()) {
@@ -14,6 +15,7 @@ export function maxSelectableDay(now = new Date()) {
 export const MIN_LOG_DAY = "2000-01-01";
 
 export default function CalendarScreen({ token, periods, logsVersion, onClose, onOpenDay }) {
+  useLanguage();
   const [today, setToday] = useState(() => localDateString());
   const maxDay = maxSelectableDay();
   useEffect(() => {
@@ -66,7 +68,7 @@ export default function CalendarScreen({ token, periods, logsVersion, onClose, o
   const go = useCallback(delta => setView(v => shiftMonth(v, delta)), []);
 
   const label = (cell) => {
-    const parts = [`${MONTH_NAMES[Number(cell.date.slice(5, 7)) - 1]} ${cell.day}, ${cell.date.slice(0, 4)}`];
+    const parts = [`${monthName(Number(cell.date.slice(5, 7)) - 1)} ${cell.day}, ${cell.date.slice(0, 4)}`];
     if (cell.date === today) parts.push("today");
     if (periodDays.has(cell.date)) parts.push("period day");
     if (predicted.has(cell.date)) parts.push("expected period");
@@ -87,7 +89,7 @@ export default function CalendarScreen({ token, periods, logsVersion, onClose, o
         <div className="cal-body">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: ".5rem" }}>
             <button type="button" className="drawer-close" aria-label="Previous month" disabled={view.year === 2000 && view.month === 0} onClick={() => go(-1)}>‹</button>
-            <h2 className="drawer-title" style={{ margin: 0 }}>{MONTH_NAMES[view.month]} {view.year}</h2>
+            <h2 className="drawer-title" style={{ margin: 0 }}>{monthName(view.month)} {view.year}</h2>
             <button type="button" className="drawer-close" aria-label="Next month" onClick={() => go(1)}>›</button>
           </div>
           {loadError && (
@@ -97,7 +99,7 @@ export default function CalendarScreen({ token, periods, logsVersion, onClose, o
             </div>
           )}
           <div className="cal-grid" aria-hidden="true">
-            {WEEKDAY_LABELS.map((w, i) => <div key={i} className="cal-wd">{w}</div>)}
+            {weekdayLabels().map((w, i) => <div key={i} className="cal-wd">{w}</div>)}
           </div>
           <div className="cal-grid">
             {grid.weeks.flat().map(cell => {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 
@@ -184,4 +184,12 @@ test('a changed token re-runs the check once; the same token under StrictMode ch
   expect(API.verify.check).toHaveBeenLastCalledWith('tok-2');
   await screen.findByRole('heading', { name: 'Choose your password' });
   expect(API.verify.check).toHaveBeenCalledTimes(2);
+});
+
+test('the verify-email page offers the language switcher', async () => {
+  const { setLanguage, getLanguage } = require('./i18n');
+  await openForm();
+  userEvent.click(screen.getByRole('radio', { name: 'हिन्दी' }));
+  expect(getLanguage()).toBe('hi');
+  act(() => { setLanguage('en'); });
 });
