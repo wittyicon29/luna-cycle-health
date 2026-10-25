@@ -192,10 +192,14 @@ time.
 **Where things live.**
 - Labels: `app/src/main/res/values/strings.xml`.
 - Icons: `app/src/main/res/drawable/ic_launcher_fg_*` (foregrounds) with the colours in
-  `app/src/main/res/values/launcher_colors.xml`.
-- The in-app picker reads `frontend/src/launcherAppearance.js`, which mirrors the labels.
-  Changing a label means updating both `strings.xml` and `launcherAppearance.js`; a test checks
-  that they match.
+  `app/src/main/res/values/launcher_colors.xml`. The manifest points each alias at
+  `@mipmap/ic_launcher_<key>`: `res/mipmap-anydpi-v26/ic_launcher_<key>.xml` is the adaptive icon
+  (binds foreground + colour) and `res/mipmap-anydpi/ic_launcher_<key>.xml` the Android 6-7 fallback.
+  The default entry keeps the regular `@mipmap/ic_launcher`.
+- The in-app picker reads `frontend/src/launcherAppearance.js`, which mirrors the labels and the
+  icon artwork (previews are inline SVGs). Changing a label means updating both `strings.xml` and
+  `launcherAppearance.js`; changing an icon means updating the vector and `APPEARANCE_ICONS`. Tests
+  check that labels, alias names, colours and paths match.
 - The native side is the app-local `LauncherAppearancePlugin.java`. The rename script moves it
   with the rest of the package.
 
