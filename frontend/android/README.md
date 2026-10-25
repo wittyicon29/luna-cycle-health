@@ -235,6 +235,15 @@ SecurityException. Start the enabled alias, e.g. `adb shell am start -n <id>/.La
 the active `.Launcher<Key>`), or `adb shell monkey -p <id> --pct-syskeys 0 -c android.intent.category.LAUNCHER 1`.
 `test-launcher-aliases.sh` checks a built APK, so rebuild before relying on it.
 
+## Keyboard
+
+With targetSdk 35 the window is edge-to-edge and Android ignores `adjustResize`, so the soft keyboard
+used to cover the bottom of the screen (the day sheet's note field and Save button sat underneath it).
+`@capacitor/keyboard` with `"Keyboard": { "resizeOnFullScreen": true }` in `capacitor.config.json`
+shrinks the WebView to the space above the keyboard again (`visualViewport.height` drops, and
+returns when the keyboard hides). Android Back hides the keyboard first. Check it with
+`adb shell input text` and `window.visualViewport.height` over WebView DevTools.
+
 ## Known behaviours
 
 - If the app process is killed in the middle of a token refresh, the next launch may require one
