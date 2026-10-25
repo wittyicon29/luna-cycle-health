@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor, act, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, act, fireEvent, createEvent } from '@testing-library/react';
 
 jest.mock('./api', () => ({
   ...jest.requireActual('./api'),
@@ -119,6 +119,43 @@ describe('JourneyMap fog', () => {
   });
 });
 
+const mouse = (el, type, x) => { const ev = createEvent[type](el); Object.defineProperty(ev, 'pageX', { value: x }); fireEvent(el, ev); };
+
+describe('JourneyMap drag and quiet', () => {
+  test('a drag-to-scroll does not open a day, a plain click does', async () => {
+    const onOpenDay = jest.fn();
+    const { container } = map({ onOpenDay });
+    const scroll = container.querySelector('.j-scroll');
+    const run = runs()[0];
+    mouse(scroll, 'mouseDown', 100);
+    mouse(scroll, 'mouseMove', 130);
+    mouse(scroll, 'mouseUp', 130);
+    fireEvent.click(run, { clientX: 0 });
+    expect(onOpenDay).not.toHaveBeenCalled();
+    await act(async () => { await new Promise(r => setTimeout(r, 5)); });
+    mouse(scroll, 'mouseDown', 100);
+    mouse(scroll, 'mouseMove', 103);
+    mouse(scroll, 'mouseUp', 103);
+    fireEvent.click(run, { clientX: 0 });
+    expect(onOpenDay).toHaveBeenCalledTimes(1);
+  });
+  test('Quiet mode removes lifted fog immediately, with no fog-lift class', () => {
+    const props = mapProps({ playfulMode: 'quiet' });
+    const { rerender } = render(<JourneyMap {...props} />);
+    const before = runs().length;
+    rerender(<JourneyMap {...props} logs={{ [iso(20)]: { date: iso(20) } }} />);
+    expect(document.querySelector('.fog-lift')).toBeNull();
+    expect(runs().length).toBe(before + 1);
+  });
+  test('fog going away because logs are unknown does not play a lift', () => {
+    const props = mapProps();
+    const { rerender } = render(<JourneyMap {...props} />);
+    rerender(<JourneyMap {...props} logsReady={false} />);
+    expect(runs()).toHaveLength(0);
+    expect(document.querySelector('.fog-lift')).toBeNull();
+  });
+});
+
 describe('JourneyMap Luna', () => {
   const LABEL = 'Luna, your companion. Tap to hear a tip.';
   test('stands at today with the accessible label', () => {
@@ -131,17 +168,19 @@ describe('JourneyMap Luna', () => {
   });
   test('tap shows the phase tip in a status bubble; Escape and outside click close it', () => {
     map();
-    expect(screen.queryByRole('status')).toBeNull();
+    const status = screen.getByRole('status');
+    expect(status.textContent).toBe('');
+    expect(status.querySelector('.lc-bubble')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: LABEL }));
-    const bubble = screen.getByRole('status');
-    expect(bubble.className).toContain('lc-bubble');
-    expect(bubble.textContent).toMatch(/\S{3,}/);
+    expect(screen.getByRole('status')).toBe(status);
+    expect(status.querySelector('.lc-bubble')).toBeTruthy();
+    expect(status.textContent).toMatch(/\S{3,}/);
     fireEvent.keyDown(document, { key: 'Escape' });
-    expect(screen.queryByRole('status')).toBeNull();
+    expect(status.textContent).toBe('');
     fireEvent.click(screen.getByRole('button', { name: LABEL }));
-    expect(screen.getByRole('status')).toBeInTheDocument();
+    expect(status.querySelector('.lc-bubble')).toBeTruthy();
     fireEvent.pointerDown(document.body);
-    expect(screen.queryByRole('status')).toBeNull();
+    expect(status.textContent).toBe('');
   });
   test('the bubble carries the current phase name and tip', () => {
     map({ periods: MENSTRUAL_NOW });
@@ -218,6 +257,20 @@ describe('JourneyApp logs', () => {
     await waitFor(() => expect(API.logs.put).toHaveBeenCalled());
   };
   const luna = () => document.querySelector('[data-face]').getAttribute('data-face');
+
+  test('a failed refetch keeps the fog and plays no lift', async () => {
+    API.logs.put.mockResolvedValue({});
+    API.medications.list.mockResolvedValue([]);
+    app();
+    await ready();
+    await waitFor(() => expect(runs().length).toBe(2));
+    API.logs.list.mockImplementation(from => (from === iso(90) ? Promise.reject(new Error('down')) : Promise.resolve([])));
+    await saveFirstFoggedDay();
+    await waitFor(() => expect(mapCalls()).toHaveLength(2));
+    await act(async () => { await Promise.resolve(); });
+    expect(runs().length).toBe(2);
+    expect(document.querySelector('.fog-lift')).toBeNull();
+  });
 
   test('reloads on a logsVersion change, ignores a stale response, and Luna is happy for 3 seconds', async () => {
     API.logs.put.mockResolvedValue({});

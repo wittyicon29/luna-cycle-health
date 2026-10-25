@@ -94,4 +94,16 @@ describe("FogLayer", () => {
     expect(lifted[0].style.left).toBe(`${12 * DAY_W}px`);
     expect(lifted[0].style.width).toBe(`${DAY_W}px`);
   });
+
+  test("unmounting while a lift is pending clears its timer without a setState warning", () => {
+    jest.useFakeTimers();
+    const err = jest.spyOn(console, "error").mockImplementation(() => {});
+    const { rerender, unmount } = render(<FogLayer runs={RUNS} dayW={DAY_W} onOpenRun={jest.fn()} animated />);
+    rerender(<FogLayer runs={[RUNS[1]]} dayW={DAY_W} onOpenRun={jest.fn()} animated />);
+    unmount();
+    act(() => { jest.advanceTimersByTime(2000); });
+    expect(err).not.toHaveBeenCalled();
+    expect(jest.getTimerCount()).toBe(0);
+    err.mockRestore();
+  });
 });

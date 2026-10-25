@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import LandingPage from "./LandingPage";
 import { API } from "./api";
 import ConsentCheckboxes from "./ConsentCheckboxes";
@@ -272,7 +272,7 @@ body{font-family:'Outfit','Noto Sans Devanagari',sans-serif;background:var(--bg)
 .terrain{flex:1;position:relative;overflow:hidden}
 .phase-bg{position:absolute;top:0;bottom:0;transition:background .3s}
 .phase-sep{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.1);pointer-events:none;z-index:2}
-.phase-sep-lbl{position:absolute;top:8px;font-size:.58rem;letter-spacing:.07em;text-transform:uppercase;font-weight:500;white-space:nowrap;z-index:3;padding:2px 7px;border-radius:3px;backdrop-filter:blur(4px);pointer-events:none;left:5px}
+.phase-sep-lbl{position:absolute;top:8px;font-size:.58rem;letter-spacing:.07em;text-transform:uppercase;font-weight:500;white-space:nowrap;z-index:6;padding:2px 7px;border-radius:3px;backdrop-filter:blur(4px);pointer-events:none;left:5px}
 .week-sep{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.03);pointer-events:none;z-index:1}
 .road{position:absolute;left:0;right:0;height:2px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.05);z-index:1}
 .p-dot{position:absolute;border-radius:50%;z-index:10;top:50%;transform:translate(-50%,-50%);cursor:pointer;transition:transform .2s,box-shadow .2s}
@@ -880,7 +880,8 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
   const dragging = useRef(false);
   const dragOrigin = useRef({ x: 0, sl: 0 });
 
-  const timeline = buildTimeline(periods, avgCycle);
+  const todayStr = localDateString();
+  const timeline = useMemo(() => buildTimeline(periods, avgCycle), [periods, avgCycle, todayStr]); // eslint-disable-line react-hooks/exhaustive-deps
   const canvasW = TOTAL * DAY_W;
   const todayX = BACK * DAY_W;
 
@@ -900,9 +901,19 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
     return () => { document.removeEventListener("keydown", onKey); document.removeEventListener("pointerdown", onDown); };
   }, [tipOpen]);
 
-  function onMD(e) { dragging.current = true; dragOrigin.current = { x: e.pageX, sl: scrollRef.current.scrollLeft }; }
-  function onMM(e) { if (!dragging.current) return; scrollRef.current.scrollLeft = dragOrigin.current.sl - (e.pageX - dragOrigin.current.x); }
-  function onMU() { dragging.current = false; }
+  const dragMoved = useRef(false);
+  const suppressClick = useRef(false);
+  function onMD(e) { dragging.current = true; dragMoved.current = false; dragOrigin.current = { x: e.pageX, sl: scrollRef.current.scrollLeft }; }
+  function onMM(e) {
+    if (!dragging.current) return;
+    if (Math.abs(e.pageX - dragOrigin.current.x) > 5) dragMoved.current = true;
+    scrollRef.current.scrollLeft = dragOrigin.current.sl - (e.pageX - dragOrigin.current.x);
+  }
+  // A drag-to-scroll must not count as a tap on the fog: the click that follows mouseup is ignored.
+  function onMU() {
+    if (dragging.current && dragMoved.current) { suppressClick.current = true; setTimeout(() => { suppressClick.current = false; }, 0); }
+    dragging.current = false;
+  }
 
   // Phase transitions
   const phaseTrans = [];
@@ -929,11 +940,10 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
   const phText = key => phaseText(PHASES[key] ? key : "unknown");
 
   const animated = playfulMode === "normal";
-  const dates = timeline.map(d => localDateString(d.date));
-  const todayStr = localDateString();
-  const fogList = logsReady
+  const dates = useMemo(() => timeline.map(d => localDateString(d.date)), [timeline]);
+  const fogList = useMemo(() => (logsReady
     ? fogRuns({ dates, today: todayStr, first: firstLoggedDate(periods, logs), covered: coveredDates(periods, logs, todayStr) })
-    : [];
+    : []), [logsReady, periods, logs, timeline, dates, todayStr]); // eslint-disable-line react-hooks/exhaustive-deps
   const todayKey = todayDay?.phase || "unknown";
   const mood = companionMood({ phase: todayKey, hour: new Date().getHours(), justLogged });
 
@@ -998,9 +1008,9 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
             {/* Road */}
             <div className="road" />
 
-            {/* Fog of war: unlogged recent days, below the markers */}
-            <FogLayer runs={fogList} dayW={DAY_W} animated={animated}
-              onOpenRun={(run, x) => onOpenDay(dates[run.start + Math.min(run.end - run.start, Math.max(0, Math.floor(x / DAY_W)))])} />
+            {/* Fog of war: unlogged recent days, below the markers. Trade-off: foggy days sit above the phase backgrounds, so the desktop phase hover card does not open over them. */}
+            <FogLayer runs={fogList} dayW={DAY_W} animated={animated && logsReady}
+              onOpenRun={(run, x) => suppressClick.current ? undefined : onOpenDay(dates[run.start + Math.min(run.end - run.start, Math.max(0, Math.floor(x / DAY_W)))])} />
 
             {/* Period markers */}
             {timeline.map((d, i) => {
@@ -1033,13 +1043,16 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
                 style={{ display: "block", width: "100%", height: "100%", padding: 0, border: "none", background: "none", cursor: "pointer", borderRadius: "50%" }}>
                 <Companion mood={mood} size={LUNA_SIZE} animate={animated} sparkles={animated && justLogged} />
               </button>
-              {tipOpen && (
-                <div className="lc-bubble" role="status" onClick={e => e.stopPropagation()}
-                  style={{ position: "absolute", bottom: "calc(100% + 6px)", left: "50%", transform: "translateX(-50%)", width: 220, maxWidth: 220, zIndex: 22, color: "var(--cream)", textAlign: "left" }}>
-                  <div style={{ fontSize: ".62rem", letterSpacing: ".1em", textTransform: "uppercase", color: todayPh.color, marginBottom: 2 }}>{phText(todayKey).name}</div>
-                  {phText(todayKey).tip}
-                </div>
-              )}
+              {/* The live region is always mounted so screen readers announce the tip when it opens. */}
+              <div role="status" className="lc-tip" onClick={e => e.stopPropagation()}
+                style={{ position: "absolute", bottom: "calc(100% + 6px)", left: "50%", transform: "translateX(-50%)", width: 220, maxWidth: 220, zIndex: 22, color: "var(--cream)", textAlign: "left" }}>
+                {tipOpen && (
+                  <div className="lc-bubble">
+                    <div style={{ fontSize: ".62rem", letterSpacing: ".1em", textTransform: "uppercase", color: todayPh.color, marginBottom: 2 }}>{phText(todayKey).name}</div>
+                    {phText(todayKey).tip}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Phase hover card */}
@@ -1946,6 +1959,7 @@ function JourneyApp({ token, email, onLogout }) {
   const [logsReady, setLogsReady] = useState(false);
   const [justLogged, setJustLogged] = useState(false);
   const logsReq = useRef(0);
+  const logsReadyRef = useRef(false);
   const { mode: playfulMode } = usePlayful();
   const [selectedInfo, setSelectedInfo] = useState(null);
   const [showIntro, setShowIntro] = useState(false);
@@ -1985,9 +1999,11 @@ function JourneyApp({ token, email, onLogout }) {
         const map = {};
         (Array.isArray(rows) ? rows : []).forEach(r => { if (r && r.date) map[r.date] = r; });
         setMapLogs(map);
+        logsReadyRef.current = true;
         setLogsReady(true);
       } catch (e) {
         if (id !== logsReq.current) return;
+        if (logsReadyRef.current) return; // a failed refetch keeps the fog we already have
         setMapLogs({});
         setLogsReady(false);
       }
