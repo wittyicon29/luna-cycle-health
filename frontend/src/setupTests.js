@@ -7,5 +7,5 @@ Object.assign(global, { TextEncoder, TextDecoder });
 // jsdom lacks WebCrypto; the offline vault needs crypto.subtle / getRandomValues.
 if (!global.crypto || !global.crypto.subtle) {
   // eslint-disable-next-line global-require
-  Object.defineProperty(global, 'crypto', { value: require('crypto').webcrypto, configurable: true });
+  Object.defineProperty(global, 'crypto', { value: require('crypto').webcrypto, writable: true, configurable: true });
 }

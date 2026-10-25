@@ -47,8 +47,6 @@ test('the key lives only in secure storage; dropKey invalidates old blobs', asyn
   const blob = await vault.seal({ a: 1 }, 'h');
   expect(mockData.has('luna_vault_key')).toBe(true);
   expect(Object.keys(localStorage)).toHaveLength(0);
-  const raw = mockData.get('luna_vault_key');
-  expect(JSON.stringify(Object.values(localStorage))).not.toContain(raw);
   await vault.dropKey();
   expect(mockData.has('luna_vault_key')).toBe(false);
   expect(await vault.open(blob, 'h')).toBeNull();
@@ -62,4 +60,45 @@ test('seals a large value without overflowing the stack', async () => {
 test('seal rejects when the vault cannot create a key', async () => {
   mockSecure.set.mockRejectedValueOnce(new Error('keystore down'));
   await expect(vault.seal({ a: 1 }, 'h')).rejects.toThrow();
+});
+
+test('a failed key read never creates a new key and the old blob stays readable', async () => {
+  const blob = await vault.seal({ a: 1 }, 'h');
+  const original = mockData.get('luna_vault_key');
+  vault.__resetCacheForTests();
+  mockSecure.set.mockClear();
+  mockSecure.get.mockRejectedValueOnce(new Error('keystore locked'));
+  await expect(vault.seal({ b: 2 }, 'h')).rejects.toThrow('vault unavailable');
+  expect(mockSecure.set).not.toHaveBeenCalled();
+  expect(mockData.get('luna_vault_key')).toBe(original);
+  expect(await vault.open(blob, 'h')).toEqual({ a: 1 });
+  await expect(vault.seal({ b: 2 }, 'h')).resolves.toMatch(/^v1\./);
+});
+
+test('an open running concurrently with a seal does not stop the seal creating the key', async () => {
+  const [opened, sealed] = await Promise.all([vault.open('v1.AAAAAAAAAAAAAAAA.AAAA', 'h'), vault.seal({ a: 1 }, 'h')]);
+  expect(opened).toBeNull();
+  expect(sealed).toMatch(/^v1\./);
+  expect(mockSecure.set).toHaveBeenCalledTimes(1);
+});
+
+test('two concurrent seals create exactly one key', async () => {
+  const [a, b] = await Promise.all([vault.seal(1, 'h'), vault.seal(2, 'h')]);
+  expect(mockSecure.set).toHaveBeenCalledTimes(1);
+  expect(await vault.open(a, 'h')).toBe(1);
+  expect(await vault.open(b, 'h')).toBe(2);
+});
+
+test('dropKey waits for a pending key creation before removing it', async () => {
+  const sealing = vault.seal(1, 'h');
+  await vault.dropKey();
+  await sealing.catch(() => {});
+  expect(mockData.has('luna_vault_key')).toBe(false);
+});
+
+test('dropKey does not touch secure storage on web', async () => {
+  require('../platform').isNative.mockReturnValue(false);
+  mockSecure.remove.mockClear();
+  await vault.dropKey();
+  expect(mockSecure.remove).not.toHaveBeenCalled();
 });
