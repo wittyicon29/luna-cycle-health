@@ -395,7 +395,7 @@ function Marquee() {
 }
 
 // ─── MAIN LANDING PAGE ────────────────────────────────────────────────────────
-function LandingPage() {
+function LandingPage({ onShowAuth } = {}) {
   useEffect(() => { injectCSS(); }, []);
 
   const navigate = useNavigate();
@@ -453,9 +453,11 @@ function LandingPage() {
   const scrollTo = id => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
   const activePh = PHASES.find(p => p.id === activePhase) || PHASES[0];
 
-  const handleGetStarted = () => navigate('/register');
-  const handleSignIn = () => navigate('/login');
-  const handleSignUp = () => navigate('/register');
+  // Inside App (signed out) the parent owns the auth screen; routing alone would leave App mounted.
+  const go = (mode, path) => (onShowAuth ? onShowAuth(mode) : navigate(path));
+  const handleGetStarted = () => go('register', '/register');
+  const handleSignIn = () => go('login', '/login');
+  const handleSignUp = () => go('register', '/register');
 
   return (
     <div className="lp">
