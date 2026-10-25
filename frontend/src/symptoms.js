@@ -23,13 +23,20 @@ export function symptomLabel(key) {
 // Bare flow word for a stored flow value (chips, calendar labels). The stored value stays English.
 export function flowWord(flow) {
   switch (flow) {
-    // i18n-note: "spotting" is हल्का रक्तस्राव and "light" is just हल्का, so the two chips sit next to each other as "हल्का रक्तस्राव" / "हल्का"; unsure they are distinct enough
+    // i18n-note: "spotting" keeps the commonly used loanword with a gloss, स्पॉटिंग (हल्के धब्बे), so it is distinct from "light" (हल्का)
     case "spotting": return t("spotting");
     case "light": return t("light");
     case "medium": return t("medium");
     case "heavy": return t("heavy");
     default: return flow;
   }
+}
+
+// Screen-reader phrase for a day's flow ("flow light"); spotting has its own phrase so Hindi does not read
+// "रक्तस्राव: स्पॉटिंग".
+export function flowAria(flow) {
+  if (flow === "spotting") return t("flow spotting");
+  return t("flow {flow}", { flow: flowWord(flow) });
 }
 
 // "{flow} flow" badge text for a stored flow_intensity value (light | medium | heavy).

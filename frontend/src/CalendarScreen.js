@@ -3,7 +3,7 @@ import { API } from "./api";
 import { localDateString } from "./localDate";
 import { monthGrid, shiftMonth, periodDaySet, predictedRangeSet, addDays, monthName, weekdayLabels } from "./calendarGrid";
 import { t, useLanguage } from "./i18n";
-import { flowWord } from "./symptoms";
+import { flowAria } from "./symptoms";
 
 // Latest selectable day: mirrors the backend limit (UTC today + 1) and never exceeds local tomorrow.
 export function maxSelectableDay(now = new Date()) {
@@ -77,7 +77,7 @@ export default function CalendarScreen({ token, periods, logsVersion, onClose, o
     if (predicted.has(cell.date)) parts.push(t("expected period"));
     const log = logs[cell.date];
     if (log) parts.push(t("logged"));
-    if (log && log.flow) parts.push(t("flow {flow}", { flow: flowWord(log.flow) }));
+    if (log && log.flow) parts.push(flowAria(log.flow));
     return parts.join(", ");
   };
 

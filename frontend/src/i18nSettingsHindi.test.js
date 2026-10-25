@@ -130,11 +130,11 @@ describe('ProfileDrawer in Hindi', () => {
     const { drawer } = await openProfile();
     userEvent.click(within(drawer).getByRole('button', { name: 'स्वास्थ्य प्रोफ़ाइल अपडेट करें' }));
     await within(drawer).findByText('बुनियादी जानकारी');
-    ['बुनियादी जानकारी', 'मासिक चक्र का पैटर्न', 'दर्द और लक्षण', 'पीएमएस के लक्षण (0–3)', 'आयु', 'जैविक लिंग', 'आख़िरी माहवारी की तारीख *',
+    ['बुनियादी जानकारी', 'मासिक चक्र का पैटर्न', 'दर्द और लक्षण', 'पीएमएस के लक्षण (0–3)', 'आयु', 'जैविक लिंग', 'आखिरी माहवारी की तारीख *',
       'अतिरिक्त नोट', 'डेटा विश्लेषण के लिए मेरी सहमति है', 'स्वास्थ्य प्रोफ़ाइल सहेजें']
       .forEach(label => expect(within(drawer).getAllByText(label).length).toBeGreaterThan(0));
     expect(within(drawer).getByPlaceholderText('स्वास्थ्य से जुड़ी कोई और जानकारी…')).toBeInTheDocument();
-    ['महिला', 'पुरुष', 'अन्य', 'हल्का', 'मध्यम', 'भारी', 'पहले', 'दौरान', 'आंशिक', 'पूरा'].forEach(o =>
+    ['महिला', 'पुरुष', 'अन्य', 'हल्का', 'मध्यम', 'भारी', 'माहवारी से पहले', 'माहवारी के दौरान', 'आंशिक', 'पूरा'].forEach(o =>
       expect(within(drawer).getAllByRole('option', { name: o }).length).toBeGreaterThan(0));
     noEnglish(drawer);
 
@@ -162,12 +162,21 @@ describe('ProfileDrawer in Hindi', () => {
     noEnglish(drawer);
   });
 
+  test('the questionnaire intro names the profile path in bold', async () => {
+    const { drawer } = await openProfile();
+    userEvent.click(within(drawer).getByRole('button', { name: 'स्वास्थ्य प्रोफ़ाइल अपडेट करें' }));
+    await within(drawer).findByText('बुनियादी जानकारी');
+    expect(drawer.querySelector('form strong')).toHaveTextContent('प्रोफ़ाइल → स्वास्थ्य प्रोफ़ाइल');
+    english();
+    expect(drawer.querySelector('form strong')).toHaveTextContent('Profile → Health Profile');
+  });
+
   test('form errors follow a language switch', async () => {
     const { drawer } = await openProfile();
     userEvent.click(within(drawer).getByRole('button', { name: 'स्वास्थ्य प्रोफ़ाइल अपडेट करें' }));
     await within(drawer).findByText('बुनियादी जानकारी');
     fireEvent.submit(drawer.querySelector('form'));
-    expect(within(drawer).getByText(/आख़िरी माहवारी की तारीख आवश्यक है/)).toBeInTheDocument();
+    expect(within(drawer).getByText(/आखिरी माहवारी की तारीख आवश्यक है/)).toBeInTheDocument();
     fireEvent.change(drawer.querySelector('input[type=date]'), { target: { value: '2026-10-01' } });
     fireEvent.submit(drawer.querySelector('form'));
     expect(within(drawer).getByText(/सहमति वाले बॉक्स पर निशान लगाएँ/)).toBeInTheDocument();
@@ -224,11 +233,11 @@ describe('PrivacyPanel in Hindi', () => {
     API.account.delete.mockResolvedValue({});
     const { container } = panel({ onAccountDeleted });
     userEvent.click(screen.getByRole('button', { name: 'मेरा खाता हटाएँ' }));
-    expect(screen.getByText('इससे आपका खाता और आपका सारा डेटा हमेशा के लिए हट जाएगा। इसे वापस नहीं किया जा सकता।')).toBeInTheDocument();
+    expect(screen.getByText('इससे आपका खाता और आपका सारा डेटा हमेशा के लिए हट जाएगा। इसे पहले जैसा नहीं किया जा सकता।')).toBeInTheDocument();
     noEnglish(container);
     const confirm = screen.getByRole('button', { name: 'हमेशा के लिए हटाएँ' });
     expect(confirm).toBeDisabled();
-    userEvent.type(screen.getByLabelText('पुष्टि के लिए DELETE लिखें'), 'DELETE');
+    userEvent.type(screen.getByLabelText('पुष्टि के लिए अंग्रेज़ी अक्षरों में DELETE टाइप करें'), 'DELETE');
     expect(confirm).toBeEnabled();
     userEvent.click(confirm);
     await waitFor(() => expect(onAccountDeleted).toHaveBeenCalled());
@@ -312,12 +321,12 @@ describe('AppearancePanel in Hindi', () => {
     userEvent.click(screen.getAllByRole('radio')[1]);
     expect(screen.getByRole('group', { name: 'ऐप का रूप बदलने की पुष्टि' })).toBeInTheDocument();
     // Android's launcher label is English, so that is the name the user must look for
-    expect(screen.getByText(/“Notes” के नाम से दिखेगा/)).toBeInTheDocument();
+    expect(screen.getByText(/अंग्रेज़ी नाम “Notes” से दिखेगा/)).toBeInTheDocument();
     noEnglish(container, ['Notes']);
     userEvent.click(screen.getByRole('button', { name: 'बदलें' }));
     await waitFor(() => expect(onChange).toHaveBeenCalledWith('notes'));
     expect(setAppearance).toHaveBeenCalledWith('notes');
-    expect(await screen.findByText(/हो गया। अपनी ऐप सूची में “Notes” खोजें/)).toBeInTheDocument();
+    expect(await screen.findByText(/हो गया। अपनी ऐप सूची में अंग्रेज़ी नाम “Notes” खोजें/)).toBeInTheDocument();
     noEnglish(container, ['Notes']);
     english();
     expect(screen.getByText(/Done\. Look for “Notes” in your app list/)).toBeInTheDocument();
@@ -356,6 +365,15 @@ describe('CalendarScreen in Hindi', () => {
     expect(screen.getByRole('button', { name: 'October 25, 2026, today' })).toBeInTheDocument();
   });
 
+  test('spotting reads naturally in the day label', async () => {
+    API.logs.list.mockResolvedValue([{ date: '2026-10-24', flow: 'spotting' }]);
+    render(<CalendarScreen token="tok" periods={[]} logsVersion={0} onClose={jest.fn()} onOpenDay={jest.fn()} />);
+    await flush();
+    expect(screen.getByRole('button', { name: '24 अक्टूबर 2026, दर्ज किया गया, रक्तस्राव: हल्के धब्बे' })).toBeInTheDocument();
+    english();
+    expect(screen.getByRole('button', { name: 'October 24, 2026, logged, flow spotting' })).toBeInTheDocument();
+  });
+
   test('the load error is Hindi', async () => {
     API.logs.list.mockRejectedValue(new Error('x'));
     const { container } = render(<CalendarScreen token="tok" periods={[]} logsVersion={0} onClose={jest.fn()} onOpenDay={jest.fn()} />);
@@ -387,10 +405,10 @@ describe('DaySheet in Hindi', () => {
   test('mood faces, chips, steppers and sections are Hindi', async () => {
     const { container } = await sheet();
     expect(screen.getByRole('dialog', { name: '24 अक्टूबर 2026 का रिकॉर्ड' })).toBeInTheDocument();
-    ['बहुत खराब', 'खराब', 'ठीक', 'अच्छा', 'बहुत बढ़िया'].forEach(m => expect(screen.getByRole('radio', { name: m })).toBeInTheDocument());
+    ['बहुत उदास', 'थोड़ा उदास', 'ठीक', 'अच्छा', 'बहुत बढ़िया'].forEach(m => expect(screen.getByRole('radio', { name: m })).toBeInTheDocument());
     ['ऐंठन', 'पेट फूलना', 'सिरदर्द', 'थकान', 'मूड में बदलाव', 'मुँहासे', 'कमर दर्द', 'जी मिचलाना', 'स्तनों में दर्द', 'नींद न आना']
       .forEach(s => expect(screen.getByRole('button', { name: s })).toBeInTheDocument());
-    ['हल्का रक्तस्राव', 'हल्का', 'मध्यम', 'भारी'].forEach(f => expect(screen.getByRole('button', { name: f })).toBeInTheDocument());
+    ['स्पॉटिंग (हल्के धब्बे)', 'हल्का', 'मध्यम', 'भारी'].forEach(f => expect(screen.getByRole('button', { name: f })).toBeInTheDocument());
     expect(screen.getByRole('button', { name: 'नींद के घंटे बढ़ाएँ' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'पानी के गिलास घटाएँ' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'मेरी सूची प्रबंधित करें' })).toBeInTheDocument();
@@ -402,10 +420,10 @@ describe('DaySheet in Hindi', () => {
   test('the saved payload keeps English keys and values', async () => {
     const { container, onSaved } = await sheet();
     fireEvent.click(screen.getByRole('button', { name: 'ऐंठन' }));
-    fireEvent.click(screen.getByRole('button', { name: 'हल्का रक्तस्राव' }));
+    fireEvent.click(screen.getByRole('button', { name: 'स्पॉटिंग (हल्के धब्बे)' }));
     fireEvent.click(screen.getByRole('radio', { name: 'अच्छा' }));
     fireEvent.click(screen.getByRole('button', { name: 'नींद के घंटे बढ़ाएँ' }));
-    expect(screen.getByLabelText('नींद के घंटे का मान')).toHaveTextContent('7 घंटे');
+    expect(screen.getByLabelText('नींद के घंटे: मान')).toHaveTextContent('7 घंटे');
     fireEvent.click(screen.getByLabelText('Iron'));
     fireEvent.change(screen.getByLabelText('नोट'), { target: { value: 'मेरा नोट' } });
     noEnglish(container, ['Iron']);
@@ -438,7 +456,7 @@ describe('DaySheet in Hindi', () => {
     API.logs.list.mockResolvedValue([{ date: DATE, mood: 5, symptoms: ['nausea'], flow: 'heavy', sleep_hours: 7.5, water_glasses: 3, medications_taken: ['m1', 'm2'], note: 'x' }]);
     const { container } = await sheet();
     expect(screen.getByRole('radio', { name: 'बहुत बढ़िया' })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByLabelText('नींद के घंटे का मान')).toHaveTextContent('7.5 घंटे');
+    expect(screen.getByLabelText('नींद के घंटे: मान')).toHaveTextContent('7.5 घंटे');
     expect(container.textContent).toContain('(संग्रहित)');
     fireEvent.click(screen.getByRole('button', { name: 'दिन मिटाएँ' }));
     expect(screen.getByText('इस दिन के लिए दर्ज सब कुछ मिटा दें?')).toBeInTheDocument();
@@ -543,7 +561,7 @@ describe('reminderText in Hindi', () => {
     [0, 1, 2, 5].forEach(n =>
       expect(sched.reminderText('periodExpected', explicit(n))).toEqual({ title: 'Luna', body: `आपकी माहवारी ${n} दिन में आने की उम्मीद है।` }));
     expect(sched.reminderText('lateCheckIn', explicit(2)).body).toBe('आपकी माहवारी में थोड़ी देरी हो सकती है। दर्ज करने या चेक-इन के लिए टैप करें।');
-    expect(sched.reminderText('dailyLog', explicit(2)).body).toBe('क्या आपने आज दर्ज किया?');
+    expect(sched.reminderText('dailyLog', explicit(2)).body).toBe('क्या आपने आज का रिकॉर्ड दर्ज किया?');
   });
 
   test('English is unchanged', () => {

@@ -33,7 +33,8 @@
 | tender breasts | स्तनों में दर्द |
 | insomnia | नींद न आना |
 | flow | रक्तस्राव की मात्रा |
-| spotting | हल्का रक्तस्राव |
+| spotting | स्पॉटिंग (हल्के धब्बे); in aria text "हल्के धब्बे" |
+| archive (medication) | संग्रहित करें (one term in the UI and in server messages; never आर्काइव) |
 | light | हल्का |
 | medium | मध्यम |
 | heavy | भारी |
@@ -60,6 +61,7 @@
 
 Notes on the glossary:
 - Use "sign in" and "log in" exactly as the app's English copy does: whichever English wording a screen uses maps to its own Hindi row above, and the two are not mixed on one screen. "Register" is only for creating an account.
+- Spelling: write तारीख, आखिरी and similar words without the nukta dot, consistently (except where the nukta is needed to tell sounds apart, such as ज़रूरत, नज़र, फ़ोल्डर).
 - Reviewer note: "period" is written माहवारी in formal copy. The colloquial पीरियड / पीरियड्स is common; use it in short labels only if the reviewer prefers.
 
 ## Uncertain translations

@@ -10,7 +10,7 @@ export const MOODS = ["Very low", "Low", "Okay", "Good", "Great"];
 // Display name of mood level 1..5 (the stored value is the number).
 function moodLabel(i) {
   switch (i) {
-    // i18n-note: the five mood words (बहुत खराब / खराब / ठीक / अच्छा / बहुत बढ़िया) are a plain scale; unsure "खराब" is gentle enough for a low mood
+    // i18n-note: the five mood words (बहुत उदास / थोड़ा उदास / ठीक / अच्छा / बहुत बढ़िया) are a plain scale
     case 0: return t("Very low");
     case 1: return t("Low");
     case 2: return t("Okay");
@@ -327,7 +327,7 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
         </section>
         <section style={secStyle}>
           <div style={secTitle}>{t("Sleep")}</div>
-          <Stepper label={t("sleep hours")} resetLabel={t("Reset sleep")} value={state.sleep} step={0.5} min={0} max={24} firstPlus={7} firstMinus={6.5} format={v => t("{hours} h", { hours: v })} onChange={v => set({ sleep: v })} />
+          <Stepper label={t("sleep hours")} resetLabel={t("Reset sleep")} value={state.sleep} step={0.5} min={0} max={24} firstPlus={7} firstMinus={6.5} format={v => (v === 1 ? t("1 h") : t("{hours} h", { hours: v }))} onChange={v => set({ sleep: v })} />
         </section>
         <section style={secStyle}>
           <div style={secTitle}>{t("Water")}</div>

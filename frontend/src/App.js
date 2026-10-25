@@ -1832,7 +1832,10 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
           ) : (
             <form onSubmit={submitQ}>
               <div style={{ fontSize: ".78rem", color: "var(--muted)", marginBottom: ".8rem", padding: ".6rem .75rem", borderRadius: "8px", background: "rgba(255,255,255,.02)", border: "1px dashed var(--border)" }}>
-                {t("This is your health questionnaire. It helps Luna understand your body and symptoms. You can always edit these answers later under Profile → Health Profile.")}
+                {(() => {
+                  const [before, after] = t("This is your health questionnaire. It helps Luna understand your body and symptoms. You can always edit these answers later under {name}.", { name: "\u0000" }).split("\u0000");
+                  return <>{before}<strong>{t("Profile → Health Profile")}</strong>{after}</>;
+                })()}
               </div>
               <div className="q-sec"><div className="q-sec-title">{t("Basic Info")}</div>
                 <div className="f-row"><div className="f"><label>{t("Age")}</label><input type="number" value={age} onChange={e => setAge(Number(e.target.value))} min="18" max="100" required /></div><div className="f"><label>{t("Biological Sex")}</label><select value={sex} onChange={e => setSex(e.target.value)}><option value="female">{t("Female")}</option><option value="male">{t("Male")}</option><option value="other">{t("Other")}</option></select></div></div>
