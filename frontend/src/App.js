@@ -13,6 +13,8 @@ import PrivacyPanel from "./PrivacyPanel";
 import RemindersPanel from "./RemindersPanel";
 import AppearancePanel from "./AppearancePanel";
 import LanguageSwitcher from "./i18n/LanguageSwitcher";
+import { t, useLanguage } from "./i18n";
+import { translateServer } from "./serverMessages";
 import { getAppearance } from "./launcherAppearance";
 import { useReminders } from "./useReminders";
 import { loadPrefs, savePrefs } from "./reminderPrefs";
@@ -464,12 +466,13 @@ function LoadingC({ text }) { return <div className="loading-c"><Spinner /><span
 function Err({ msg }) { if (!msg) return null; return <div className="err">⚠ {msg}</div>; }
 
 function Modal({ title, onClose, children, footer }) {
+  useLanguage();
   return (
     <div className="modal-ov" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.4rem" }}>
           <div className="modal-title">{title}</div>
-          <button className="modal-close" aria-label="Close" onClick={onClose}>×</button>
+          <button className="modal-close" aria-label={t("Close")} onClick={onClose}>×</button>
         </div>
         {children}
         {footer && <div className="modal-foot">{footer}</div>}
@@ -480,32 +483,36 @@ function Modal({ title, onClose, children, footer }) {
 
 // ─── ONBOARDING OVERLAY ─────────────────────────────────────────────────────────
 function Onboarding({ onClose, email }) {
+  useLanguage();
   const [step, setStep] = useState(0);
   const steps = [
     {
-      title: "Set up your health profile",
-      body: "Optional: add your health profile from the banner or Profile → Health Profile so insights can feel more personal. It’s context, not a diagnosis.",
-      badge: "Health Profile",
+      title: t("Set up your health profile"),
+      // i18n-note: "Profile → Health Profile" must match the Hindi names of the Profile screen and its Health Profile section (translated in a later task)
+      body: t("Optional: add your health profile from the banner or Profile → Health Profile so insights can feel more personal. It’s context, not a diagnosis."),
+      badge: t("Health Profile"),
     },
     {
-      title: "Your cycle journey map",
-      body: "Scroll sideways to explore past and predicted cycles. Hover over coloured bands to see which phase you're in and what it means for energy, mood and focus.",
-      badge: "Journey Canvas",
+      title: t("Your cycle journey map"),
+      body: t("Scroll sideways to explore past and predicted cycles. Hover over coloured bands to see which phase you're in and what it means for energy, mood and focus."),
+      badge: t("Journey Canvas"),
     },
     {
-      title: "Logging periods & symptoms",
-      body: "Tap the glowing + button in the dock to log a new period. Add flow, pain and symptoms – Luna uses this to understand your pattern over time.",
-      badge: "Log Periods",
+      title: t("Logging periods & symptoms"),
+      // i18n-note: "Luna" is written with feminine verb forms in Hindi (as a woman's name); confirm the reviewer is happy with that
+      body: t("Tap the glowing + button in the dock to log a new period. Add flow, pain and symptoms – Luna uses this to understand your pattern over time."),
+      badge: t("Log Periods"),
     },
     {
-      title: "AI health insights",
-      body: "In Insights, Luna analyses your last cycles to explain regularity, predicted dates and key patterns, with clear recommendations in everyday language.",
-      badge: "AI Analysis",
+      title: t("AI health insights"),
+      body: t("In Insights, Luna analyses your last cycles to explain regularity, predicted dates and key patterns, with clear recommendations in everyday language."),
+      badge: t("AI Analysis"),
     },
     {
-      title: "Chat with Luna",
-      body: "Use Chat for questions about cramps, cycle changes or patterns you’re worried about. Luna will reference your data when available, but never diagnose.",
-      badge: "Chat",
+      title: t("Chat with Luna"),
+      // i18n-note: "never diagnose" is translated literally on purpose (health disclaimer); keep it unsoftened
+      body: t("Use Chat for questions about cramps, cycle changes or patterns you’re worried about. Luna will reference your data when available, but never diagnose."),
+      badge: t("Chat"),
     },
   ];
 
@@ -524,10 +531,12 @@ function Onboarding({ onClose, email }) {
       <div className="modal" style={{ maxWidth: 520, animationDuration: ".35s" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: ".5rem", marginBottom: "1.2rem" }}>
           <div style={{ flex: "1 1 200px", minWidth: 0 }}>
-            <div className="intro-pill"><span style={{ fontSize: "0.8rem" }}>◐</span>Welcome tour</div>
-            <div className="modal-title" style={{ marginBottom: 0 }}>Meet your Luna journey</div>
+            <div className="intro-pill"><span style={{ fontSize: "0.8rem" }}>◐</span>
+              {t("Welcome tour")}
+            </div>
+            <div className="modal-title" style={{ marginBottom: 0 }}>{t("Meet your Luna journey")}</div>
           </div>
-          <button type="button" className="btn btn-g btn-sm" onClick={finish}>Skip</button>
+          <button type="button" className="btn btn-g btn-sm" onClick={finish}>{t("Skip")}</button>
         </div>
         <div style={{ fontSize: ".86rem", color: "var(--muted)", marginBottom: "1.1rem" }}>
           {active.badge && <span className="badge b-m" style={{ marginBottom: ".5rem", display: "inline-flex" }}>{active.badge}</span>}
@@ -535,8 +544,8 @@ function Onboarding({ onClose, email }) {
           <p style={{ lineHeight: 1.75 }}>{active.body}</p>
         </div>
         <div style={{ fontSize: ".74rem", color: "var(--muted)", marginBottom: ".8rem" }}>
-          Use your mouse wheel or trackpad to pan across the map. On touch devices, drag sideways with one finger.
-          <span className="intro-kbd">drag</span>
+          {t("Use your mouse wheel or trackpad to pan across the map. On touch devices, drag sideways with one finger.")}
+          <span className="intro-kbd">{t("drag")}</span>
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "1.1rem" }}>
           <div className="intro-dots">
@@ -547,7 +556,7 @@ function Onboarding({ onClose, email }) {
           <div style={{ display: "flex", gap: ".6rem" }}>
             {step > 0 && (
               <button className="btn btn-g btn-sm" type="button" onClick={() => setStep(s => Math.max(0, s - 1))}>
-                Back
+                {t("Back")}
               </button>
             )}
             <button
@@ -558,7 +567,7 @@ function Onboarding({ onClose, email }) {
                 else finish();
               }}
             >
-              {step < steps.length - 1 ? "Next" : "Done"}
+              {step < steps.length - 1 ? t("Next") : t("Done")}
             </button>
           </div>
         </div>
@@ -580,7 +589,7 @@ function ThinkMsg({ content }) {
   const [expanded, setExpanded] = useState(false);
   const lines = think ? think.split("\n").filter(l => l.trim()) : [];
   useEffect(() => {
-    if (phase === "anim") { const t = setTimeout(() => setPhase("done"), (lines.length * 0.15 + 1.3) * 1000); return () => clearTimeout(t); }
+    if (phase === "anim") { const timer = setTimeout(() => setPhase("done"), (lines.length * 0.15 + 1.3) * 1000); return () => clearTimeout(timer); }
   }, [phase]);
   if (!think) return <div style={{ whiteSpace: "pre-wrap" }}>{response}</div>;
   return (
@@ -597,6 +606,7 @@ function ThinkMsg({ content }) {
 
 // ─── AUTH ─────────────────────────────────────────────────────────────────────
 function AuthScreen({ onLogin, initialMode = "login" }) {
+  useLanguage();
   const [tab, setTab] = useState(initialMode); 
   const [email, setEmail] = useState(""); 
   const [pass, setPass] = useState("");
@@ -619,9 +629,9 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
         : await API.auth.register({ email, accepted_privacy_policy: accepted, confirmed_18_plus: adult });
       
       if (!d.access_token) {
-        if (tab === "login") { setErr("Something went wrong. Please try again."); return; }
+        if (tab === "login") { setErr(t("Something went wrong. Please try again.")); return; }
         // Register: no tokens issued (e.g. email verification required)
-        setMessage("Check your email. Open the link we sent to choose your password and finish signing up.");
+        setMessage(t("Check your email. Open the link we sent to choose your password and finish signing up."));
         return;
       }
       
@@ -640,7 +650,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
         onLogin(res.access_token, res.refresh_token, res.user.email);
       } catch (e) {
         if (e && e.message !== "Google sign-in was cancelled") {
-          setErr(e.code === "consent_required" || e.name === "ApiError" ? e.message : "Failed to sign in with Google");
+          setErr(e.code === "consent_required" || e.name === "ApiError" ? e.message : t("Failed to sign in with Google"));
         }
         setLoading(false);
       }
@@ -651,7 +661,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
       const response = await API.auth.getGoogleAuthUrl();
       window.location.href = buildGoogleRedirect(response.auth_url, newGoogleState());
     } catch (e) {
-      setErr("Failed to initiate Google Sign-In");
+      setErr(t("Failed to initiate Google Sign-In"));
       setLoading(false);
     }
   }
@@ -661,7 +671,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
     setLoading(true);
     try {
       await API.verify.resend(email);
-      setMessage("Verification email sent! Please check your inbox.");
+      setMessage(t("Verification email sent! Please check your inbox."));
       setShowResendVerification(false);
     } catch (e) {
       setErr(e.message);
@@ -675,7 +685,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
     setLoading(true);
     try {
       const response = await API.auth.requestPasswordReset({ email });
-      setMessage(response.message);
+      setMessage(translateServer(response.message));
       setShowPasswordReset(false);
     } catch (e) {
       setErr(e.message);
@@ -684,19 +694,23 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
     }
   }
   
+  const resendLabel = t("Resend Verification Email");
+  const resetLabel = t("Send Reset Link");
+  const submitLabel = tab === "login" ? t("Log in") : t("Create Account");
+
   if (showResendVerification) {
     return (
       <div className="auth-wrap">
         <div className="auth-orb auth-orb-a" /><div className="auth-orb auth-orb-b" />
         <div className="auth-card">
           <div style={{ marginBottom: "1rem" }}><LanguageSwitcher /></div>
-          <div className="auth-logo"><span className="auth-moon">◐</span><h1>Luna Health</h1><p>Resend Verification</p></div>
+          <div className="auth-logo"><span className="auth-moon">◐</span><h1>Luna Health</h1><p>{t("Resend Verification")}</p></div>
           <form onSubmit={handleResendVerification}>
-            <div className="f"><label>Email</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@gmail.com" required autoFocus /></div>
+            <div className="f"><label>{t("Email")}</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@gmail.com" required autoFocus /></div>
             <Err msg={err} />
             {message && <div style={{ color: "#5FA87A", fontSize: ".8rem", marginBottom: "1rem", textAlign: "center" }}>{message}</div>}
             <button className="btn btn-p btn-full" style={{ marginTop: "1.1rem" }} type="submit" disabled={loading}>
-              {loading ? <><Spinner /> Sending…</> : "Resend Verification Email"}
+              {loading ? <><Spinner /> {t("Sending…")}</> : resendLabel}
             </button>
             <button 
               type="button" 
@@ -704,7 +718,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
               style={{ marginTop: "0.5rem", background: "transparent", border: "1px solid var(--border)" }}
               onClick={() => setShowResendVerification(false)}
             >
-              Back to Login
+              {t("Back to Login")}
             </button>
           </form>
         </div>
@@ -718,13 +732,13 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
         <div className="auth-orb auth-orb-a" /><div className="auth-orb auth-orb-b" />
         <div className="auth-card">
           <div style={{ marginBottom: "1rem" }}><LanguageSwitcher /></div>
-          <div className="auth-logo"><span className="auth-moon">◐</span><h1>Luna Health</h1><p>Reset Password</p></div>
+          <div className="auth-logo"><span className="auth-moon">◐</span><h1>Luna Health</h1><p>{t("Reset Password")}</p></div>
           <form onSubmit={handlePasswordReset}>
-            <div className="f"><label>Email</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@gmail.com" required autoFocus /></div>
+            <div className="f"><label>{t("Email")}</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@gmail.com" required autoFocus /></div>
             <Err msg={err} />
             {message && <div style={{ color: "#5FA87A", fontSize: ".8rem", marginBottom: "1rem", textAlign: "center" }}>{message}</div>}
             <button className="btn btn-p btn-full" style={{ marginTop: "1.1rem" }} type="submit" disabled={loading}>
-              {loading ? <><Spinner /> Sending…</> : "Send Reset Link"}
+              {loading ? <><Spinner /> {t("Sending…")}</> : resetLabel}
             </button>
             <button 
               type="button" 
@@ -732,7 +746,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
               style={{ marginTop: "0.5rem", background: "transparent", border: "1px solid var(--border)" }}
               onClick={() => setShowPasswordReset(false)}
             >
-              Back to Login
+              {t("Back to Login")}
             </button>
           </form>
         </div>
@@ -745,31 +759,31 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
       <div className="auth-orb auth-orb-a" /><div className="auth-orb auth-orb-b" />
       <div className="auth-card">
         <div style={{ marginBottom: "1rem" }}><LanguageSwitcher /></div>
-        <div className="auth-logo"><span className="auth-moon">◐</span><h1>Luna Health</h1><p>Your Cycle, Your Journey</p></div>
+        <div className="auth-logo"><span className="auth-moon">◐</span><h1>Luna Health</h1><p>{t("Your Cycle, Your Journey")}</p></div>
         <div className="auth-tabs">
-          <button className={`auth-tab ${tab === "login" ? "on" : ""}`} onClick={() => { setTab("login"); setErr(""); setMessage(""); }}>Sign In</button>
-          <button className={`auth-tab ${tab === "register" ? "on" : ""}`} onClick={() => { setTab("register"); setErr(""); setMessage(""); }}>Register</button>
+          <button className={`auth-tab ${tab === "login" ? "on" : ""}`} onClick={() => { setTab("login"); setErr(""); setMessage(""); }}>{t("Sign In")}</button>
+          <button className={`auth-tab ${tab === "register" ? "on" : ""}`} onClick={() => { setTab("register"); setErr(""); setMessage(""); }}>{t("Register")}</button>
         </div>
         <form onSubmit={submit}>
-          <div className="f"><label>Email</label><input type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@gmail.com" required autoFocus /></div>
-          {tab === "login" && <div className="f"><label>Password</label>
+          <div className="f"><label>{t("Email")}</label><input type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@gmail.com" required autoFocus /></div>
+          {tab === "login" && <div className="f"><label>{t("Password")}</label>
             <div className="pw-wrap">
               <input type={showPassword ? "text" : "password"} autoComplete="current-password" value={pass} onChange={e => setPass(e.target.value)} placeholder="•••••••" required />
-              <button type="button" className="pw-toggle" aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword(v => !v)}>{showPassword ? "🙈" : "👁"}</button>
+              <button type="button" className="pw-toggle" aria-label={showPassword ? t("Hide password") : t("Show password")} onClick={() => setShowPassword(v => !v)}>{showPassword ? "🙈" : "👁"}</button>
             </div>
           </div>}
           {tab === "register" && <ConsentCheckboxes adult={adult} accepted={accepted} onAdultChange={setAdult} onAcceptedChange={setAccepted} />}
           <Err msg={err} />
           {message && <div style={{ color: "#5FA87A", fontSize: ".8rem", marginBottom: "1rem", textAlign: "center" }}>{message}</div>}
           <button className="btn btn-p btn-full" style={{ marginTop: "1.1rem" }} type="submit" disabled={loading || registerBlocked}>
-            {loading ? <><Spinner /> Processing…</> : tab === "login" ? "Log in" : "Create Account"}
+            {loading ? <><Spinner /> {t("Processing…")}</> : submitLabel}
           </button>
         </form>
         
         {/* Google Sign-In */}
         <div style={{ margin: "1.5rem 0", textAlign: "center" }}>
           <div style={{ fontSize: ".7rem", color: "var(--muted)", marginBottom: "1rem", position: "relative" }}>
-            <span style={{ background: "var(--s1)", padding: "0 1rem" }}>OR</span>
+            <span style={{ background: "var(--s1)", padding: "0 1rem" }}>{t("OR")}</span>
           </div>
           <button 
             className="btn btn-full" 
@@ -786,7 +800,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
             }}
           >
             <span style={{ fontSize: "1.2rem" }}>G</span>
-            Continue with Google
+            {t("Continue with Google")}
           </button>
         </div>
         
@@ -799,7 +813,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
               style={{ background: "transparent", border: "none", color: "var(--muted)", fontSize: ".75rem" }}
               onClick={() => setShowPasswordReset(true)}
             >
-              Forgot password?
+              {t("Forgot password?")}
             </button>
             <span style={{ margin: "0 0.5rem", color: "var(--muted)" }}>•</span>
             <button 
@@ -808,14 +822,14 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
               style={{ background: "transparent", border: "none", color: "var(--muted)", fontSize: ".75rem" }}
               onClick={() => setShowResendVerification(true)}
             >
-              Resend verification
+              {t("Resend verification")}
             </button>
           </div>
         )}
         
         <p style={{ fontSize: ".65rem", color: "var(--muted)", textAlign: "center", marginTop: "1rem" }}>
-          {tab === "register" && <>Only Gmail addresses are supported for registration.<br /></>}
-          Luna Health is for people aged 18 and over.
+          {tab === "register" && <>{t("Only Gmail addresses are supported for registration.")}<br /></>}
+          {t("Luna Health is for people aged 18 and over.")}
         </p>
       </div>
     </div>

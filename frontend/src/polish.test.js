@@ -51,7 +51,7 @@ test('close buttons and the new-chat button have a 44px hit area and a label', (
   expect(app).toMatch(/\.mk-card-close\{[^}]*min-width:44px[^}]*min-height:44px/);
   expect(app).toMatch(/\.modal-close\{[^}]*min-width:44px[^}]*min-height:44px/);
   expect(app).toMatch(/\.new-chat-btn\{[^}]*min-width:44px[^}]*min-height:44px/);
-  expect(app).toMatch(/className="modal-close"[^>]*aria-label="Close"|aria-label="Close"[^>]*className="modal-close"/);
+  expect(app).toMatch(/className="modal-close"[^>]*aria-label=(?:"Close"|\{t\("Close"\)\})|aria-label=(?:"Close"|\{t\("Close"\)\})[^>]*className="modal-close"/);
   expect(app).toMatch(/className="mk-card-close"[^>]*aria-label="Close"|aria-label="Close"[^>]*className="mk-card-close"/);
   expect(app).toMatch(/aria-label="New chat"/);
   expect(app.match(/className="drawer-close"[^>]*aria-label="Close"/g)).toHaveLength(3);
@@ -127,7 +127,7 @@ test('Insights tiles use lining numerals in the sans font', () => {
 test('welcome tour Skip is a real ghost button and the header row can wrap', () => {
   const app = read('src/App.js');
 
-  expect(app).toMatch(/<button[^>]*className="btn btn-g btn-sm"[^>]*onClick=\{finish\}[^>]*>Skip<\/button>/);
+  expect(app).toMatch(/<button[^>]*className="btn btn-g btn-sm"[^>]*onClick=\{finish\}[^>]*>(?:Skip|\{t\("Skip"\)\})<\/button>/);
   expect(app).toMatch(/justifyContent: "space-between", alignItems: "center", flexWrap: "wrap"/);
 });
 

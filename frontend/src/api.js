@@ -1,5 +1,6 @@
 import { API_BASE } from './config';
 import { clearSession, getAccessToken, getRefreshToken, setTokens } from './tokenStore';
+import { translateServer, errorStatusMessage, connectionProblemMessage, consentRequiredMessage } from './serverMessages';
 
 // Endpoints where a 401 means "wrong credentials", not "expired session".
 const NO_REFRESH_PREFIXES = [
@@ -21,16 +22,18 @@ export class ApiError extends Error {
   }
 }
 
+// Fixed server messages come back in the app language; validation text with values and other dynamic
+// details have no catalog entry and stay in English. Errors are translated when created (shown once).
 export function messageFromDetail(detail, status) {
-  if (typeof detail === 'string' && detail) return detail;
+  if (typeof detail === 'string' && detail) return translateServer(detail);
   if (Array.isArray(detail) && detail[0] && detail[0].msg) {
-    return String(detail[0].msg).replace(/^Value error, /, '');
+    return translateServer(String(detail[0].msg).replace(/^Value error, /, ''));
   }
   if (detail && typeof detail === 'object' && !Array.isArray(detail)) {
-    if (detail.code === 'consent_required') return 'Please review and accept the required consent to continue.';
-    if (typeof detail.message === 'string') return detail.message;
+    if (detail.code === 'consent_required') return consentRequiredMessage();
+    if (typeof detail.message === 'string') return translateServer(detail.message);
   }
-  return `Error ${status}`;
+  return errorStatusMessage(status);
 }
 
 function emit(name, detail) {
@@ -98,7 +101,7 @@ export async function req(path, opts = {}, token = null, retried = false) {
     const result = await refreshTokens();
     if (result.token) return req(path, opts, result.token, true);
     if (result.rejected) expireSession();
-    else throw new ApiError('Connection problem. Please try again.', { status: result.status });
+    else throw new ApiError(connectionProblemMessage(), { status: result.status });
   }
   if (!res.ok) throw await toApiError(res);
   return res.json();

@@ -4,6 +4,8 @@ import { API } from './api';
 import ConsentCheckboxes from './ConsentCheckboxes';
 import { setSession } from './tokenStore';
 import LanguageSwitcher from './i18n/LanguageSwitcher';
+import { t, useLanguage } from './i18n';
+import { translateServer } from './serverMessages';
 
 const utf8Bytes = value => unescape(encodeURIComponent(value)).length;
 
@@ -87,7 +89,7 @@ function Shell({ children }) {
         <div className="verify-logo">
           <span className="verify-moon">◐</span>
           <h1>Luna Health</h1>
-          <p>Email Verification</p>
+          <p>{t('Email Verification')}</p>
         </div>
         {children}
       </div>
@@ -96,6 +98,7 @@ function Shell({ children }) {
 }
 
 function EmailVerification() {
+  useLanguage();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const token = searchParams.get('token');
@@ -123,7 +126,6 @@ function EmailVerification() {
     setEmail('');
 
     if (!token) {
-      setFatal('Invalid verification link');
       setLoading(false);
       return;
     }
@@ -137,10 +139,10 @@ function EmailVerification() {
   async function handleSubmit(e) {
     e.preventDefault();
     setFormError('');
-    if (password.length < 8) { setFormError('Use at least 8 characters'); return; }
-    if (utf8Bytes(password) > 72) { setFormError('Password must be at most 72 bytes'); return; }
-    if (password !== confirm) { setFormError('Passwords do not match'); return; }
-    if (!adult || !accepted) { setFormError('Please confirm you are 18 or older and agree to the Terms and Privacy Policy'); return; }
+    if (password.length < 8) { setFormError(t('Use at least 8 characters')); return; }
+    if (utf8Bytes(password) > 72) { setFormError(t('Password must be at most 72 bytes')); return; }
+    if (password !== confirm) { setFormError(t('Passwords do not match')); return; }
+    if (!adult || !accepted) { setFormError(t('Please confirm you are 18 or older and agree to the Terms and Privacy Policy')); return; }
     setSubmitting(true);
     try {
       const res = await API.verify.complete(token, password, { accepted, adult });
@@ -157,20 +159,20 @@ function EmailVerification() {
       <Shell>
         <div className="loading">
           <span className="spinner" />
-          <span>Checking your link...</span>
+          <span>{t('Checking your link...')}</span>
         </div>
       </Shell>
     );
   }
 
-  if (fatal) {
+  if (fatal || !token) {
     return (
       <Shell>
         <div className="error-icon">❌</div>
-        <h2 className="verify-title">Link problem</h2>
-        <p className="verify-message">{fatal}</p>
+        <h2 className="verify-title">{t('Link problem')}</h2>
+        <p className="verify-message">{fatal ? translateServer(fatal) : t('Invalid verification link')}</p>
         <button className="btn btn-p btn-full" onClick={() => navigate('/login')}>
-          Back to sign in
+          {t('Back to sign in')}
         </button>
       </Shell>
     );
@@ -178,27 +180,27 @@ function EmailVerification() {
 
   return (
     <Shell>
-      <h2 className="verify-title">Choose your password</h2>
+      <h2 className="verify-title">{t('Choose your password')}</h2>
       <form onSubmit={handleSubmit} noValidate>
         <div className="vf">
-          <label htmlFor="verify-email-field">Email</label>
+          <label htmlFor="verify-email-field">{t('Email')}</label>
           <input id="verify-email-field" type="email" value={email} readOnly />
         </div>
         <div className="vf">
-          <label htmlFor="verify-new-password">New password</label>
+          <label htmlFor="verify-new-password">{t('New password')}</label>
           <div className="vpw-wrap">
             <input id="verify-new-password" type={showPassword ? 'text' : 'password'} autoComplete="new-password" minLength={8} value={password} onChange={e => setPassword(e.target.value)} required />
-            <button type="button" className="vpw-toggle" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword(v => !v)}>{showPassword ? '🙈' : '👁'}</button>
+            <button type="button" className="vpw-toggle" aria-label={showPassword ? t('Hide password') : t('Show password')} onClick={() => setShowPassword(v => !v)}>{showPassword ? '🙈' : '👁'}</button>
           </div>
         </div>
         <div className="vf">
-          <label htmlFor="verify-confirm-password">Confirm password</label>
+          <label htmlFor="verify-confirm-password">{t('Confirm password')}</label>
           <input id="verify-confirm-password" type={showPassword ? 'text' : 'password'} autoComplete="new-password" minLength={8} value={confirm} onChange={e => setConfirm(e.target.value)} required />
         </div>
         <ConsentCheckboxes adult={adult} accepted={accepted} onAdultChange={setAdult} onAcceptedChange={setAccepted} />
         {formError && <div className="err" role="alert">{formError}</div>}
         <button className="btn btn-p btn-full" style={{ marginTop: '1rem' }} type="submit" disabled={submitting}>
-          {submitting ? 'Creating…' : 'Create my account'}
+          {submitting ? t('Creating…') : t('Create my account')}
         </button>
       </form>
     </Shell>
