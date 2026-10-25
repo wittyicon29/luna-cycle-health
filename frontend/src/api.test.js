@@ -1,4 +1,5 @@
 import { API, ApiError, messageFromDetail, req } from './api';
+import { setLanguage } from './i18n';
 
 const reply = (status, body) => ({
   ok: status >= 200 && status < 300,
@@ -388,5 +389,50 @@ describe('logs and medications', () => {
     const [url2, opts2] = await call(() => API.medications.remove('m1', 'tok'));
     expect(url2).toMatch(/\/medications\/m1$/);
     expect(opts2.method).toBe('DELETE');
+  });
+});
+
+describe('language sent to the AI endpoints', () => {
+  afterEach(() => { setLanguage('en'); });
+  const sentBody = () => JSON.parse(fetch.mock.calls[0][1].body);
+
+  test('chat.send defaults to en and sends hi after setLanguage(hi)', async () => {
+    fetch.mockResolvedValue(reply(200, {}));
+    setLanguage('en');
+    await API.chat.send({ question: 'hi', include_context: true }, 'tok');
+    expect(fetch.mock.calls[0][0]).toMatch(/\/chat\/ask$/);
+    expect(sentBody()).toEqual({ question: 'hi', include_context: true, language: 'en' });
+    fetch.mockClear();
+    setLanguage('hi');
+    await API.chat.send({ question: 'hi' }, 'tok');
+    expect(sentBody()).toEqual({ question: 'hi', language: 'hi' });
+  });
+
+  test('analysis.generate defaults to en and sends hi after setLanguage(hi)', async () => {
+    fetch.mockResolvedValue(reply(200, {}));
+    setLanguage('en');
+    await API.analysis.generate({ analysis_type: 'cycle_health' }, 'tok');
+    expect(sentBody()).toEqual({ analysis_type: 'cycle_health', language: 'en' });
+    fetch.mockClear();
+    setLanguage('hi');
+    await API.analysis.generate({ analysis_type: 'cycle_health' }, 'tok');
+    expect(sentBody()).toEqual({ analysis_type: 'cycle_health', language: 'hi' });
+  });
+
+  test('the pseudo-locale sends en to both endpoints', async () => {
+    fetch.mockResolvedValue(reply(200, {}));
+    setLanguage('en-XA');
+    await API.chat.send({ question: 'q' }, 'tok');
+    expect(sentBody().language).toBe('en');
+    fetch.mockClear();
+    await API.analysis.generate({ analysis_type: 'cycle_health' }, 'tok');
+    expect(sentBody().language).toBe('en');
+  });
+
+  test('the caller body is not mutated', async () => {
+    fetch.mockResolvedValue(reply(200, {}));
+    const body = { question: 'q' };
+    await API.chat.send(body, 'tok');
+    expect(body).toEqual({ question: 'q' });
   });
 });

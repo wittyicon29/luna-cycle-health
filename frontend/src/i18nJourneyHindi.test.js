@@ -232,7 +232,7 @@ describe('LogModal in Hindi', () => {
   test('form, chips and pattern summary are translated', async () => {
     const { container } = modal();
     await screen.findByText('आपके चक्र आमतौर पर कैसे रहते हैं');
-    await screen.findByText('सामान्य चक्र की अवधि');
+    await screen.findByText('आपके चक्र की आम अवधि');
     noEnglish(container);
     expect(screen.getByText('नई माहवारी दर्ज करें')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'यात्रा में सहेजें' })).toBeInTheDocument();
@@ -240,7 +240,7 @@ describe('LogModal in Hindi', () => {
     expect(screen.getByText('आरंभ तिथि *')).toBeInTheDocument();
     expect(screen.getByText('रक्तस्राव की मात्रा')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('कोई और बात जो आपने देखी हो…')).toBeInTheDocument();
-    ['ऐंठन', 'पेट फूलना', 'सिरदर्द', 'थकान', 'मूड में बदलाव', 'मुंहासे', 'कमर दर्द', 'जी मिचलाना', 'स्तनों में कोमलता', 'नींद न आना']
+    ['ऐंठन', 'पेट फूलना', 'सिरदर्द', 'थकान', 'मूड में बदलाव', 'मुँहासे', 'कमर दर्द', 'जी मिचलाना', 'स्तनों में दर्द', 'नींद न आना']
       .forEach(l => expect(screen.getByRole('button', { name: l })).toBeInTheDocument());
     ['हल्का', 'मध्यम', 'भारी'].forEach(l => expect(screen.getByRole('option', { name: l })).toBeInTheDocument());
     expect(screen.getByText(/^आपकी पिछली 2 दर्ज की गई माहवारियों के आधार पर।$/)).toBeInTheDocument();
@@ -263,7 +263,7 @@ describe('LogModal in Hindi', () => {
 
   test('clicking Hindi chips still sends the English keys and flow value', async () => {
     modal();
-    await screen.findByText('सामान्य चक्र की अवधि');
+    await screen.findByText('आपके चक्र की आम अवधि');
     userEvent.click(screen.getByRole('button', { name: 'ऐंठन' }));
     userEvent.click(screen.getByRole('button', { name: 'मूड में बदलाव' }));
     userEvent.click(screen.getByRole('button', { name: 'कमर दर्द' }));
@@ -281,7 +281,7 @@ describe('LogModal in Hindi', () => {
 
   test('default flow is still medium', async () => {
     modal();
-    await screen.findByText('सामान्य चक्र की अवधि');
+    await screen.findByText('आपके चक्र की आम अवधि');
     userEvent.click(screen.getByRole('button', { name: 'यात्रा में सहेजें' }));
     await waitFor(() => expect(API.periods.create).toHaveBeenCalled());
     expect(API.periods.create.mock.calls[0][0].flow_intensity).toBe('medium');
@@ -289,7 +289,7 @@ describe('LogModal in Hindi', () => {
 
   test('validation messages are in Hindi', async () => {
     modal();
-    await screen.findByText('सामान्य चक्र की अवधि');
+    await screen.findByText('आपके चक्र की आम अवधि');
     const [start, end] = document.querySelectorAll('input[type=date]');
     fireEvent.change(start, { target: { value: '2026-01-10' } });
     fireEvent.change(end, { target: { value: '2026-01-05' } });
@@ -304,7 +304,7 @@ describe('LogModal in Hindi', () => {
   test('a server error is translated when known', async () => {
     API.periods.create.mockRejectedValue(new Error('Date is out of range'));
     modal();
-    await screen.findByText('सामान्य चक्र की अवधि');
+    await screen.findByText('आपके चक्र की आम अवधि');
     userEvent.click(screen.getByRole('button', { name: 'यात्रा में सहेजें' }));
     expect(await screen.findByText(/तारीख सीमा से बाहर है/)).toBeInTheDocument();
   });
@@ -322,7 +322,7 @@ describe('LogModal in Hindi', () => {
 
   test('switching language while open keeps what was typed and chosen', async () => {
     modal();
-    await screen.findByText('सामान्य चक्र की अवधि');
+    await screen.findByText('आपके चक्र की आम अवधि');
     userEvent.click(screen.getByRole('button', { name: 'ऐंठन' }));
     userEvent.selectOptions(screen.getByRole('combobox'), 'heavy');
     userEvent.type(screen.getByPlaceholderText('कोई और बात जो आपने देखी हो…'), 'abc');
@@ -394,5 +394,44 @@ describe('download errors', () => {
     jest.doMock('@capacitor/share', () => ({ Share: { share: jest.fn() } }), { virtual: true });
     await expect(downloadJson('a.json', {})).rejects.toThrow('आपका डेटा इस डिवाइस पर सहेजा नहीं जा सका।');
     platform.isNative.mockReturnValue(false);
+  });
+});
+
+describe('Task 5 gaps: predicted marker, unknown phase card, singular days', () => {
+  test('the predicted-period marker card is in Hindi', async () => {
+    const { container } = app();
+    await ready();
+    const predicted = [...container.querySelectorAll('.p-dot')].find(n => n.getAttribute('title') === 'अनुमानित माहवारी');
+    expect(predicted).toBeTruthy();
+    fireEvent.click(predicted);
+    const mk = container.querySelector('.mk-card');
+    expect(within(mk).getByText('अनुमानित माहवारी की शुरुआत')).toBeInTheDocument();
+    noEnglish(mk);
+    english();
+    expect(within(container.querySelector('.mk-card')).getByText('Predicted period start')).toBeInTheDocument();
+  });
+
+  test('the unknown phase is shown as "अज्ञात" and has no hover card without periods', async () => {
+    // With periods every timeline day has a known phase, and with none the card is deliberately suppressed, so the
+    // card itself cannot be reached from the UI; the strip label and the suppression are what a user can see.
+    API.periods.list.mockResolvedValue([]);
+    const { container } = app();
+    await screen.findByText('आपकी यात्रा आपकी पहली माहवारी से शुरू होती है।');
+    container.querySelectorAll('.phase-bg').forEach(bg => fireEvent.mouseEnter(bg));
+    expect(container.querySelector('.ph-card')).toBeNull();
+    expect(container.querySelector('.stats-strip').textContent).toContain('अज्ञात');
+  });
+
+  test('singular {count} day in Hindi and English', async () => {
+    API.periods.list.mockResolvedValue([
+      { id: 1, start_date: iso(11), end_date: iso(11), flow_intensity: 'light', pain_level: 1, symptoms: [], notes: '' },
+      { id: 2, start_date: iso(10), end_date: iso(10), flow_intensity: 'light', pain_level: 1, symptoms: [], notes: '' },
+    ]);
+    const { container } = render(<LogModal token="tok" onClose={jest.fn()} onSave={jest.fn()} />);
+    await screen.findByText('आपके चक्र की आम अवधि');
+    expect(screen.getAllByText('1 दिन')).toHaveLength(2);
+    noEnglish(container);
+    english();
+    expect(screen.getAllByText('1 day')).toHaveLength(2);
   });
 });

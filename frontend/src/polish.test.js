@@ -53,8 +53,8 @@ test('close buttons and the new-chat button have a 44px hit area and a label', (
   expect(app).toMatch(/\.new-chat-btn\{[^}]*min-width:44px[^}]*min-height:44px/);
   expect(app).toMatch(/className="modal-close"[^>]*aria-label=(?:"Close"|\{t\("Close"\)\})|aria-label=(?:"Close"|\{t\("Close"\)\})[^>]*className="modal-close"/);
   expect(app).toMatch(/className="mk-card-close"[^>]*aria-label=(?:"Close"|\{t\("Close"\)\})|aria-label=(?:"Close"|\{t\("Close"\)\})[^>]*className="mk-card-close"/);
-  expect(app).toMatch(/aria-label="New chat"/);
-  expect(app.match(/className="drawer-close"[^>]*aria-label="Close"/g)).toHaveLength(3);
+  expect(app).toMatch(/aria-label=(?:"New chat"|\{t\("New chat"\)\})/);
+  expect(app.match(/className="drawer-close"[^>]*aria-label=(?:"Close"|\{t\("Close"\)\})/g)).toHaveLength(3);
 });
 
 test('symptom chips are at least 40px tall', () => {

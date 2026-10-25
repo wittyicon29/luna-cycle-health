@@ -597,6 +597,7 @@ function parseThink(content) {
 }
 
 function ThinkMsg({ content }) {
+  useLanguage();
   const { think, response } = parseThink(content);
   const [phase, setPhase] = useState(think ? "anim" : "done");
   const [expanded, setExpanded] = useState(false);
@@ -604,15 +605,15 @@ function ThinkMsg({ content }) {
   useEffect(() => {
     if (phase === "anim") { const timer = setTimeout(() => setPhase("done"), (lines.length * 0.15 + 1.3) * 1000); return () => clearTimeout(timer); }
   }, [phase]);
-  if (!think) return <div style={{ whiteSpace: "pre-wrap" }}>{response}</div>;
+  if (!think) return <div data-i18n-ignore style={{ whiteSpace: "pre-wrap" }}>{response}</div>;
   return (
     <div>
-      {phase === "anim" && <div><div className="tk-hd"><span className="tk-pulse" />Thinking…</div><div className="tk-lines">{lines.map((l, i) => <div key={i} className="tk-line" style={{ animationDelay: `${i * .15}s` }}>{l}</div>)}</div></div>}
+      {phase === "anim" && <div><div className="tk-hd"><span className="tk-pulse" />{/* i18n-note: "सोच रही हूँ" is Luna's own feminine voice */}{t("Thinking…")}</div><div className="tk-lines" data-i18n-ignore>{lines.map((l, i) => <div key={i} className="tk-line" style={{ animationDelay: `${i * .15}s` }}>{l}</div>)}</div></div>}
       {phase === "done" && think && <>
-        <div className="tk-toggle" onClick={() => setExpanded(e => !e)}><span style={{ color: "#7ECECE" }}>{expanded ? "▾" : "▸"}</span>Thought process</div>
-        {expanded && <div className="tk-exp">{lines.map((l, i) => <div key={i}>{l}</div>)}</div>}
+        <div className="tk-toggle" onClick={() => setExpanded(e => !e)}><span style={{ color: "#7ECECE" }}>{expanded ? "▾" : "▸"}</span>{t("Thought process")}</div>
+        {expanded && <div className="tk-exp" data-i18n-ignore>{lines.map((l, i) => <div key={i}>{l}</div>)}</div>}
       </>}
-      {phase === "done" && <div style={{ whiteSpace: "pre-wrap", animation: "feedIn .4s ease both" }}>{response}</div>}
+      {phase === "done" && <div data-i18n-ignore style={{ whiteSpace: "pre-wrap", animation: "feedIn .4s ease both" }}>{response}</div>}
     </div>
   );
 }
@@ -1153,18 +1154,19 @@ function LogModal({ token, onClose, onSave }) {
 }
 
 // ─── CHAT DRAWER ──────────────────────────────────────────────────────────────
+// The welcome message is stored as a marker and rendered through t(), so it follows the app language.
+const CHAT_WELCOME = { role: "assistant", welcome: true };
+
 function ChatDrawer({ token, onClose }) {
-  const defaultMsg = { 
-  role: "assistant", 
-  content: "Hey there! 👋 I'm Luna. I can help you understand your cycle, your symptoms and how you're feeling.\n\nWhat's on your mind today? 💜",
-  quickActions: [
-    "What does my health score mean?",
-    "How can I track symptoms better?", 
-    "When will my next period arrive?",
-    "Tips for managing cramps",
-    "Is my cycle regular?"
-  ]
-};
+  useLanguage();
+  const defaultMsg = CHAT_WELCOME;
+  const quickActions = [
+    t("What does my health score mean?"),
+    t("How can I track symptoms better?"),
+    t("When will my next period arrive?"),
+    t("Tips for managing cramps"),
+    t("Is my cycle regular?"),
+  ];
   const [sessions, setSessions] = useState([]);
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const [input, setInput] = useState(""); const [sending, setSending] = useState(false);
@@ -1227,7 +1229,7 @@ function ChatDrawer({ token, onClose }) {
       if (isNew) setCurrentSessionId(finalSid);
     } catch (e) {
       setErr(e.message);
-      setSessions(prev => prev.map(s => s.id === tempSid ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ Error: ${e.message}` }] } : s));
+      setSessions(prev => prev.map(s => s.id === tempSid ? { ...s, messages: [...s.messages, { role: "assistant", errorText: e.message }] } : s));
     } finally {
       setSending(false);
     }
@@ -1256,24 +1258,24 @@ function ChatDrawer({ token, onClose }) {
             <div className="drawer-title">Luna</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: ".75rem" }}>
-            <button type="button" className="chat-hist-toggle" aria-label="Conversation history" aria-expanded={histOpen} onClick={() => setHistOpen(o => !o)}>History</button>
-            <div className="chat-ai-label" style={{ fontSize: ".65rem", color: "var(--muted)", fontFamily: "'Fira Code','Noto Sans Devanagari',monospace" }}>AI companion</div>
-            <button className="drawer-close" aria-label="Close" onClick={onClose}>×</button>
+            <button type="button" className="chat-hist-toggle" aria-label={t("Conversation history")} aria-expanded={histOpen} onClick={() => setHistOpen(o => !o)}>{t("History")}</button>
+            <div className="chat-ai-label" style={{ fontSize: ".65rem", color: "var(--muted)", fontFamily: "'Fira Code','Noto Sans Devanagari',monospace" }}>{t("AI companion")}</div>
+            <button className="drawer-close" aria-label={t("Close")} onClick={onClose}>×</button>
           </div>
         </div>
         <div className="chat-layout">
           <div className={`chat-hist-panel${histOpen ? " open" : ""}`}>
             <div className="ch-head">
-              <span className="ch-lbl">History</span>
-              <button type="button" className="chat-hist-back" onClick={() => setHistOpen(false)}>Back to chat</button>
-              <button className="new-chat-btn" aria-label="New chat" onClick={() => { setCurrentSessionId(null); setHistOpen(false); setInput(""); taRef.current?.focus(); }}>+</button>
+              <span className="ch-lbl">{t("History")}</span>
+              <button type="button" className="chat-hist-back" onClick={() => setHistOpen(false)}>{t("Back to chat")}</button>
+              <button className="new-chat-btn" aria-label={t("New chat")} onClick={() => { setCurrentSessionId(null); setHistOpen(false); setInput(""); taRef.current?.focus(); }}>+</button>
             </div>
             <div className="ch-list">
-              {sessions.length === 0 ? <div className="ch-empty">No messages yet.<br />Start a conversation.</div> :
+              {sessions.length === 0 ? <div className="ch-empty">{t("No messages yet.")}<br />{t("Start a conversation.")}</div> :
                 sessions.map((s) => {
                   const firstUserMsg = s.messages.find(m => m.role === "user");
-                  const title = firstUserMsg ? firstUserMsg.content : "New Chat";
-                  return <div key={s.id} onClick={() => { setCurrentSessionId(s.id); setHistOpen(false); }} className={`ch-item ${s.id === currentSessionId ? "on" : ""}`}>{title?.slice(0, 44)}{title?.length > 44 ? "…" : ""}</div>
+                  const title = firstUserMsg ? firstUserMsg.content : t("New Chat");
+                  return <div key={s.id} onClick={() => { setCurrentSessionId(s.id); setHistOpen(false); }} className={`ch-item ${s.id === currentSessionId ? "on" : ""}`} {...(firstUserMsg ? { "data-i18n-ignore": "" } : {})}>{title?.slice(0, 44)}{title?.length > 44 ? "…" : ""}</div>
                 })}
             </div>
           </div>
@@ -1281,12 +1283,15 @@ function ChatDrawer({ token, onClose }) {
             <div className="chat-msgs">
               {currentMessages.map((m, i) => (
                 <div key={i} className={`bubble ${m.role === "user" ? "user" : "asst"}`} style={{ animationDelay: `${Math.min(i * .03, .15)}s` }}>
-                  <div className="bname">{m.role === "user" ? "You" : "◐ Luna"}</div>
-                  {m.role === "assistant" ? <ThinkMsg content={m.content} /> : <div style={{ whiteSpace: "pre-wrap" }}>{m.content}</div>}
+                  <div className="bname">{m.role === "user" ? t("You") : "◐ Luna"}</div>
+                  {/* i18n-note: the welcome message addresses the user with the neutral "आप कैसा महसूस कर रहे हैं" and uses feminine verbs for Luna (मदद कर सकती हूँ) */}
+                  {m.welcome ? <div style={{ whiteSpace: "pre-wrap" }}>{t("Hey there! 👋 I'm Luna. I can help you understand your cycle, your symptoms and how you're feeling.\n\nWhat's on your mind today? 💜")}</div>
+                    : m.errorText !== undefined ? <div style={{ whiteSpace: "pre-wrap" }}>{t("⚠ Error: {message}", { message: m.errorText })}</div>
+                    : m.role === "assistant" ? <ThinkMsg content={m.content} /> : <div data-i18n-ignore style={{ whiteSpace: "pre-wrap" }}>{m.content}</div>}
                   {/* Show quick actions for the default welcome message */}
-                  {m.role === "assistant" && i === 0 && m.quickActions && (
+                  {m.role === "assistant" && i === 0 && m.welcome && (
                     <div style={{ marginTop: "0.75rem", display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-                      {m.quickActions.map((action, idx) => (
+                      {quickActions.map((action, idx) => (
                         <button
                           key={idx}
                           onClick={() => setInput(action)}
@@ -1324,15 +1329,16 @@ function ChatDrawer({ token, onClose }) {
             <div className="chat-in">
               <textarea ref={taRef} value={input} onChange={e => setInput(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-                placeholder="Ask Luna about your cycle…"
+                placeholder={t("Ask Luna about your cycle…")}
                 rows={1} style={{ height: "44px" }}
                 onInput={e => { e.target.style.height = "44px"; e.target.style.height = Math.min(e.target.scrollHeight, 150) + "px"; }}
               />
               <button className="btn btn-p btn-sm" onClick={send} disabled={sending || !input.trim()} style={{ height: "44px", padding: "0 1rem", flexShrink: 0 }}>
-                {sending ? <Spinner /> : "Send"}
+                {sending ? <Spinner /> : t("Send")}
               </button>
             </div>
-            <div className="chat-disclaimer">Luna is an AI companion, not a doctor. For medical concerns, please see a clinician.</div>
+            {/* i18n-note: literal "not a doctor" wording, as the style guide requires */}
+            <div className="chat-disclaimer">{t("Luna is an AI companion, not a doctor. For medical concerns, please see a clinician.")}</div>
           </div>
         </div>
       </div>
@@ -1341,7 +1347,25 @@ function ChatDrawer({ token, onClose }) {
 }
 
 // ─── INSIGHTS COMPONENT ──────────────────────────────────────────────────────────
+// Labels for a few fixed values the API returns (urgency, confidence, data quality). Unknown values show as returned.
+// i18n-note: levelLabel maps urgency / confidence / data-quality words; "Confidence" is विश्वास स्तर (level of confidence in the prediction), "Fair" is ठीक-ठाक, "Limited" is सीमित; unsure these read naturally as tile values
+function levelLabel(value) {
+  switch (String(value || "").toLowerCase()) {
+    case "high": return t("high");
+    case "medium": return t("medium");
+    case "low": return t("low");
+    case "none": return t("none");
+    case "excellent": return t("excellent");
+    case "good": return t("good");
+    case "fair": return t("fair");
+    case "limited": return t("limited");
+    case "insufficient": return t("insufficient");
+    default: return value;
+  }
+}
+
 const Insights = ({ raw, medicalAnalysis, userReport }) => { 
+  useLanguage();
   let p = null; 
   try { 
     p = typeof raw === "string" ? JSON.parse(raw) : raw; 
@@ -1354,15 +1378,15 @@ const Insights = ({ raw, medicalAnalysis, userReport }) => {
   return (
     <div>
       {/* User-friendly report */}
-      {userData.simple_summary && <div className="ins-quote">{userData.simple_summary}</div>}
+      {userData.simple_summary && <div className="ins-quote" data-i18n-ignore>{userData.simple_summary}</div>}
       
       {userData.key_insights?.length > 0 && (
         <>
-          <div className="ins-lbl">Key Insights</div>
+          <div className="ins-lbl">{t("Key Insights")}</div>
           {userData.key_insights.map((it, i) => (
             <div key={i} className="ins-row">
               <span style={{ color: "#7ECECE", flexShrink: 0 }}>◆</span>
-              <span>{it}</span>
+              <span data-i18n-ignore>{it}</span>
             </div>
           ))}
           <div className="divider" />
@@ -1371,11 +1395,11 @@ const Insights = ({ raw, medicalAnalysis, userReport }) => {
       
       {userData.why_this_result?.length > 0 && (
         <>
-          <div className="ins-lbl">Why This Result</div>
+          <div className="ins-lbl">{t("Why This Result")}</div>
           {userData.why_this_result.map((it, i) => (
             <div key={i} className="ins-row">
               <span style={{ color: "#D4A040", flexShrink: 0 }}>•</span>
-              <span>{it}</span>
+              <span data-i18n-ignore>{it}</span>
             </div>
           ))}
           <div className="divider" />
@@ -1384,11 +1408,11 @@ const Insights = ({ raw, medicalAnalysis, userReport }) => {
       
       {userData.recommendations?.length > 0 && (
         <>
-          <div className="ins-lbl">Recommendations</div>
+          <div className="ins-lbl">{t("Recommendations")}</div>
           {userData.recommendations.map((it, i) => (
             <div key={i} className="ins-row">
               <span style={{ color: "#5FA87A", flexShrink: 0 }}>✓</span>
-              <span>{it}</span>
+              <span data-i18n-ignore>{it}</span>
             </div>
           ))}
           <div className="divider" />
@@ -1398,10 +1422,10 @@ const Insights = ({ raw, medicalAnalysis, userReport }) => {
       {/* Probabilistic Disclaimer */}
       {userData.prediction_disclaimer && (
         <>
-          <div className="ins-lbl">Prediction Notice</div>
+          <div className="ins-lbl">{t("Prediction Notice")}</div>
           <div className="ins-row" style={{ fontSize: ".8rem", fontStyle: "italic", color: "var(--muted)" }}>
             <span style={{ color: "#FFB84D", flexShrink: 0 }}>ℹ️</span>
-            <span>{userData.prediction_disclaimer}</span>
+            <span data-i18n-ignore>{userData.prediction_disclaimer}</span>
           </div>
           <div className="divider" />
         </>
@@ -1410,15 +1434,15 @@ const Insights = ({ raw, medicalAnalysis, userReport }) => {
       {/* Medical Analysis Section */}
       {(medicalData.clinical_findings?.length > 0 || medicalData.risk_factors?.length > 0 || medicalData.medical_recommendations?.length > 0) && (
         <>
-          <div className="ins-lbl" style={{ color: "#E07070" }}>Medical Analysis (MedGemma)</div>
+          <div className="ins-lbl" style={{ color: "#E07070" }}>{/* i18n-note: MedGemma is a model name and stays in Latin script */}{t("Medical Analysis (MedGemma)")}</div>
           
           {medicalData.clinical_findings?.length > 0 && (
             <>
-              <div style={{ fontSize: ".75rem", color: "var(--muted)", marginBottom: ".4rem" }}>Clinical Findings:</div>
+              <div style={{ fontSize: ".75rem", color: "var(--muted)", marginBottom: ".4rem" }}>{t("Clinical Findings:")}</div>
               {medicalData.clinical_findings.map((it, i) => (
                 <div key={i} className="ins-row" style={{ fontSize: ".8rem" }}>
                   <span style={{ color: "#E07070", flexShrink: 0 }}>▸</span>
-                  <span>{it}</span>
+                  <span data-i18n-ignore>{it}</span>
                 </div>
               ))}
             </>
@@ -1426,11 +1450,11 @@ const Insights = ({ raw, medicalAnalysis, userReport }) => {
           
           {medicalData.risk_factors?.length > 0 && (
             <>
-              <div style={{ fontSize: ".75rem", color: "var(--muted)", marginBottom: ".4rem", marginTop: ".6rem" }}>Risk Factors:</div>
+              <div style={{ fontSize: ".75rem", color: "var(--muted)", marginBottom: ".4rem", marginTop: ".6rem" }}>{t("Risk Factors:")}</div>
               {medicalData.risk_factors.map((it, i) => (
                 <div key={i} className="ins-row" style={{ fontSize: ".8rem" }}>
                   <span style={{ color: "#D4A040", flexShrink: 0 }}>⚠</span>
-                  <span>{it}</span>
+                  <span data-i18n-ignore>{it}</span>
                 </div>
               ))}
             </>
@@ -1438,11 +1462,11 @@ const Insights = ({ raw, medicalAnalysis, userReport }) => {
           
           {medicalData.medical_recommendations?.length > 0 && (
             <>
-              <div style={{ fontSize: ".75rem", color: "var(--muted)", marginBottom: ".4rem", marginTop: ".6rem" }}>Medical Recommendations:</div>
+              <div style={{ fontSize: ".75rem", color: "var(--muted)", marginBottom: ".4rem", marginTop: ".6rem" }}>{t("Medical Recommendations:")}</div>
               {medicalData.medical_recommendations.map((it, i) => (
                 <div key={i} className="ins-row" style={{ fontSize: ".8rem" }}>
                   <span style={{ color: "#4A9E6E", flexShrink: 0 }}>‣</span>
-                  <span>{it}</span>
+                  <span data-i18n-ignore>{it}</span>
                 </div>
               ))}
             </>
@@ -1459,9 +1483,10 @@ const Insights = ({ raw, medicalAnalysis, userReport }) => {
               marginTop: ".6rem"
             }}>
               <span style={{ fontSize: ".62rem", textTransform: "uppercase", letterSpacing: ".1em", color: medicalData.urgency === "high" ? "#E07070" : "#D4A040", display: "block", marginBottom: ".2rem", fontWeight: 500 }}>
-                Urgency Level: {medicalData.urgency}
+                {/* i18n-note: "Urgency" as तात्कालिकता is formal; unsure a softer wording such as "कितनी जल्दी ध्यान देना है" reads better */}
+                {t("Urgency Level: {level}", { level: levelLabel(medicalData.urgency) })}
               </span>
-              {medicalData.urgency === "high" ? "Consider consulting with a healthcare provider soon." : "Monitor symptoms and consult if they worsen."}
+              {medicalData.urgency === "high" ? t("Consider consulting with a healthcare provider soon.") : t("Monitor symptoms and consult if they worsen.")}
             </div>
           )}
           
@@ -1471,8 +1496,8 @@ const Insights = ({ raw, medicalAnalysis, userReport }) => {
       
       {userData.what_to_expect && (
         <>
-          <div className="ins-lbl">What to Expect</div>
-          <div style={{ fontSize: ".82rem", lineHeight: 1.6, color: "var(--cream)", padding: ".4rem 0" }}>
+          <div className="ins-lbl">{t("What to Expect")}</div>
+          <div style={{ fontSize: ".82rem", lineHeight: 1.6, color: "var(--cream)", padding: ".4rem 0" }} data-i18n-ignore>
             {userData.what_to_expect}
           </div>
           <div className="divider" />
@@ -1481,11 +1506,11 @@ const Insights = ({ raw, medicalAnalysis, userReport }) => {
       
       {userData.next_steps?.length > 0 && (
         <>
-          <div className="ins-lbl">Next Steps</div>
+          <div className="ins-lbl">{t("Next Steps")}</div>
           {userData.next_steps.map((it, i) => (
             <div key={i} className="ins-row">
               <span style={{ color: "#7C66C0", flexShrink: 0 }}>→</span>
-              <span>{it}</span>
+              <span data-i18n-ignore>{it}</span>
             </div>
           ))}
         </>
@@ -1501,9 +1526,9 @@ const Insights = ({ raw, medicalAnalysis, userReport }) => {
           lineHeight: 1.65 
         }}>
           <span style={{ fontSize: ".62rem", textTransform: "uppercase", letterSpacing: ".1em", color: "#E07070", display: "block", marginBottom: ".3rem", fontWeight: 500 }}>
-            When to See a Doctor
+            {t("When to See a Doctor")}
           </span>
-          {userData.when_to_see_doctor}
+          <span data-i18n-ignore>{userData.when_to_see_doctor}</span>
         </div>
       )}
     </div>
@@ -1512,6 +1537,7 @@ const Insights = ({ raw, medicalAnalysis, userReport }) => {
 
 // ─── ANALYSIS DRAWER ──────────────────────────────────────────────────────────
 function AnalysisDrawer({ token, onClose }) {
+  useLanguage();
   const [latest, setLatest] = useState(null); const [loading, setLoading] = useState(true);
   const [history, setHistory] = useState([]);
   const [tab, setTab] = useState("overview");
@@ -1548,8 +1574,8 @@ function AnalysisDrawer({ token, onClose }) {
   const score = active?.cycle_health_score ?? null;
   const ScoreRing = ({ score = null }) => { const hasScore = typeof score === "number" && Number.isFinite(score); const r = 44, c = 2 * Math.PI * r, off = c - ((hasScore ? score : 0) / 100) * c; return (<div className="score-ring"><svg width="108" height="108" viewBox="0 0 108 108"><circle cx="54" cy="54" r={r} fill="none" stroke="rgba(255,255,255,.05)" strokeWidth="7" /><circle cx="54" cy="54" r={r} fill="none" stroke="url(#rg2)" strokeWidth="7" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={off} style={{ transition: "stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1)" }} /><defs><linearGradient id="rg2" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#C4544A" /><stop offset="100%" stopColor="#7ECECE" /></linearGradient></defs></svg><div className="score-num"><span className="n">{hasScore ? score : "—"}</span>{hasScore ? <span className="s">/ 100</span> : null}</div></div>); };
 
-  const fmt = d => { try { return new Date(d + "T00:00:00").toLocaleDateString("en", { month: "short", day: "numeric" }); } catch { return d; } };
-  const fmtDT = d => { try { return new Date(d).toLocaleString("en", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }); } catch { return d; } };
+  const fmt = d => { try { return new Date(d + "T00:00:00").toLocaleDateString(dateLocale(), { month: "short", day: "numeric" }); } catch { return d; } };
+  const fmtDT = d => { try { return new Date(d).toLocaleString(dateLocale(), { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }); } catch { return d; } };
 
   return (
     <>
@@ -1557,16 +1583,16 @@ function AnalysisDrawer({ token, onClose }) {
       <div className="drawer" style={{ height: "84vh" }}>
         <div className="drawer-handle" onClick={onClose} />
         <div className="drawer-head">
-          <div className="drawer-title">AI Analysis</div>
+          <div className="drawer-title">{t("AI Analysis")}</div>
           <div style={{ display: "flex", alignItems: "center", gap: ".75rem" }}>
-            <button className="btn btn-p btn-sm" onClick={generate} disabled={generating}>{generating ? <><Spinner />Analysing…</> : "✦ Run Analysis"}</button>
-            <button className="drawer-close" aria-label="Close" onClick={onClose}>×</button>
+            <button className="btn btn-p btn-sm" onClick={generate} disabled={generating}>{generating ? <><Spinner />{t("Analysing…")}</> : <>✦ {t("Run Analysis")}</>}</button>
+            <button className="drawer-close" aria-label={t("Close")} onClick={onClose}>×</button>
           </div>
         </div>
         <div className="drawer-body">
-          {loading ? <LoadingC text="Loading analyses…" /> : <>
+          {loading ? <LoadingC text={t("Loading analyses…")} /> : <>
             <Err msg={err} />
-            {generating && <div style={{ display: "flex", alignItems: "center", gap: "1rem", padding: ".9rem 1.1rem", background: "rgba(126,206,206,.05)", border: "1px solid rgba(126,206,206,.15)", borderRadius: "var(--r)", marginBottom: "1rem" }}><Spinner /><div><div style={{ fontSize: ".82rem", color: "#7ECECE" }}>Running MedGemma…</div><div style={{ fontSize: ".7rem", color: "var(--muted)" }}>5–15 seconds</div></div></div>}
+            {generating && <div style={{ display: "flex", alignItems: "center", gap: "1rem", padding: ".9rem 1.1rem", background: "rgba(126,206,206,.05)", border: "1px solid rgba(126,206,206,.15)", borderRadius: "var(--r)", marginBottom: "1rem" }}><Spinner /><div><div style={{ fontSize: ".82rem", color: "#7ECECE" }}>{t("Running MedGemma…")}</div><div style={{ fontSize: ".7rem", color: "var(--muted)" }}>{t("5–15 seconds")}</div></div></div>}
             <div style={{ display: "flex", gap: ".4rem", marginBottom: "1rem", borderBottom: "1px solid var(--border)" }}>
               <button
                 className="btn btn-g btn-sm"
@@ -1578,7 +1604,7 @@ function AnalysisDrawer({ token, onClose }) {
                   marginBottom: "-1px"
                 }}
               >
-                Overview
+                {t("Overview")}
               </button>
               <button
                 className="btn btn-g btn-sm"
@@ -1590,7 +1616,7 @@ function AnalysisDrawer({ token, onClose }) {
                   marginBottom: "-1px"
                 }}
               >
-                History
+                {t("History")}
               </button>
             </div>
             {tab === "overview" && (
@@ -1599,35 +1625,35 @@ function AnalysisDrawer({ token, onClose }) {
                   <div style={{ display: "flex", gap: "1.5rem", alignItems: "flex-start", flexWrap: "wrap", marginBottom: "1.2rem" }}>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: ".4rem" }}>
                       <ScoreRing score={score} />
-                      {score == null && <div style={{ fontSize: ".66rem", color: "var(--muted)", textAlign: "center", maxWidth: 120 }}>Needs 3+ cycles for a score</div>}
+                      {score == null && <div style={{ fontSize: ".66rem", color: "var(--muted)", textAlign: "center", maxWidth: 120 }}>{t("Needs 3+ cycles for a score")}</div>}
                     </div>
                     <div style={{ flex: 1, minWidth: 180 }}>
-                      {active.avg_cycle_length && <div className="sbar"><div className="sbar-lbl"><span>Avg Cycle</span><span style={{ fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", color: "#E8A09A" }}>{active.avg_cycle_length}d</span></div><div className="sbar-track"><div className="sbar-fill" style={{ width: `${Math.min((active.avg_cycle_length / 35) * 100, 100)}%` }} /></div></div>}
-                      {active.cycle_std_deviation != null && <div className="sbar"><div className="sbar-lbl"><span>Regularity</span><span style={{ fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", color: "#E8A09A" }}>σ={active.cycle_std_deviation}</span></div><div className="sbar-track"><div className="sbar-fill" style={{ width: `${Math.max(0, 100 - active.cycle_std_deviation * 10)}%`, background: "linear-gradient(90deg,#4A9E6E,#7ECECE)" }} /></div></div>}
+                      {active.avg_cycle_length && <div className="sbar"><div className="sbar-lbl"><span>{t("Avg Cycle")}</span><span style={{ fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", color: "#E8A09A" }}>{t("{days}d", { days: active.avg_cycle_length })}</span></div><div className="sbar-track"><div className="sbar-fill" style={{ width: `${Math.min((active.avg_cycle_length / 35) * 100, 100)}%` }} /></div></div>}
+                      {active.cycle_std_deviation != null && <div className="sbar"><div className="sbar-lbl"><span>{t("Regularity")}</span><span style={{ fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", color: "#E8A09A" }}>σ={active.cycle_std_deviation}</span></div><div className="sbar-track"><div className="sbar-fill" style={{ width: `${Math.max(0, 100 - active.cycle_std_deviation * 10)}%`, background: "linear-gradient(90deg,#4A9E6E,#7ECECE)" }} /></div></div>}
                     </div>
                   </div>
                   {active.predictions && <div style={{ display: "flex", flexWrap: "wrap", gap: ".6rem", marginBottom: "1.1rem" }}>
-                    {active.predictions.predicted_next_period && <div className="pred-tile"><div className="pred-lbl">📅 Next Period</div><div className="pred-val">{fmt(active.predictions.predicted_next_period)}</div></div>}
+                    {active.predictions.predicted_next_period && <div className="pred-tile"><div className="pred-lbl">📅 {t("Next Period")}</div><div className="pred-val">{fmt(active.predictions.predicted_next_period)}</div></div>}
                     {active.predictions.prediction_range && (
                       <div className="pred-tile">
-                        <div className="pred-lbl">📅 Range</div>
+                        <div className="pred-lbl">📅 {t("Range")}</div>
                         <div className="pred-val">{fmt(active.predictions.prediction_range.earliest)} - {fmt(active.predictions.prediction_range.latest)}</div>
                       </div>
                     )}
-                    {active.predictions.ovulation_date && <div className="pred-tile"><div className="pred-lbl">✦ Ovulation</div><div className="pred-val">{fmt(active.predictions.ovulation_date)}</div></div>}
+                    {active.predictions.ovulation_date && <div className="pred-tile"><div className="pred-lbl">✦ {t("Ovulation")}</div><div className="pred-val">{fmt(active.predictions.ovulation_date)}</div></div>}
                     {active.predictions.confidence && (
                       <div className="pred-tile">
-                        <div className="pred-lbl">Confidence</div>
+                        <div className="pred-lbl">{t("Confidence")}</div>
                         <div className="pred-val" style={{ textTransform: "capitalize" }}>
-                          {active.predictions.confidence.level} ({active.predictions.confidence.percentage}%)
+                          {t("{level} ({percentage}%)", { level: levelLabel(active.predictions.confidence.level), percentage: active.predictions.confidence.percentage })}
                         </div>
                       </div>
                     )}
                     {active.predictions.statistics?.data_quality && (
                       <div className="pred-tile">
-                        <div className="pred-lbl">Data Quality</div>
+                        <div className="pred-lbl">{t("Data Quality")}</div>
                         <div className="pred-val" style={{ textTransform: "capitalize" }}>
-                          {active.predictions.statistics.data_quality}
+                          {levelLabel(active.predictions.statistics.data_quality)}
                         </div>
                       </div>
                     )}
@@ -1636,7 +1662,10 @@ function AnalysisDrawer({ token, onClose }) {
                   {active.llm_response && <Insights raw={active.llm_response} medicalAnalysis={active.medical_analysis} userReport={active.user_report} />}
                 </>
               ) : (
-                <div className="empty"><div className="ei">🔮</div><p>No insights yet.<br />Log at least two periods (about a month apart), then tap <strong style={{ color: "#7ECECE" }}>Run Analysis</strong>.</p></div>
+                <div className="empty"><div className="ei">🔮</div><p>{t("No insights yet.")}<br />{(() => {
+                  const [before, after] = t("Log at least two periods (about a month apart), then tap {action}.", { action: "\u0000" }).split("\u0000");
+                  return <>{before}<strong style={{ color: "#7ECECE" }}>{t("Run Analysis")}</strong>{after}</>;
+                })()}</p></div>
               )
             )}
             {tab === "history" && (
@@ -1659,23 +1688,23 @@ function AnalysisDrawer({ token, onClose }) {
                     >
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: ".4rem" }}>
                         <div style={{ fontSize: ".8rem", color: "var(--cream)" }}>
-                          {a.analysis_type === "cycle_health" ? "Cycle health analysis" : (a.analysis_type || "Analysis")}
+                          {a.analysis_type === "cycle_health" ? t("Cycle health analysis") : (a.analysis_type || t("Analysis"))}
                         </div>
                         <div style={{ fontSize: ".7rem", color: "var(--muted)", fontFamily: "'Fira Code','Noto Sans Devanagari',monospace" }}>{fmtDT(a.created_at)}</div>
                       </div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: ".5rem", alignItems: "center" }}>
                         {typeof a.cycle_health_score === "number" && (
-                          <span className="badge b-g">Score {a.cycle_health_score}/100</span>
+                          <span className="badge b-g">{t("Score {score}/100", { score: a.cycle_health_score })}</span>
                         )}
                         {a.predictions?.predicted_next_period && (
-                          <span className="badge b-m">Next period: {fmt(a.predictions.predicted_next_period)}</span>
+                          <span className="badge b-m">{t("Next period: {date}", { date: fmt(a.predictions.predicted_next_period) })}</span>
                         )}
                         {Array.isArray(a.risk_flags) && a.risk_flags.length > 0 && (
-                          <span className="badge b-r">Risk flags: {a.risk_flags.slice(0, 2).join(", ")}{a.risk_flags.length > 2 ? " +" : ""}</span>
+                          <span className="badge b-r">{t("Risk flags:")} <span data-i18n-ignore>{a.risk_flags.slice(0, 2).join(", ")}{a.risk_flags.length > 2 ? " +" : ""}</span></span>
                         )}
                       </div>
                       {a.llm_response && (
-                        <div style={{ marginTop: ".5rem", fontSize: ".75rem", color: "var(--muted)", maxHeight: 88, overflow: "hidden", maskImage: "linear-gradient(to bottom, black 70%, transparent)" }}>
+                        <div style={{ marginTop: ".5rem", fontSize: ".75rem", color: "var(--muted)", maxHeight: 88, overflow: "hidden", maskImage: "linear-gradient(to bottom, black 70%, transparent)" }} data-i18n-ignore>
                           {(() => {
                             try {
                               const parsed = JSON.parse(a.llm_response);
@@ -1694,7 +1723,7 @@ function AnalysisDrawer({ token, onClose }) {
               ) : (
                 <div className="empty">
                   <div className="ei">📚</div>
-                  <p>No past analyses yet.<br />As you run analyses, they’ll appear here with scores and key dates.</p>
+                  <p>{t("No past analyses yet.")}<br />{t("As you run analyses, they’ll appear here with scores and key dates.")}</p>
                 </div>
               )
             )}

@@ -20,6 +20,8 @@ const lineOf = (source, index) => source.slice(0, index).split('\n').length;
 // Walks the source once. Returns { code, mask }: `code` is the source with comments blanked (newlines kept, so
 // line numbers survive) and `mask[i]` is 1 for characters inside string literals, template-literal text and
 // regex literals (so calls "inside" them are not real calls). `${...}` expressions inside templates are code.
+// A `/` directly after `}` is never treated as a regex start (so `{n}/10 {t("x")}` and `<A x={y} />` work); the
+// price is that a regex literal written right after a closing brace at statement start is not recognised.
 // JSX text is NOT tokenised: an apostrophe in JSX text (Don't) is treated as an unterminated string that ends
 // at the end of the line, and t( written as plain JSX text may be seen as a call.
 function tokenize(source) {
@@ -68,8 +70,11 @@ function tokenize(source) {
     if (c === '`') { i++; readTemplate(); lastSig = '`'; lastWord = ''; continue; }
     if (c === '/') {
       // `</tag>` and `<tag ... />` are JSX, never a regex literal.
-      const jsxSlash = lastSig === '<' || d === '>';
-      if (!jsxSlash && (lastSig === '' || REGEX_PREV.has(lastSig) || REGEX_WORDS.has(lastWord))) {
+      // A `/` right after `}` is division or JSX text (`{n}/10 {t("x")}`, `<A x={y} />`), never a regex.
+      // `/>` is JSX only when it follows something JSX-ish; after `(`, `,`, `=` ... it is the regex /> /.
+      const regexPos = lastSig === '' || (REGEX_PREV.has(lastSig) && lastSig !== '}') || REGEX_WORDS.has(lastWord);
+      const jsxSlash = lastSig === '<' || lastSig === '}' || (d === '>' && !regexPos);
+      if (!jsxSlash && regexPos) {
         const start = i; i++;
         let inClass = false;
         while (i < n && source[i] !== '\n') {

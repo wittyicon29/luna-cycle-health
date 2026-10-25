@@ -27,10 +27,10 @@
 | headache | सिरदर्द |
 | fatigue | थकान |
 | mood swings | मूड में बदलाव |
-| acne | मुंहासे |
+| acne | मुँहासे |
 | back pain | कमर दर्द |
 | nausea | जी मिचलाना |
-| tender breasts | स्तनों में कोमलता |
+| tender breasts | स्तनों में दर्द |
 | insomnia | नींद न आना |
 | flow | रक्तस्राव की मात्रा |
 | spotting | हल्का रक्तस्राव |

@@ -83,6 +83,12 @@ cont'); t('un\qknown'); t('nul\0');`;
     const src = "const a = <A x={y} />; const b = <b>{c}</b>; const s = `${d}%`; const e = <i>{t('After JSX')}</i>;";
     expect(checkCatalog(project({ 'a.js': src }, {})).missing).toEqual(['After JSX']);
   });
+  test('a regex literal starting with > is still a regex, and JSX text after a brace is not', () => {
+    const re = "const a = x.replace(/>/g, t('Gt')); const b = f(/>/, t('Gt2')); const c = y = /> /.test(z) && t('Gt3');";
+    expect(checkCatalog(project({ 'a.js': re }, {})).missing).toEqual(['Gt', 'Gt2', 'Gt3']);
+    const jsx = "const a = <A x={y} />; const b = <B z=\"1\" />; const c = <C disabled />; const d = <p>{n}/10 {t('Score')}</p>; t('Tail');";
+    expect(checkCatalog(project({ 'a.js': jsx }, {})).missing).toEqual(['Score', 'Tail']);
+  });
   test('flags aliased imports and bare references to t/tn', () => {
     const alias = checkCatalog(project({ 'a.js': "import { t as tr } from './i18n';\ntr('x');" }, {}));
     expect(alias.invalidCalls.length).toBe(1);

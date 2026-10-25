@@ -1,5 +1,6 @@
 import { API_BASE } from './config';
 import { clearSession, getAccessToken, getRefreshToken, setTokens } from './tokenStore';
+import { getLanguage } from './i18n';
 import { translateServer, errorStatusMessage, connectionProblemMessage, consentRequiredMessage } from './serverMessages';
 
 // Endpoints where a 401 means "wrong credentials", not "expired session".
@@ -107,6 +108,9 @@ export async function req(path, opts = {}, token = null, retried = false) {
   return res.json();
 }
 
+// The AI endpoints answer in the app language. Only 'hi' is sent as such; English, the pseudo-locale and anything else send 'en'.
+const aiLanguage = () => (getLanguage() === 'hi' ? 'hi' : 'en');
+
 const post = (path, body, token) => req(path, { method: 'POST', body: JSON.stringify(body) }, token);
 
 export const API = {
@@ -165,11 +169,11 @@ export const API = {
   },
   analysis: {
     list: t => req('/analysis/', {}, t),
-    generate: (d, t) => post('/analysis/', d, t),
+    generate: (d, t) => post('/analysis/', { ...d, language: aiLanguage() }, t),
     latest: (type, t) => req(`/analysis/latest/${type}`, {}, t),
   },
   chat: {
-    send: (d, t) => post('/chat/ask', d, t),
+    send: (d, t) => post('/chat/ask', { ...d, language: aiLanguage() }, t),
     history: t => req('/chat/history', {}, t),
   },
   consents: {
