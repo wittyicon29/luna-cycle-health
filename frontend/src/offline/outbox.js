@@ -123,23 +123,39 @@ export function claimNext(email, now) {
   });
 }
 
-export function markFailed(email, id, nextTryAt) {
+// Records a failed attempt. `network: true` marks a connection failure (cleared early by clearBackoff when the device
+// comes back online); `countAttempt: false` keeps the attempt count (e.g. while the device reports it is offline).
+// Resolves true when stored (or the item is already gone), false when the write failed or was dropped by a sign-out.
+export function markFailed(email, id, nextTryAt, { network = false, countAttempt = true } = {}) {
   const gen = store.currentGeneration();
   return serial(email, async () => {
     release(email, id);
     const blob = await readBlob(email);
-    if (!blob.items.some(i => i.id === id)) return;
-    await writeBlob(email, { nextSeq: blob.nextSeq, items: blob.items.map(i => (i.id === id ? { ...i, attempts: (i.attempts || 0) + 1, nextTryAt } : i)) }, gen);
+    if (!blob.items.some(i => i.id === id)) return true;
+    const next = i => ({ ...i, attempts: (i.attempts || 0) + (countAttempt ? 1 : 0), nextTryAt, lastFailure: network ? 'network' : 'server' });
+    return writeBlob(email, { nextSeq: blob.nextSeq, items: blob.items.map(i => (i.id === id ? next(i) : i)) }, gen);
   });
 }
 
+// Lets items that waited only because the connection was down be tried right away (keeps their attempt count).
+export function clearBackoff(email) {
+  const gen = store.currentGeneration();
+  return serial(email, async () => {
+    const blob = await readBlob(email);
+    const waiting = i => i.lastFailure === 'network' && (i.nextTryAt || 0) > 0;
+    if (!blob.items.some(waiting)) return true;
+    return writeBlob(email, { nextSeq: blob.nextSeq, items: blob.items.map(i => (waiting(i) ? { ...i, nextTryAt: 0 } : i)) }, gen);
+  });
+}
+
+// Resolves true when the removal was stored (or the item was already gone), false when the write failed.
 export function remove(email, id) {
   const gen = store.currentGeneration();
   return serial(email, async () => {
     release(email, id);
     const blob = await readBlob(email);
-    if (!blob.items.some(i => i.id === id)) return;
-    await writeBlob(email, { nextSeq: blob.nextSeq, items: blob.items.filter(i => i.id !== id) }, gen);
+    if (!blob.items.some(i => i.id === id)) return true;
+    return writeBlob(email, { nextSeq: blob.nextSeq, items: blob.items.filter(i => i.id !== id) }, gen);
   });
 }
 

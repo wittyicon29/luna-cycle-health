@@ -136,6 +136,39 @@ test('markFailed stores nextTryAt and increments attempts', async () => {
   await outbox.markFailed(E, 'nope', 1); // unknown id is a no-op
 });
 
+test('markFailed and remove resolve true when stored, false when the write fails', async () => {
+  const { item } = await outbox.enqueue(E, patch(D, { mood: 1 }));
+  const { item: b } = await outbox.enqueue(E, patch('2026-03-05', { mood: 1 }));
+  expect(await outbox.markFailed(E, item.id, 5000)).toBe(true);
+  expect(await outbox.markFailed(E, 'nope', 1)).toBe(true);
+  const setItem = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('full'); });
+  try {
+    expect(await outbox.markFailed(E, item.id, 6000)).toBe(false);
+    expect(await outbox.remove(E, b.id)).toBe(false);
+  } finally { setItem.mockRestore(); }
+  expect(await outbox.remove(E, b.id)).toBe(true);
+  expect(await outbox.remove(E, 'nope')).toBe(true);
+});
+
+test('markFailed can keep attempts (offline) and records a network failure', async () => {
+  const { item } = await outbox.enqueue(E, patch(D, { mood: 1 }));
+  await outbox.markFailed(E, item.id, 5000, { network: true, countAttempt: false });
+  expect((await outbox.loadOutbox(E))[0]).toMatchObject({ attempts: 0, nextTryAt: 5000, lastFailure: 'network' });
+  await outbox.markFailed(E, item.id, 7000);
+  expect((await outbox.loadOutbox(E))[0]).toMatchObject({ attempts: 1, nextTryAt: 7000, lastFailure: 'server' });
+});
+
+test('clearBackoff resets nextTryAt of network failures only, keeping attempts', async () => {
+  const { item: a } = await outbox.enqueue(E, patch(D, { mood: 1 }));
+  const { item: b } = await outbox.enqueue(E, patch('2026-03-05', { mood: 1 }));
+  await outbox.markFailed(E, a.id, 5000, { network: true });
+  await outbox.markFailed(E, b.id, 9000);
+  await outbox.clearBackoff(E);
+  const [x, y] = await outbox.loadOutbox(E);
+  expect(x).toMatchObject({ attempts: 1, nextTryAt: 0 });
+  expect(y).toMatchObject({ attempts: 1, nextTryAt: 9000 });
+});
+
 test('another email cannot see the outbox', async () => {
   await outbox.enqueue(E, patch(D, { mood: 1 }));
   expect(await outbox.loadOutbox('b@x.com')).toEqual([]);

@@ -8,10 +8,17 @@ const { ApiError } = require('../api');
 const store = require('./store');
 const outbox = require('./outbox');
 const snapshot = require('./snapshot');
-const { createSync, backoffMs, resetSyncState } = require('./sync');
+const { createSync, backoffMs, resetSyncState, onSignOut } = require('./sync');
+const vault = require('./vault');
+const { periodsWithPending } = require('./overlay');
 
 const realSetTimeout = setTimeout;
 const tick = () => new Promise(r => realSetTimeout(r, 0));
+function deferred() {
+  let resolve;
+  const promise = new Promise(r => { resolve = r; });
+  return { promise, resolve };
+}
 async function waitUntil(cond, tries = 5000) {
   for (let i = 0; i < tries; i += 1) {
     if (await cond()) return;
@@ -111,11 +118,11 @@ test('happy path: create + patch + replace sync in order, empty the queue and re
   await outbox.enqueue(E, { kind: 'log.replace', date: D2, payload: { note: 'n', flow: 'light', date: D2, updated_at: 'x' } });
   const result = await make({ onChange }).syncNow();
 
-  expect(result).toEqual({ synced: 3, dropped: [], stoppedBy: null, pending: 0, queueLost: false });
-  expect(server.names()).toEqual(['periods.create', 'periods.list', 'logs.list', 'logs.put', 'logs.put']);
+  expect(result).toEqual({ synced: 3, dropped: [], stoppedBy: null, pending: 0, queueLost: false, storageError: false });
+  expect(server.names()).toEqual(['periods.create', 'logs.list', 'logs.put', 'logs.put', 'periods.list']);
   expect(server.calls[0].args[0]).toEqual({ start_date: '2026-01-01', id: 'c1' });
-  expect(server.calls[3].args).toEqual([D, { mood: 4 }]);
-  expect(server.calls[4].args).toEqual([D2, { note: 'n', flow: 'light' }]); // never date/updated_at
+  expect(server.calls[2].args).toEqual([D, { mood: 4 }]);
+  expect(server.calls[3].args).toEqual([D2, { note: 'n', flow: 'light' }]); // never date/updated_at
   expect(await items()).toEqual([]);
   const snap = await snapshot.loadSnapshot(E);
   expect(snap.periods).toEqual([{ start_date: '2026-01-01', id: 'c1', end_date: null }]);
@@ -126,7 +133,7 @@ test('happy path: create + patch + replace sync in order, empty the queue and re
 
 test('an empty queue makes no requests', async () => {
   const result = await make().syncNow();
-  expect(result).toEqual({ synced: 0, dropped: [], stoppedBy: null, pending: 0, queueLost: false });
+  expect(result).toEqual({ synced: 0, dropped: [], stoppedBy: null, pending: 0, queueLost: false, storageError: false });
   expect(server.calls).toEqual([]);
 });
 
@@ -188,14 +195,55 @@ describe('crash points', () => {
     expect(server.periods).toHaveLength(1);
   });
 
-  test('crash after the dequeue but before the snapshot refresh: item is gone, nothing duplicated', async () => {
+  test('crash after the dequeue but before the list refresh: after a restart the period shows exactly once', async () => {
+    await snapshot.saveSlice(E, 'periods', []);
     await outbox.enqueue(E, pcreate('c1'));
     await outbox.enqueue(E, pcreate('c2', '2026-02-01'));
     server.failNext('periods.list', apiErr(0));
     const result = await make().syncNow();
     expect(result).toMatchObject({ synced: 2, stoppedBy: null, pending: 0 });
     expect(server.periods.map(p => p.id)).toEqual(['c1', 'c2']);
-    expect((await snapshot.loadSnapshot(E)).periods.map(p => p.id)).toEqual(['c1', 'c2']);
+
+    // restart: in-memory state gone, everything reloaded from the encrypted store
+    outbox.__resetForTests();
+    resetSyncState();
+    vault.__resetCacheForTests();
+    const shown = periodsWithPending((await snapshot.loadSnapshot(E)).periods, await items());
+    expect(shown.map(p => p.id).sort()).toEqual(['c1', 'c2']);
+    expect(shown.some(p => p.pending)).toBe(false);
+  });
+
+  test('crash after the snapshot write but before the dequeue: after a restart the period shows exactly once', async () => {
+    await snapshot.saveSlice(E, 'periods', []);
+    await outbox.enqueue(E, pcreate('c1'));
+    const hash = await store.emailHash(E);
+    const outboxKey = `luna_offline_${hash}_outbox`;
+    const queued = localStorage.getItem(outboxKey);
+    await make().syncNow();
+    localStorage.setItem(outboxKey, queued); // the dequeue never reached disk
+    outbox.__resetForTests();
+    resetSyncState();
+    vault.__resetCacheForTests();
+    const shown = periodsWithPending((await snapshot.loadSnapshot(E)).periods, await items());
+    expect(shown.map(p => p.id)).toEqual(['c1']);
+    expect(await make().syncNow()).toMatchObject({ synced: 1, pending: 0 });
+    expect(server.periods).toHaveLength(1);
+  });
+
+  test('periods are listed once per pass, not once per created period', async () => {
+    await outbox.enqueue(E, pcreate('c1'));
+    await outbox.enqueue(E, pcreate('c2', '2026-02-01'));
+    await outbox.enqueue(E, pcreate('c3', '2026-03-01'));
+    await make().syncNow();
+    expect(server.names()).toEqual(['periods.create', 'periods.create', 'periods.create', 'periods.list']);
+    expect((await snapshot.loadSnapshot(E)).periods.map(p => p.id)).toEqual(['c1', 'c2', 'c3']);
+  });
+
+  test('without a cached periods list the create answer does not invent a partial snapshot', async () => {
+    await outbox.enqueue(E, pcreate('c1'));
+    server.failNext('periods.list', apiErr(0));
+    await make().syncNow();
+    expect((await snapshot.loadSnapshot(E)).periods).toBeNull();
   });
 });
 
@@ -255,7 +303,7 @@ describe('merge safety', () => {
 });
 
 describe('error classes', () => {
-  test.each([400, 403, 404, 422])('%i on an item drops and reports it; the next item still runs', async status => {
+  test.each([400, 404, 422])('%i on an item drops and reports it; the next item still runs', async status => {
     await outbox.enqueue(E, lpatch(D, { mood: 4 }));
     await outbox.enqueue(E, pcreate('c1'));
     server.failNext('logs.put', apiErr(status));
@@ -277,6 +325,8 @@ describe('error classes', () => {
     ['network', 0, 'network'],
     ['429', 429, 'server'],
     ['500', 500, 'server'],
+    ['408', 408, 'server'],
+    ['425', 425, 'server'],
   ])('%s: stops, backs off per the table, following items untouched', async (_l, status, stoppedBy) => {
     await outbox.enqueue(E, lpatch(D, { mood: 4 }));
     await outbox.enqueue(E, pcreate('c1'));
@@ -311,14 +361,17 @@ describe('error classes', () => {
     expect(server.periods.map(p => p.id)).toEqual(['c1', 'c2']);
   });
 
-  test('a 401 that reaches sync stops the run, drops nothing and keeps the item retryable', async () => {
+  test.each([401, 403])('a %i that reaches sync stops the run, drops nothing and keeps the item retryable', async status => {
     await outbox.enqueue(E, pcreate('c1'));
     await outbox.enqueue(E, pcreate('c2'));
-    server.failNext('periods.create', apiErr(401));
+    server.failNext('periods.create', apiErr(status));
     const sync = make();
     const result = await sync.syncNow();
-    expect(result).toEqual({ synced: 0, dropped: [], stoppedBy: 'error', pending: 2, queueLost: false });
-    expect((await items())[0]).toMatchObject({ clientId: 'c1', attempts: 0, nextTryAt: 0 });
+    expect(result).toEqual({ synced: 0, dropped: [], stoppedBy: 'error', pending: 2, queueLost: false, storageError: false });
+    const [head, next] = await items();
+    expect(head).toMatchObject({ clientId: 'c1', attempts: 0, nextTryAt: 0 });
+    expect(next).toMatchObject({ clientId: 'c2', attempts: 0, nextTryAt: 0 });
+    expect(server.names()).toEqual(['periods.create']);
     expect(await sync.syncNow()).toMatchObject({ synced: 2, pending: 0 }); // not left locked
   });
 
@@ -347,10 +400,19 @@ describe('error classes', () => {
     try {
       const result = await make().syncNow();
       expect(server.names().filter(n => n === 'periods.create')).toHaveLength(1);
-      expect(result).toMatchObject({ stoppedBy: 'error', pending: 1 });
+      expect(result).toMatchObject({ synced: 1, stoppedBy: 'error', pending: 1, storageError: true });
     } finally { setItem.mockRestore(); }
     expect(await make().syncNow()).toMatchObject({ synced: 1, pending: 0 });
     expect(server.periods).toHaveLength(1);
+  });
+
+  test('a backoff that cannot be stored reports storageError and stops with error', async () => {
+    await outbox.enqueue(E, pcreate('c1'));
+    server.failNext('periods.create', apiErr(503));
+    const setItem = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('QuotaExceeded'); });
+    try {
+      expect(await make().syncNow()).toMatchObject({ synced: 0, stoppedBy: 'error', pending: 1, storageError: true });
+    } finally { setItem.mockRestore(); }
   });
 
   test('an invalid item (no date) is dropped and reported', async () => {
@@ -438,6 +500,7 @@ describe('single flight, token and triggers', () => {
     await outbox.enqueue(E, pcreate('c2'));
     const c = sync.syncNow();
     const d = make().syncNow();
+    expect(d).toBe(c);
     await Promise.all([c, d]);
     expect(server.names().filter(n => n === 'periods.create')).toHaveLength(2);
   });
@@ -540,5 +603,187 @@ describe('single flight, token and triggers', () => {
     for (let i = 0; i < 50; i += 1) await tick();
     expect(await items()).toHaveLength(1);
     expect(jest.getTimerCount()).toBe(0);
+  });
+});
+
+describe('reconnect', () => {
+  test('an online event while the head item is backing off (network) syncs it immediately', async () => {
+    await outbox.enqueue(E, pcreate('c1'));
+    await outbox.enqueue(E, pcreate('c2'));
+    server.failNext('periods.create', apiErr(0));
+    const onChange = jest.fn();
+    const sync = make({ onChange });
+    await sync.syncNow();
+    expect((await items())[0].nextTryAt).toBe(clock + 5 * SEC);
+    onChange.mockClear();
+    sync.start();
+    try {
+      window.dispatchEvent(new Event('online'));
+      await waitUntil(() => onChange.mock.calls.length === 1);
+      expect(onChange.mock.calls[0][0]).toMatchObject({ synced: 2, pending: 0 });
+    } finally { sync.stop(); }
+  });
+
+  test('syncNow({ force: true }) also ignores a network backoff but keeps attempts', async () => {
+    await outbox.enqueue(E, pcreate('c1'));
+    server.failNext('periods.create', apiErr(0));
+    server.failNext('periods.create', apiErr(0));
+    const sync = make();
+    await sync.syncNow();
+    expect(await sync.syncNow()).toMatchObject({ synced: 0, pending: 1 }); // still waiting: no request
+    expect(server.names()).toEqual(['periods.create']);
+    await sync.syncNow({ force: true });
+    expect((await items())[0]).toMatchObject({ attempts: 2, nextTryAt: clock + 10 * SEC });
+    expect(await sync.syncNow({ force: true })).toMatchObject({ synced: 1, pending: 0 });
+  });
+
+  test('force does not skip a server (5xx) backoff', async () => {
+    await outbox.enqueue(E, pcreate('c1'));
+    server.failNext('periods.create', apiErr(500));
+    const sync = make();
+    await sync.syncNow();
+    expect(await sync.syncNow({ force: true })).toMatchObject({ synced: 0, pending: 1 });
+    expect(server.names()).toEqual(['periods.create']);
+  });
+
+  test('a network failure while the device reports offline does not climb the backoff', async () => {
+    await outbox.enqueue(E, pcreate('c1'));
+    const onLine = jest.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(false);
+    try {
+      for (let i = 0; i < 3; i += 1) {
+        server.failNext('periods.create', apiErr(0));
+        await make().syncNow();
+        const [head] = await items();
+        expect(head).toMatchObject({ attempts: 0, nextTryAt: clock + 5 * SEC });
+        clock = head.nextTryAt;
+      }
+    } finally { onLine.mockRestore(); }
+  });
+});
+
+describe('engines, flights and sign-out', () => {
+  test('reset() of one engine does not drop the lock held by another engine mid-request', async () => {
+    server.logs[D] = { ...EMPTY_ENTRY, date: D, note: 'B' };
+    await outbox.enqueue(E, lpatch(D, { mood: 4 }));
+    const gate = deferred();
+    const realPut = server.api.logs.put;
+    let first = true;
+    const api = { ...server.api, logs: { ...server.api.logs, put: async (...a) => {
+      if (first) { first = false; await gate.promise; }
+      return realPut(...a);
+    } } };
+    const runner = make({ api });
+    const other = make();
+    const running = runner.syncNow();
+    await waitUntil(() => !first);
+    other.reset();
+    await outbox.enqueue(E, lpatch(D, { flow: 'heavy' }));
+    expect(await items()).toHaveLength(2); // not coalesced into the in-flight item
+    gate.resolve();
+    expect(await running).toMatchObject({ synced: 2, pending: 0 });
+    expect(server.logs[D]).toMatchObject({ note: 'B', mood: 4, flow: 'heavy' });
+  });
+
+  test('a syncNow during a pass (after its last claim) gets a follow-up pass, not the timer', async () => {
+    await outbox.enqueue(E, pcreate('c1'));
+    let sync;
+    let joined;
+    const realList = server.api.periods.list;
+    let once = true;
+    const api = { ...server.api, periods: { ...server.api.periods, list: async (...a) => {
+      if (once) {
+        once = false;
+        await outbox.enqueue(E, pcreate('c2', '2026-02-01'));
+        joined = sync.syncNow();
+      }
+      return realList(...a);
+    } } };
+    sync = make({ api });
+    const result = await sync.syncNow();
+    expect(await joined).toBe(result);
+    expect(result).toMatchObject({ synced: 2, pending: 0, stoppedBy: null });
+    expect(server.periods.map(p => p.id)).toEqual(['c1', 'c2']);
+  });
+
+  test('every engine that triggered or joined a run gets its own onChange once', async () => {
+    await outbox.enqueue(E, pcreate('c1'));
+    const a = jest.fn();
+    const b = jest.fn();
+    const ea = make({ onChange: a });
+    const eb = make({ onChange: b });
+    const p = ea.syncNow();
+    eb.syncNow();
+    eb.syncNow();
+    const result = await p;
+    expect(a).toHaveBeenCalledTimes(1);
+    expect(b).toHaveBeenCalledTimes(1);
+    expect(b).toHaveBeenCalledWith(result);
+  });
+
+  test('after sign-out a new engine never joins the stale flight', async () => {
+    await outbox.enqueue(E, pcreate('c1'));
+    const gate = deferred();
+    const realCreate = server.api.periods.create;
+    let started = false;
+    const api = { ...server.api, periods: { ...server.api.periods, create: async (...a) => {
+      started = true;
+      await gate.promise;
+      return realCreate(...a);
+    } } };
+    const old = make({ api }).syncNow();
+    await waitUntil(() => started);
+    await store.clearAll();
+    onSignOut();
+    await outbox.enqueue(E, pcreate('c9'));
+    const fresh = make().syncNow();
+    expect(fresh).not.toBe(old);
+    gate.resolve();
+    expect(await old).toMatchObject({ stoppedBy: 'signed-out' });
+    expect(await fresh).toMatchObject({ synced: 1, stoppedBy: null, pending: 0 });
+    expect(server.periods.map(p => p.id).sort()).toEqual(['c1', 'c9']);
+  });
+
+  test('onSignOut clears outbox memory only when a clearAll happened', async () => {
+    const reset = jest.spyOn(outbox, 'resetMemory');
+    try {
+      onSignOut();
+      expect(reset).not.toHaveBeenCalled();
+      await store.clearAll();
+      onSignOut();
+      expect(reset).toHaveBeenCalledTimes(1);
+      onSignOut();
+      expect(reset).toHaveBeenCalledTimes(1);
+    } finally { reset.mockRestore(); }
+  });
+
+  test('reset() does not clear the outbox memory of other engines', async () => {
+    const reset = jest.spyOn(outbox, 'resetMemory');
+    try {
+      make().reset();
+      expect(reset).not.toHaveBeenCalled();
+    } finally { reset.mockRestore(); }
+  });
+
+  test('sign-out during an async getToken sends nothing', async () => {
+    await outbox.enqueue(E, pcreate('c1'));
+    const getToken = async () => { await store.clearAll(); return 'tok'; };
+    expect(await make({ getToken }).syncNow()).toMatchObject({ stoppedBy: 'signed-out', synced: 0 });
+    expect(server.calls).toEqual([]);
+  });
+
+  test('sign-out between claimNext and the first request sends nothing', async () => {
+    await outbox.enqueue(E, pcreate('c1'));
+    const realClaim = outbox.claimNext;
+    const claim = jest.spyOn(outbox, 'claimNext').mockImplementation(async (...a) => {
+      const item = await realClaim(...a);
+      store.clearAll();
+      return item;
+    });
+    const getToken = jest.fn(() => 'tok');
+    try {
+      expect(await make({ getToken }).syncNow()).toMatchObject({ stoppedBy: 'signed-out' });
+    } finally { claim.mockRestore(); }
+    expect(getToken).not.toHaveBeenCalled();
+    expect(server.calls).toEqual([]);
   });
 });
