@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session
 
 from ..core.database import get_db
 from ..models.models import User, Period
-from ..schemas.schemas import PeriodCreate, PeriodResponse
+from ..schemas.schemas import PeriodCreate, PeriodResponse, PeriodPredictionResponse
+from ..services.prediction_service import predict_next_period
 from .auth import get_current_user
 
 router = APIRouter(prefix="/periods", tags=["Periods"])
@@ -53,6 +54,21 @@ def create_period(period: PeriodCreate, current_user: User = Depends(get_current
 @router.get("/", response_model=List[PeriodResponse])
 def get_periods(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return db.query(Period).filter(Period.user_id == current_user.id).order_by(Period.start_date.desc()).all()
+
+
+@router.get("/prediction", response_model=PeriodPredictionResponse)
+def get_period_prediction(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Statistical next-period estimate for reminders: no AI, and no ovulation/fertility fields."""
+    periods = db.query(Period).filter(Period.user_id == current_user.id).all()
+    prediction = predict_next_period(periods, current_user.default_cycle_length)
+    if prediction.get("error"):
+        return PeriodPredictionResponse()
+    window = prediction.get("prediction_range") or {}
+    return PeriodPredictionResponse(
+        predicted_next_period=prediction.get("predicted_next_period"),
+        earliest=window.get("earliest"),
+        latest=window.get("latest"),
+    )
 
 
 @router.get("/{period_id}", response_model=PeriodResponse)
