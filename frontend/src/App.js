@@ -323,7 +323,8 @@ body{font-family:'Outfit','Noto Sans Devanagari',sans-serif;background:var(--bg)
 .dk.on .di::after{content:"";position:absolute;left:50%;bottom:-6px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:#FF6B8A}
 .dk:hover .di{transform:translateY(-2px)}
 .dk .dl{font-size:.58rem;font-weight:500;letter-spacing:.05em;text-transform:uppercase}
-@media(max-width:340px){.topbar{padding:0 .75rem}.topbar>div{min-width:0}.cday-badge{display:none}.phase-pill{min-width:0;overflow:hidden;text-overflow:ellipsis}.dk .dl{font-size:.54rem;letter-spacing:.02em}.dk{padding:.4rem .15rem}}
+@media(max-width:400px){.cday-badge{display:none}}
+@media(max-width:340px){.topbar{padding:0 .75rem}.topbar>div{min-width:0}.phase-pill{min-width:0;overflow:hidden;text-overflow:ellipsis}.dk .dl{font-size:.54rem;letter-spacing:.02em}.dk{padding:.4rem .15rem}}
 .log-fab{position:absolute;right:14px;bottom:14px;z-index:20;display:flex;align-items:center;gap:.4rem;min-height:44px;padding:0 1.1rem 0 .9rem;border:none;border-radius:999px;background:#FF6B8A;color:#fff;font-family:'Outfit','Noto Sans Devanagari',sans-serif;font-size:.85rem;font-weight:600;cursor:pointer;user-select:none;transition:transform .2s}
 .log-fab:hover{transform:scale(1.05)}
 .log-fab:active{transform:scale(.96)}
