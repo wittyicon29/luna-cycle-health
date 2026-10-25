@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
+import './i18n';
 import AppRouter from './AppRouter';
 import reportWebVitals from './reportWebVitals';
 import { initTokenStoreWithTimeout } from './tokenStore';
