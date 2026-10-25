@@ -12,8 +12,11 @@ function checkName(raw) {
   return { name };
 }
 
-export default function MedicationManager({ token, medications, onChange, onBack }) {
+const WRAP = { overflowWrap: "anywhere", minWidth: 0 };
+
+export default function MedicationManager({ token, medications, archivedMedications, onChange, onBack }) {
   const list = Array.isArray(medications) ? medications : [];
+  const archivedList = Array.isArray(archivedMedications) ? archivedMedications : [];
   const [newName, setNewName] = useState("");
   const [message, setMessage] = useState("");
   const [editing, setEditing] = useState(null); // { id, name }
@@ -57,6 +60,14 @@ export default function MedicationManager({ token, medications, onChange, onBack
     onChange(list.filter(m => m.id !== id), { type: "archive", id });
   });
 
+  const restore = item => {
+    if (list.length >= MAX_MEDICATIONS) { setMessage(`You can keep up to ${MAX_MEDICATIONS} medications. Remove or archive one first.`); return Promise.resolve(); }
+    return run(async () => {
+      await API.medications.update(item.id, { archived: false }, token);
+      onChange([...list, { ...item, archived: false }], { type: "restore", id: item.id });
+    });
+  };
+
   const remove = async id => {
     const ok = await run(async () => {
       await API.medications.remove(id, token);
@@ -83,21 +94,24 @@ export default function MedicationManager({ token, medications, onChange, onBack
         {list.map(m => (
           <li key={m.id} style={{ display: "flex", alignItems: "center", gap: ".5rem", flexWrap: "wrap", padding: ".25rem 0", borderBottom: "1px solid var(--border)" }}>
             {editing && editing.id === m.id ? (
-              <>
-                <input aria-label={`New name for ${m.name}`} value={editing.name} style={{ minHeight: 44, flex: 1 }}
-                  onChange={e => setEditing({ id: m.id, name: e.target.value })} />
-                <button type="button" className="btn btn-p btn-sm" style={btn} disabled={busy} onClick={saveRename}>Save name</button>
+              <form onSubmit={e => { e.preventDefault(); saveRename(); }} style={{ display: "flex", gap: ".5rem", alignItems: "center", flexWrap: "wrap", flex: 1 }}>
+                <div className="f" style={{ flex: 1, marginBottom: 0, minWidth: 0 }}>
+                  <input aria-label={`New name for ${m.name}`} value={editing.name} style={{ minHeight: 44 }}
+                    onChange={e => setEditing({ id: m.id, name: e.target.value })}
+                    onKeyDown={e => { if (e.key === "Escape") { e.stopPropagation(); setEditing(null); setMessage(""); } }} />
+                </div>
+                <button type="submit" className="btn btn-p btn-sm" style={btn} disabled={busy}>Save name</button>
                 <button type="button" className="btn btn-g btn-sm" style={btn} onClick={() => { setEditing(null); setMessage(""); }}>Cancel</button>
-              </>
+              </form>
             ) : confirmId === m.id ? (
               <>
-                <span style={{ flex: 1 }}>Delete {m.name}? Past days will no longer show it.</span>
+                <span style={{ flex: 1, ...WRAP }}>Delete {m.name}? Past days will no longer show it.</span>
                 <button type="button" className="btn btn-p btn-sm" style={btn} disabled={busy} onClick={() => remove(m.id)}>Yes, delete</button>
                 <button type="button" className="btn btn-g btn-sm" style={btn} onClick={() => setConfirmId(null)}>Keep</button>
               </>
             ) : (
               <>
-                <span style={{ flex: 1 }}>{m.name}</span>
+                <span style={{ flex: 1, ...WRAP }}>{m.name}</span>
                 <button type="button" className="btn btn-g btn-sm" style={btn} aria-label={`Rename ${m.name}`} onClick={() => { setEditing({ id: m.id, name: m.name }); setMessage(""); }}>Rename</button>
                 <button type="button" className="btn btn-g btn-sm" style={btn} aria-label={`Archive ${m.name}`} disabled={busy} onClick={() => archive(m.id)}>Archive</button>
                 <button type="button" className="btn btn-g btn-sm" style={btn} aria-label={`Delete ${m.name}`} onClick={() => { setConfirmId(m.id); setMessage(""); }}>Delete</button>
@@ -106,6 +120,19 @@ export default function MedicationManager({ token, medications, onChange, onBack
           </li>
         ))}
       </ul>
+      {archivedList.length > 0 && (
+        <details style={{ marginTop: "1rem" }}>
+          <summary style={{ minHeight: 44, display: "flex", alignItems: "center", cursor: "pointer" }}>Archived ({archivedList.length})</summary>
+          <ul style={{ listStyle: "none", padding: 0, margin: ".25rem 0" }}>
+            {archivedList.map(m => (
+              <li key={m.id} style={{ display: "flex", alignItems: "center", gap: ".5rem", padding: ".25rem 0", borderBottom: "1px solid var(--border)" }}>
+                <span style={{ flex: 1, ...WRAP }}>{m.name}</span>
+                <button type="button" className="btn btn-g btn-sm" style={btn} aria-label={`Restore ${m.name}`} disabled={busy} onClick={() => restore(m)}>Restore</button>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
     </div>
   );
 }

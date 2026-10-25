@@ -10,6 +10,9 @@ export function maxSelectableDay(now = new Date()) {
   return localTomorrow < utcTomorrow ? localTomorrow : utcTomorrow;
 }
 
+// Earliest day the backend accepts for a daily log.
+export const MIN_LOG_DAY = "2000-01-01";
+
 export default function CalendarScreen({ token, periods, logsVersion, onClose, onOpenDay }) {
   const [today, setToday] = useState(() => localDateString());
   const maxDay = maxSelectableDay();
@@ -81,9 +84,9 @@ export default function CalendarScreen({ token, periods, logsVersion, onClose, o
           <span className="drawer-title">Calendar</span>
           <button className="drawer-close" aria-label="Close" onClick={onClose}>×</button>
         </div>
-        <div style={{ flex: 1, overflowY: "auto", padding: "1rem 1rem 1.5rem" }}>
+        <div className="cal-body">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: ".5rem" }}>
-            <button type="button" className="drawer-close" aria-label="Previous month" onClick={() => go(-1)}>‹</button>
+            <button type="button" className="drawer-close" aria-label="Previous month" disabled={view.year === 2000 && view.month === 0} onClick={() => go(-1)}>‹</button>
             <h2 className="drawer-title" style={{ margin: 0 }}>{MONTH_NAMES[view.month]} {view.year}</h2>
             <button type="button" className="drawer-close" aria-label="Next month" onClick={() => go(1)}>›</button>
           </div>
@@ -106,7 +109,7 @@ export default function CalendarScreen({ token, periods, logsVersion, onClose, o
               if (predicted.has(cell.date)) cls.push("predicted");
               return (
                 <button key={cell.date} type="button" className={cls.join(" ")} style={{ minHeight: 44 }}
-                  aria-label={label(cell)} disabled={cell.date > maxDay} onClick={() => onOpenDay(cell.date)}>
+                  aria-label={label(cell)} disabled={cell.date > maxDay || cell.date < MIN_LOG_DAY} onClick={() => onOpenDay(cell.date)}>
                   <span>{cell.day}</span>
                   <span className="cal-marks" aria-hidden="true">
                     {log && <span className="cal-dot" data-testid="logged-dot">●</span>}

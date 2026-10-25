@@ -116,3 +116,68 @@ test("a 422 about the 30 limit shows the server's own message", async () => {
   expect(screen.getByRole("alert")).toHaveTextContent(msg);
   expect(screen.getByLabelText("Add a medication")).toHaveValue("Zinc");
 });
+
+describe("archived section and long names", () => {
+  const ARCH = [{ id: "9", name: "OldPill", archived: true }];
+  const setupA = (meds = MEDS) => {
+    const onChange = jest.fn();
+    render(<MedicationManager token="tok" medications={meds} archivedMedications={ARCH} onChange={onChange} onBack={jest.fn()} />);
+    return { onChange };
+  };
+
+  test("no archived section when there are none", () => {
+    setup();
+    expect(screen.queryByText(/Archived \(/)).not.toBeInTheDocument();
+  });
+
+  test("restore patches archived:false and reports a restore", async () => {
+    API.medications.update.mockResolvedValue({});
+    const { onChange } = setupA();
+    expect(screen.getByText("Archived (1)")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Restore OldPill" }));
+    await flush();
+    expect(API.medications.update).toHaveBeenCalledWith("9", { archived: false }, "tok");
+    expect(onChange).toHaveBeenCalledWith([...MEDS, { id: "9", name: "OldPill", archived: false }], { type: "restore", id: "9" });
+  });
+
+  test("restore respects the 30 cap without calling the API", async () => {
+    const many = Array.from({ length: 30 }, (_, i) => ({ id: String(i), name: `m${i}` }));
+    setupA(many);
+    fireEvent.click(screen.getByRole("button", { name: "Restore OldPill" }));
+    await flush();
+    expect(API.medications.update).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(/up to 30/);
+  });
+
+  test("restore duplicate shows the server message", async () => {
+    API.medications.update.mockRejectedValue(err);
+    const { onChange } = setupA();
+    fireEvent.click(screen.getByRole("button", { name: "Restore OldPill" }));
+    await flush();
+    expect(screen.getByRole("alert")).toHaveTextContent(/already have/);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  test("long names wrap instead of widening the row", () => {
+    const long = "x".repeat(60);
+    setup([{ id: "1", name: long }]);
+    const el = screen.getByText(long);
+    expect(el.style.overflowWrap).toBe("anywhere");
+    expect(["0", "0px"]).toContain(el.style.minWidth);
+  });
+
+  test("Enter submits a rename and Escape cancels", async () => {
+    API.medications.update.mockResolvedValue({ id: "1", name: "Iron 3" });
+    const { onChange } = setup();
+    fireEvent.click(screen.getByRole("button", { name: "Rename Iron" }));
+    const input = screen.getByLabelText("New name for Iron");
+    fireEvent.change(input, { target: { value: "Iron 3" } });
+    fireEvent.submit(input.closest("form"));
+    await flush();
+    expect(API.medications.update).toHaveBeenCalledWith("1", { name: "Iron 3" }, "tok");
+    expect(onChange).toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Rename Iron" }));
+    fireEvent.keyDown(screen.getByLabelText("New name for Iron"), { key: "Escape" });
+    expect(screen.queryByLabelText("New name for Iron")).not.toBeInTheDocument();
+  });
+});

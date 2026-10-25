@@ -446,3 +446,95 @@ describe("save and clear failures", () => {
     expect(onSaved).not.toHaveBeenCalled();
   });
 });
+
+describe("final fixes", () => {
+  test("dates before 2000 show a message and make no API calls", async () => {
+    await setup("1999-12-31");
+    expect(screen.getByRole("alert")).toHaveTextContent("That date is too far back to log.");
+    expect(API.logs.list).not.toHaveBeenCalled();
+    expect(API.medications.list).not.toHaveBeenCalled();
+  });
+
+  test("Tab and Shift+Tab are trapped inside the sheet", async () => {
+    API.logs.list.mockResolvedValue([ROW]);
+    const { container } = await setup();
+    const dlg = screen.getByRole("dialog");
+    const focusables = Array.from(dlg.querySelectorAll("button, input, textarea")).filter(n => !n.disabled && n.getAttribute("tabindex") !== "-1");
+    const first = focusables[0]; const last = focusables[focusables.length - 1];
+    last.focus();
+    fireEvent.keyDown(last, { key: "Tab" });
+    expect(document.activeElement).toBe(first);
+    fireEvent.keyDown(first, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(last);
+    expect(container).toBeTruthy();
+  });
+
+  test("Back to day and Keep editing return focus to a sensible element", async () => {
+    await setup();
+    fireEvent.click(screen.getByRole("button", { name: "Manage my list" }));
+    fireEvent.click(screen.getByRole("button", { name: /Back to day/ }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Manage my list" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Okay" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+    expect(document.activeElement).toBe(screen.getByText("October 24, 2026"));
+  });
+
+  test("Home and End select the first and last mood", async () => {
+    await setup();
+    const radios = screen.getAllByRole("radio");
+    fireEvent.keyDown(radios[0], { key: "End" });
+    expect(radios[4]).toHaveAttribute("aria-checked", "true");
+    fireEvent.keyDown(radios[4], { key: "Home" });
+    expect(radios[0]).toHaveAttribute("aria-checked", "true");
+  });
+
+  test("failure messages have role=alert, success does not", async () => {
+    API.logs.put.mockRejectedValueOnce(new Error("x"));
+    await setup();
+    fireEvent.click(screen.getByRole("radio", { name: "Okay" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await flush();
+    expect(screen.getByRole("alert")).toHaveTextContent(/Couldn't save this day/);
+  });
+
+  test("clear-day failure has role=alert", async () => {
+    API.logs.list.mockResolvedValue([ROW]);
+    API.logs.remove.mockRejectedValue(new Error("x"));
+    await setup();
+    fireEvent.click(screen.getByRole("button", { name: "Clear day" }));
+    fireEvent.click(screen.getByRole("button", { name: "Yes, clear" }));
+    await flush();
+    expect(screen.getByRole("alert")).toHaveTextContent(/Couldn't clear this day/);
+  });
+
+  test("long medication names wrap in the checklist; archived section appears in the manager", async () => {
+    const long = "y".repeat(60);
+    API.medications.list.mockResolvedValue([{ id: "m1", name: long, archived: false }, { id: "m2", name: "OldPill", archived: true }]);
+    await setup();
+    expect(screen.getByText(long).style.overflowWrap).toBe("anywhere");
+    fireEvent.click(screen.getByRole("button", { name: "Manage my list" }));
+    expect(screen.getByText("Archived (1)")).toBeInTheDocument();
+  });
+
+  test("restoring from the manager makes the medication appear in the checklist", async () => {
+    API.medications.list.mockResolvedValue([{ id: "m1", name: "Iron", archived: false }, { id: "m2", name: "OldPill", archived: true }]);
+    await setup();
+    API.medications.update.mockResolvedValue({});
+    API.medications.list.mockRejectedValue(new Error("net"));
+    fireEvent.click(screen.getByRole("button", { name: "Manage my list" }));
+    fireEvent.click(screen.getByRole("button", { name: "Restore OldPill" }));
+    await flush();
+    fireEvent.click(screen.getByRole("button", { name: /Back to day/ }));
+    expect(screen.getByLabelText("OldPill")).toBeInTheDocument();
+  });
+
+  test("focusing the note scrolls it into view when supported", async () => {
+    await setup();
+    const note = screen.getByLabelText("Note");
+    note.scrollIntoView = jest.fn();
+    fireEvent.focus(note);
+    await act(async () => { jest.advanceTimersByTime(300); });
+    expect(note.scrollIntoView).toHaveBeenCalledWith({ block: "center" });
+  });
+});

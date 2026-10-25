@@ -154,3 +154,14 @@ test("today rolls over at local midnight and when the page becomes visible", asy
   await act(async () => { jest.setSystemTime(new Date(2026, 9, 27, 9)); document.dispatchEvent(new Event("visibilitychange")); });
   expect(screen.getByRole("button", { name: /October 27, 2026, today/ })).toBeInTheDocument();
 });
+
+test("January 2000 is the lower bound: prev disabled and earlier days disabled", async () => {
+  jest.setSystemTime(new Date(2000, 0, 15, 12));
+  setup();
+  await flush();
+  expect(screen.getByText("January 2000")).toBeInTheDocument();
+  expect(screen.getByLabelText("Previous month")).toBeDisabled();
+  expect(screen.getByLabelText(/^December 31, 1999/)).toBeDisabled();
+  expect(screen.getByLabelText(/^January 1, 2000/)).not.toBeDisabled();
+  expect(screen.getByLabelText("Next month")).not.toBeDisabled();
+});

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { API } from "./api";
 import { formatLongDate } from "./localDate";
 import { SYMPTOMS_LIST } from "./symptoms";
-import { maxSelectableDay } from "./CalendarScreen";
+import { maxSelectableDay, MIN_LOG_DAY } from "./CalendarScreen";
 import MedicationManager from "./MedicationManager";
 
 export const MOODS = ["Very low", "Low", "Okay", "Good", "Great"];
@@ -82,7 +82,9 @@ function Stepper({ label, resetLabel, value, step, min, max, firstPlus, firstMin
 }
 
 export default function DaySheet({ token, date, onClose, onSaved }) {
+  const tooEarly = date < MIN_LOG_DAY;
   const tooFar = date > maxSelectableDay();
+  const unavailable = tooFar || tooEarly;
   const [state, setState] = useState(EMPTY);
   const [baseline, setBaseline] = useState(canon(EMPTY));
   const [loadedMedIds, setLoadedMedIds] = useState([]);
@@ -90,7 +92,7 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
   const [allMeds, setAllMeds] = useState([]);
   const [medsLoaded, setMedsLoaded] = useState(false);
   const [medsError, setMedsError] = useState(false);
-  const [loading, setLoading] = useState(!tooFar);
+  const [loading, setLoading] = useState(!unavailable);
   const [loadError, setLoadError] = useState(false);
   const [retry, setRetry] = useState(0);
   const [view, setView] = useState("day");
@@ -107,6 +109,26 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
   const titleRef = useRef(null);
   const moodRefs = useRef([]);
   const closeRef = useRef(null);
+  const manageRef = useRef(null);
+  const drawerRef = useRef(null);
+  const prevView = useRef("day");
+
+  useEffect(() => {
+    if (prevView.current === "meds" && view === "day" && manageRef.current) manageRef.current.focus();
+    prevView.current = view;
+  }, [view]);
+
+  const trapTab = e => {
+    if (e.key !== "Tab" || !drawerRef.current) return;
+    const nodes = Array.from(drawerRef.current.querySelectorAll('button, input, textarea, select, summary, [tabindex]'))
+      .filter(n => !n.disabled && n.getAttribute("tabindex") !== "-1" && n.type !== "hidden");
+    if (!nodes.length) return;
+    const first = nodes[0]; const last = nodes[nodes.length - 1];
+    const act = document.activeElement;
+    const outside = !drawerRef.current.contains(act);
+    if (e.shiftKey && (act === first || act === titleRef.current || outside)) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && (act === last || outside)) { e.preventDefault(); first.focus(); }
+  };
 
   const set = patch => setState(s => ({ ...s, ...patch }));
 
@@ -136,7 +158,7 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
   }, [token]);
 
   useEffect(() => {
-    if (tooFar) return undefined;
+    if (unavailable) return undefined;
     let alive = true;
     setLoading(true); setLoadError(false); setMedsError(false);
     medsLoadedRef.current = false; setMedsLoaded(false);
@@ -152,7 +174,7 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
     }).catch(() => { if (alive) { setLoadError(true); setLoading(false); } });
     loadMeds(true);
     return () => { alive = false; };
-  }, [date, token, tooFar, retry, loadMeds]);
+  }, [date, token, unavailable, retry, loadMeds]);
 
   const active = allMeds.filter(m => !m.archived);
   const known = new Set(allMeds.map(m => m.id));
@@ -221,16 +243,18 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
 
   const moodKey = e => {
     const dir = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
-    if (!dir) return;
+    if (!dir && e.key !== "Home" && e.key !== "End") return;
     e.preventDefault();
     const cur = state.mood == null ? (dir > 0 ? -1 : 0) : state.mood - 1;
-    const idx = (cur + dir + MOODS.length) % MOODS.length;
+    const idx = e.key === "Home" ? 0 : e.key === "End" ? MOODS.length - 1 : (cur + dir + MOODS.length) % MOODS.length;
     set({ mood: idx + 1 });
     if (moodRefs.current[idx]) moodRefs.current[idx].focus();
   };
 
   let body;
-  if (tooFar) {
+  if (tooEarly) {
+    body = <p role="alert">That date is too far back to log.</p>;
+  } else if (tooFar) {
     body = <p role="alert">This day is too far ahead to log yet. You can log up to tomorrow.</p>;
   } else if (loading) {
     body = <p style={{ color: "var(--muted)" }}>Loading…</p>;
@@ -242,7 +266,7 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
       </div>
     );
   } else if (view === "meds") {
-    body = <MedicationManager token={token} medications={active} onChange={onManagerChange} onBack={() => setView("day")} />;
+    body = <MedicationManager token={token} medications={active} archivedMedications={allMeds.filter(m => m.archived)} onChange={onManagerChange} onBack={() => setView("day")} />;
   } else {
     body = (
       <>
@@ -303,10 +327,10 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
                 <label key={m.id} style={{ display: "flex", alignItems: "center", gap: ".6rem", minHeight: 44 }}>
                   <input type="checkbox" checked={state.meds.includes(m.id)} style={{ width: 22, height: 22 }}
                     onChange={() => toggle("meds", m.id)} />
-                  <span>{m.name}{m.archived ? " (archived)" : ""}</span>
+                  <span style={{ overflowWrap: "anywhere", minWidth: 0 }}>{m.name}{m.archived ? " (archived)" : ""}</span>
                 </label>
               ))}
-              <button type="button" className="btn btn-g btn-sm" style={tap} onClick={() => setView("meds")}>Manage my list</button>
+              <button type="button" ref={manageRef} className="btn btn-g btn-sm" style={tap} onClick={() => setView("meds")}>Manage my list</button>
             </>
           )}
         </section>
@@ -314,7 +338,8 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
           <div className="f">
             <label htmlFor="ds-note" style={secTitle}>Note</label>
             <textarea id="ds-note" rows={4} maxLength={NOTE_MAX} value={state.note} style={{ minHeight: 44 }}
-              onChange={e => set({ note: e.target.value.slice(0, NOTE_MAX) })} />
+              onChange={e => set({ note: e.target.value.slice(0, NOTE_MAX) })}
+              onFocus={e => { const el = e.target; setTimeout(() => { try { if (typeof el.scrollIntoView === "function") el.scrollIntoView({ block: "center" }); } catch (err) { /* best effort */ } }, 300); }} />
             <div style={{ textAlign: "right", fontSize: ".72rem", color: "var(--muted)" }}>{state.note.length}/{NOTE_MAX}</div>
           </div>
         </section>
@@ -322,11 +347,11 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
     );
   }
 
-  const showFooter = !tooFar && !loading && !loadError && view === "day";
+  const showFooter = !unavailable && !loading && !loadError && view === "day";
   return (
     <>
       <div className="o-backdrop o-backdrop-top" aria-hidden="true" onClick={requestClose} />
-      <div className="drawer drawer-top" style={{ height: "88vh" }} role="dialog" aria-label={`Log for ${formatLongDate(date)}`}>
+      <div className="drawer drawer-top" ref={drawerRef} onKeyDown={trapTab} style={{ height: "88vh" }} role="dialog" aria-label={`Log for ${formatLongDate(date)}`}>
         <div className="drawer-head">
           <span className="drawer-title" ref={titleRef} tabIndex={-1} style={{ outline: "none" }}>{formatLongDate(date)}</span>
           <button type="button" className="drawer-close" aria-label="Close" disabled={saving} onClick={requestClose}>×</button>
@@ -334,14 +359,14 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
         {confirmDiscard && (
           <div role="alertdialog" aria-label="Discard changes?" style={{ display: "flex", gap: ".5rem", alignItems: "center", flexWrap: "wrap", padding: ".5rem 1.5rem", borderBottom: "1px solid var(--border)" }}>
             <span style={{ fontSize: ".85rem" }}>Discard changes?</span>
-            <button type="button" className="btn btn-g" style={tap} onClick={() => setConfirmDiscard(false)}>Keep editing</button>
+            <button type="button" className="btn btn-g" style={tap} onClick={() => { setConfirmDiscard(false); if (titleRef.current) titleRef.current.focus(); }}>Keep editing</button>
             <button type="button" className="btn btn-p" style={tap} onClick={() => { if (onClose) onClose(); }}>Discard</button>
           </div>
         )}
-        <div className="drawer-body">{body}</div>
+        <div className="drawer-body" style={{ paddingBottom: "4rem", overscrollBehavior: "contain" }}>{body}</div>
         {showFooter && (
           <div style={{ padding: ".75rem 1.5rem 1rem", borderTop: "1px solid var(--border)", flexShrink: 0 }}>
-            {message && <div role="status" style={{ marginBottom: ".5rem", fontSize: ".85rem" }}>{message}</div>}
+            {message && <div role={message === "Saved." ? "status" : "alert"} style={{ marginBottom: ".5rem", fontSize: ".85rem" }}>{message}</div>}
             {blank && !hasData && <div style={{ marginBottom: ".5rem", fontSize: ".8rem", color: "var(--muted)" }}>Nothing to save yet.</div>}
             {confirmClear ? (
               <div style={{ display: "flex", gap: ".5rem", alignItems: "center", flexWrap: "wrap" }}>
