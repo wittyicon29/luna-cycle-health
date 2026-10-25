@@ -145,6 +145,17 @@ export const API = {
     update: (id, d, t) => req(`/periods/${id}`, { method: 'PUT', body: JSON.stringify(d) }, t),
     remove: (id, t) => req(`/periods/${id}`, { method: 'DELETE' }, t),
   },
+  logs: {
+    list: (from, to, t) => req(`/logs/?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, {}, t),
+    put: (date, d, t) => req(`/logs/${encodeURIComponent(date)}`, { method: 'PUT', body: JSON.stringify(d) }, t),
+    remove: (date, t) => req(`/logs/${encodeURIComponent(date)}`, { method: 'DELETE' }, t),
+  },
+  medications: {
+    list: (t, includeArchived = false) => req(`/medications/${includeArchived ? '?include_archived=true' : ''}`, {}, t),
+    create: (name, t) => post('/medications/', { name }, t),
+    update: (id, patch, t) => req(`/medications/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }, t),
+    remove: (id, t) => req(`/medications/${id}`, { method: 'DELETE' }, t),
+  },
   questionnaires: {
     latest: t => req('/questionnaires/latest', {}, t),
     submit: (d, t) => post('/questionnaires/', d, t),

@@ -335,3 +335,58 @@ test('periods.prediction GETs the prediction with the bearer token', async () =>
   expect(url).toMatch(/\/periods\/prediction$/);
   expect(opts.headers.Authorization).toBe('Bearer tok');
 });
+
+describe('logs and medications', () => {
+  const call = async fn => {
+    fetch.mockResolvedValue(reply(200, {}));
+    await fn();
+    const [url, opts] = fetch.mock.calls[0];
+    expect(opts.headers.Authorization).toBe('Bearer tok');
+    return [url, opts];
+  };
+
+  test('logs.list GETs the range', async () => {
+    const [url, opts] = await call(() => API.logs.list('2026-09-27', '2026-10-31', 'tok'));
+    expect(url).toMatch(/\/logs\/\?from=2026-09-27&to=2026-10-31$/);
+    expect(opts.method).toBeUndefined();
+  });
+
+  test('logs.put PUTs the body to the date', async () => {
+    const [url, opts] = await call(() => API.logs.put('2026-10-25', { mood: 'ok' }, 'tok'));
+    expect(url).toMatch(/\/logs\/2026-10-25$/);
+    expect(opts.method).toBe('PUT');
+    expect(JSON.parse(opts.body)).toEqual({ mood: 'ok' });
+  });
+
+  test('logs.remove DELETEs the date', async () => {
+    const [url, opts] = await call(() => API.logs.remove('2026-10-25', 'tok'));
+    expect(url).toMatch(/\/logs\/2026-10-25$/);
+    expect(opts.method).toBe('DELETE');
+  });
+
+  test('medications.list hides archived by default and can include them', async () => {
+    const [url] = await call(() => API.medications.list('tok'));
+    expect(url).toMatch(/\/medications\/$/);
+    fetch.mockClear();
+    const [url2] = await call(() => API.medications.list('tok', true));
+    expect(url2).toMatch(/\/medications\/\?include_archived=true$/);
+  });
+
+  test('medications.create POSTs the name', async () => {
+    const [url, opts] = await call(() => API.medications.create('Iron', 'tok'));
+    expect(url).toMatch(/\/medications\/$/);
+    expect(opts.method).toBe('POST');
+    expect(JSON.parse(opts.body)).toEqual({ name: 'Iron' });
+  });
+
+  test('medications.update PATCHes and remove DELETEs by id', async () => {
+    const [url, opts] = await call(() => API.medications.update('m1', { archived: true }, 'tok'));
+    expect(url).toMatch(/\/medications\/m1$/);
+    expect(opts.method).toBe('PATCH');
+    expect(JSON.parse(opts.body)).toEqual({ archived: true });
+    fetch.mockClear();
+    const [url2, opts2] = await call(() => API.medications.remove('m1', 'tok'));
+    expect(url2).toMatch(/\/medications\/m1$/);
+    expect(opts2.method).toBe('DELETE');
+  });
+});
