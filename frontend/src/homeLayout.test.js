@@ -1,7 +1,7 @@
 import React from 'react';
 import fs from 'fs';
 import path from 'path';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 jest.mock('./platform', () => ({ ...jest.requireActual('./platform'), isNative: jest.fn(() => true) }));
@@ -78,11 +78,36 @@ test('the profile prompt is hidden when collapsed, shown expanded, flagged on th
   expect(container.querySelector('.today-dot')).toBeNull();
 });
 
-test('a complete profile shows no dot', async () => {
+const flush = async () => { for (let i = 0; i < 3; i += 1) await act(async () => {}); };
+
+test('the dot appears for an incomplete profile and is absent for a complete one, after status resolves', async () => {
+  const first = setup({ complete: false });
+  await waitFor(() => expect(first.container.querySelector('.avatar-dot')).not.toBeNull());
+  first.unmount();
   const { container } = setup({ complete: true });
   await waitFor(() => expect(container.querySelector('.today-card')).not.toBeNull());
-  await waitFor(() => expect(API.auth.status).toHaveBeenCalled());
+  await waitFor(() => expect(API.auth.status).toHaveBeenCalledTimes(2));
+  await flush();
   expect(container.querySelector('.avatar-dot')).toBeNull();
+  expect(screen.getByRole('button', { name: 'Open profile' })).not.toHaveAttribute('aria-describedby');
+});
+
+test('the Today card is absent while loading and when consents block the journey', async () => {
+  setup();
+  API.consents.get.mockReturnValue(new Promise(() => {}));
+  const loading = render(<JourneyApp token="tok" email="v@gmail.com" onLogout={jest.fn()} />);
+  await flush();
+  expect(loading.container.querySelector('.today-card')).toBeNull();
+  loading.unmount();
+  API.consents.get.mockResolvedValue({ ...ALL, age_18_plus: false });
+  const blocked = render(<JourneyApp token="tok" email="v@gmail.com" onLogout={jest.fn()} />);
+  await screen.findAllByText(/before you continue/i);
+  expect(blocked.container.querySelector('.today-card')).toBeNull();
+  blocked.unmount();
+  API.consents.get.mockRejectedValue(new Error(''));
+  const failed = render(<JourneyApp token="tok" email="v@gmail.com" onLogout={jest.fn()} />);
+  await screen.findByRole('button', { name: 'Retry' });
+  expect(failed.container.querySelector('.today-card')).toBeNull();
 });
 
 test('the stats are reachable by expanding the card', async () => {
@@ -110,4 +135,23 @@ test('the month row is an overlay strip without a blurred backdrop', () => {
   expect(m[2]).toMatch(/pointer-events:none/);
   expect(m[2]).not.toMatch(/backdrop-filter/);
   expect(appSrc).not.toMatch(/cday-badge|stats-strip/);
+  const z = Number(m[2].match(/z-index:(\d+)/)[1]);
+  const fogSrc = fs.readFileSync(path.join(__dirname, 'playful', 'FogLayer.js'), 'utf8');
+  const fogZ = Number(fogSrc.match(/className="fog"[^>]*zIndex:\s*(\d+)/)[1]);
+  expect(z).toBe(6);
+  expect(z).toBeGreaterThan(fogZ);
+});
+
+test('the map canvas isolates its stacking so map layers stay below the Today panel', () => {
+  const canvas = appSrc.match(/(^|\n)\.j-canvas\{([^}]*)\}/)[2];
+  expect(canvas).toMatch(/isolation:isolate/);
+  expect(canvas).toMatch(/position:relative/);
+  // inside the canvas: log pill 20, cards 25, empty state 30 all stay contained
+  expect(appSrc).toMatch(/\.log-fab\{[^}]*z-index:20/);
+  expect(appSrc).toMatch(/\.j-empty\{[^}]*z-index:30/);
+});
+
+test('the phase pill label truncates with an ellipsis while the icon stays', () => {
+  expect(appSrc).toMatch(/\.phase-pill-lbl\{[^}]*min-width:0[^}]*overflow:hidden[^}]*text-overflow:ellipsis[^}]*white-space:nowrap/);
+  expect(appSrc).toMatch(/className="phase-pill-lbl"/);
 });

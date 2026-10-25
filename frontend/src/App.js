@@ -251,7 +251,8 @@ body{font-family:'Outfit','Noto Sans Devanagari',sans-serif;background:var(--bg)
 .topbar{height:48px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 .75rem;background:#0F081A;backdrop-filter:blur(12px);border-bottom:1px solid var(--border);z-index:20}
 .tlogo{font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;font-size:1.35rem;font-weight:500;color:var(--cream);letter-spacing:.02em;display:flex;align-items:center;gap:.5rem}
 .tlogo .m{display:inline-block;animation:moonFloat 4s ease-in-out infinite}
-.phase-pill{display:flex;align-items:center;gap:.4rem;padding:.28rem .7rem;border-radius:100px;font-size:.72rem;font-weight:500;letter-spacing:.03em;border:1px solid;white-space:nowrap;transition:all .4s;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.phase-pill{display:flex;align-items:center;gap:.4rem;padding:.28rem .7rem;border-radius:100px;font-size:.72rem;font-weight:500;letter-spacing:.03em;border:1px solid;white-space:nowrap;transition:all .4s;min-width:0;max-width:100%}
+.phase-pill-lbl{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .avatar-btn{width:44px;height:44px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;color:#fff;border:none;transition:transform .2s,box-shadow .2s;flex-shrink:0}
 .avatar-btn:hover{transform:scale(1.08)}
 .avatar-wrap{position:relative;flex-shrink:0}
@@ -259,7 +260,7 @@ body{font-family:'Outfit','Noto Sans Devanagari',sans-serif;background:var(--bg)
 @media(max-width:400px){.tlogo-word{display:none}}
 
 /* JOURNEY CANVAS */
-.j-canvas{flex:1;overflow:hidden;position:relative;background:var(--bg)}
+.j-canvas{flex:1;overflow:hidden;position:relative;isolation:isolate;background:var(--bg)}
 .j-scroll{width:100%;height:100%;overflow-x:auto;overflow-y:hidden;cursor:grab;user-select:none}
 .j-empty{position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;padding:1rem;text-align:center;pointer-events:none;font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;font-size:1.3rem;color:var(--cream)}
 .j-empty p{background:rgba(26,15,46,.85);background:color-mix(in srgb,var(--bg) 85%,transparent);padding:.6rem 1rem;border-radius:12px;max-width:100%}
@@ -2131,7 +2132,8 @@ function JourneyApp({ token, email, onLogout }) {
         <div style={{ display: "flex", alignItems: "center", gap: ".5rem", minWidth: 0, flex: 1, justifyContent: "center" }}>
           {currentPhase !== "unknown" && (
             <div className="phase-pill" style={{ color: ph.color, background: ph.bg, borderColor: ph.border }}>
-              {ph.icon} {phText.territory}
+              <span aria-hidden="true" style={{ flexShrink: 0 }}>{ph.icon}</span>
+              <span className="phase-pill-lbl">{phText.territory}</span>
             </div>
           )}
         </div>
