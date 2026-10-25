@@ -67,7 +67,9 @@ function tokenize(source) {
     }
     if (c === '`') { i++; readTemplate(); lastSig = '`'; lastWord = ''; continue; }
     if (c === '/') {
-      if (lastSig === '' || REGEX_PREV.has(lastSig) || REGEX_WORDS.has(lastWord)) {
+      // `</tag>` and `<tag ... />` are JSX, never a regex literal.
+      const jsxSlash = lastSig === '<' || d === '>';
+      if (!jsxSlash && (lastSig === '' || REGEX_PREV.has(lastSig) || REGEX_WORDS.has(lastWord))) {
         const start = i; i++;
         let inClass = false;
         while (i < n && source[i] !== '\n') {

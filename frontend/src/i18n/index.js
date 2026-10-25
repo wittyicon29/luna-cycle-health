@@ -70,4 +70,6 @@ export function tn(count, one, other, vars) {
 }
 
 export const intlLocale = (lang = current) => (lang === 'hi' ? 'hi-IN-u-nu-latn' : undefined);
+// Locale for date formatting: English keeps the explicit 'en' the journey always used, Hindi uses the Hindi tag.
+export const dateLocale = (lang = current) => (lang === 'hi' ? intlLocale('hi') : 'en');
 export const languageLabel = lang => (lang === 'hi' ? 'हिन्दी' : 'English');

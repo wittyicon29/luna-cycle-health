@@ -13,7 +13,7 @@ import PrivacyPanel from "./PrivacyPanel";
 import RemindersPanel from "./RemindersPanel";
 import AppearancePanel from "./AppearancePanel";
 import LanguageSwitcher from "./i18n/LanguageSwitcher";
-import { t, useLanguage } from "./i18n";
+import { t, tn, useLanguage, intlLocale, dateLocale } from "./i18n";
 import { translateServer } from "./serverMessages";
 import { getAppearance } from "./launcherAppearance";
 import { useReminders } from "./useReminders";
@@ -22,7 +22,7 @@ import { teardownReminders } from "./reminderScheduler";
 import PeriodDelete from "./PeriodDelete";
 import CalendarScreen from "./CalendarScreen";
 import DaySheet from "./DaySheet";
-import { SYMPTOMS_LIST } from "./symptoms";
+import { SYMPTOMS_LIST, symptomLabel, flowLabel } from "./symptoms";
 import ProfileBanner from "./ProfileBanner";
 import { localDateString, formatLongDate } from "./localDate";
 import { getAccessToken, getEmail, setSession, clearSession } from "./tokenStore";
@@ -43,6 +43,20 @@ function getPhaseForCycleDay(day, len = 28) {
   if (d <= Math.round(len * 0.46)) return "follicular";
   if (d <= Math.round(len * 0.57)) return "ovulation";
   return "luteal";
+}
+
+// Display text for a phase key. PHASES keeps the English strings as data (and the colours); the screens show these.
+function phaseText(key) {
+  switch (key) {
+    // i18n-note: phase names use माहवारी / फॉलिक्युलर / ओव्यूलेशन / ल्यूटियल (the transliterated medical terms are what Hindi health apps show); territory names (घाटी, चढ़ाई, शिखर, वापसी) are literal
+    // i18n-note: the tip says the body is "releasing and renewing"; kept close to literal and non-clinical
+    case "menstrual": return { name: t("Menstrual"), territory: t("The Valley"), days: t("Days 1–5"), tip: t("Rest, warmth & gentle movement. Your body is releasing and renewing.") };
+    case "follicular": return { name: t("Follicular"), territory: t("The Ascent"), days: t("Days 6–13"), tip: t("Energy rises. Perfect for new projects, social activities and bold decisions.") };
+    case "ovulation": return { name: t("Ovulation"), territory: t("The Summit"), days: t("Day 14±"), tip: t("Energy and confidence often peak around now. Notice how your body feels.") };
+    case "luteal": return { name: t("Luteal"), territory: t("The Return"), days: t("Days 15–28"), tip: t("Turn inward. Good for reflection, creative depth, and completing things.") };
+    // i18n-note: "Uncharted" (a map not yet drawn) is अज्ञात (unknown); unsure whether "अनदेखा" or "अज्ञात" reads better
+    default: return { name: t("Uncharted"), territory: t("Uncharted"), days: PHASES.unknown.days, tip: t("Log a period to calibrate your journey map.") };
+  }
 }
 
 function buildTimeline(periods, avgCycle = 28) {
@@ -839,6 +853,7 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
 const DAY_W = 34, BACK = 90, FWD = 60, TOTAL = BACK + FWD;
 
 function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss, token, onPeriodDeleted, onLogPeriod }) {
+  useLanguage();
   const scrollRef = useRef(null);
   const [hoveredPhase, setHoveredPhase] = useState(null);
   const [phaseCardX, setPhaseCardX] = useState(0);
@@ -878,17 +893,18 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
   // Month labels
   const monthLabels = [];
   let lastM = null;
-  timeline.forEach((d, i) => { const m = d.date.getMonth(); if (m !== lastM) { monthLabels.push({ x: i * DAY_W, label: d.date.toLocaleDateString("en", { month: "short" }) }); lastM = m; } });
+  timeline.forEach((d, i) => { const m = d.date.getMonth(); if (m !== lastM) { monthLabels.push({ x: i * DAY_W, label: d.date.toLocaleDateString(dateLocale(), { month: "short" }) }); lastM = m; } });
 
   const todayDay = timeline.find(d => d.isToday);
   const todayPh = PHASES[todayDay?.phase || "unknown"] || PHASES.unknown;
+  const phText = key => phaseText(PHASES[key] ? key : "unknown");
 
   return (
     <div className="j-canvas" onClick={onDismiss}>
       {periods.length === 0 && onLogPeriod && (
         <div className="j-empty">
-          <p>Your journey starts with your first period.</p>
-          <button type="button" className="btn btn-p" onClick={e => { e.stopPropagation(); onLogPeriod(); }}>Log a period</button>
+          <p>{t("Your journey starts with your first period.")}</p>
+          <button type="button" className="btn btn-p" onClick={e => { e.stopPropagation(); onLogPeriod(); }}>{t("Log a period")}</button>
         </div>
       )}
       <div ref={scrollRef} className="j-scroll" onMouseDown={onMD} onMouseMove={onMM} onMouseUp={onMU} onMouseLeave={onMU}>
@@ -926,7 +942,7 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
                 <div key={i}>
                   <div className="phase-sep" style={{ left: pt.x }} />
                   <div className="phase-sep-lbl" style={{ left: pt.x + 5, color: ph.color, background: ph.muted, borderLeft: `2px solid ${ph.color}` }}>
-                    {ph.icon} {ph.name}
+                    {ph.icon} {phText(pt.phase).name}
                   </div>
                 </div>
               );
@@ -948,7 +964,7 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
                 <div key={i} className="p-dot"
                   style={{ left: i * DAY_W + DAY_W / 2, width: sz, height: sz, background: isPred ? "transparent" : ph.color, border: `2px solid ${ph.color}`, boxShadow: isPred ? "none" : `0 0 0 4px ${ph.muted},0 0 12px ${ph.glow}`, opacity: isPred ? .5 : 1 }}
                   onClick={e => { e.stopPropagation(); onSelectMarker(d, i * DAY_W); }}
-                  title={isPred ? "Predicted period" : `Period: ${d.date.toLocaleDateString()}`}
+                  title={isPred ? t("Predicted period") : t("Period: {date}", { date: d.date.toLocaleDateString(intlLocale()) })}
                 />
               );
             })}
@@ -959,7 +975,7 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
               <div className="beacon-dot" style={{ background: todayPh.color }}>
                 <div style={{ position: "absolute", inset: "-7px", borderRadius: "50%", animation: "ring 2.5s ease-in-out infinite", border: `1.5px solid ${todayPh.color}`, opacity: 0 }} />
               </div>
-              <div className="beacon-lbl" style={{ background: todayPh.muted, color: todayPh.color, border: `1px solid ${todayPh.border}` }}>NOW</div>
+              <div className="beacon-lbl" style={{ background: todayPh.muted, color: todayPh.color, border: `1px solid ${todayPh.border}` }}>{t("NOW")}</div>
             </div>
 
             {/* Phase hover card */}
@@ -972,9 +988,9 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
               const clampedLeft = phaseCardX - (relX + cardW > viewW ? cardW + 8 : 0);
               return (
                 <div className="ph-card" style={{ left: Math.max(scrollLeft + 8, clampedLeft - 20) }}>
-                  <div className="ph-card-title" style={{ color: ph.color }}>{hoveredPhase === "unknown" || ph === PHASES.unknown ? ph.name : `${ph.icon} ${ph.name} · ${ph.territory}`}</div>
-                  <div className="ph-card-sub">{ph.days}</div>
-                  <div className="ph-card-tip">{ph.tip}</div>
+                  <div className="ph-card-title" style={{ color: ph.color }}>{hoveredPhase === "unknown" || ph === PHASES.unknown ? phText(hoveredPhase).name : t("{icon} {phase} · {territory}", { icon: ph.icon, phase: phText(hoveredPhase).name, territory: phText(hoveredPhase).territory })}</div>
+                  <div className="ph-card-sub">{phText(hoveredPhase).days}</div>
+                  <div className="ph-card-tip">{phText(hoveredPhase).tip}</div>
                 </div>
               );
             })()}
@@ -988,18 +1004,18 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
               const cardLeft = Math.max(scrollLeft + 8, Math.min(selectedInfo.x - 100, scrollLeft + (visW || 390) - cardMaxW - 8));
               return (
                 <div className="mk-card" style={{ left: cardLeft, bottom: 14 }} onClick={e => e.stopPropagation()}>
-                  <button className="mk-card-close" aria-label="Close" onClick={onDismiss}>×</button>
+                  <button className="mk-card-close" aria-label={t("Close")} onClick={onDismiss}>×</button>
                   {d.loggedPeriod ? (
                     <>
-                      <div className="mk-card-head" style={{ fontSize: ".62rem", letterSpacing: ".1em", textTransform: "uppercase", color: PHASES.menstrual.color, marginBottom: ".45rem", fontWeight: 500 }}>🩸 Logged Period</div>
+                      <div className="mk-card-head" style={{ fontSize: ".62rem", letterSpacing: ".1em", textTransform: "uppercase", color: PHASES.menstrual.color, marginBottom: ".45rem", fontWeight: 500 }}>🩸 {t("Logged Period")}</div>
                       <div style={{ fontFamily: "'Cormorant Garamond','Noto Sans Devanagari',serif", fontSize: "1.05rem", marginBottom: ".35rem" }}>{formatLongDate(d.loggedPeriod.start_date)}</div>
-                      {d.loggedPeriod.end_date && <div style={{ fontSize: ".7rem", color: "var(--muted)" }}>Ended: {formatLongDate(d.loggedPeriod.end_date)}</div>}
-                      {d.loggedPeriod.flow_intensity && <div style={{ marginTop: ".45rem" }}><span className="badge b-r">{d.loggedPeriod.flow_intensity} flow</span></div>}
-                      {d.loggedPeriod.pain_level != null && <div style={{ fontSize: ".7rem", color: "var(--muted)", marginTop: ".35rem", fontFamily: "'Fira Code','Noto Sans Devanagari',monospace" }}>Pain: {d.loggedPeriod.pain_level}/10</div>}
-                      {(d.loggedPeriod.symptoms || []).length > 0 && <div style={{ marginTop: ".5rem", display: "flex", flexWrap: "wrap", gap: ".22rem" }}>{d.loggedPeriod.symptoms.slice(0, 4).map(s => <span key={s} className="badge b-m">{s}</span>)}</div>}
+                      {d.loggedPeriod.end_date && <div style={{ fontSize: ".7rem", color: "var(--muted)" }}>{t("Ended: {date}", { date: formatLongDate(d.loggedPeriod.end_date) })}</div>}
+                      {d.loggedPeriod.flow_intensity && <div style={{ marginTop: ".45rem" }}><span className="badge b-r">{flowLabel(d.loggedPeriod.flow_intensity)}</span></div>}
+                      {d.loggedPeriod.pain_level != null && <div style={{ fontSize: ".7rem", color: "var(--muted)", marginTop: ".35rem", fontFamily: "'Fira Code','Noto Sans Devanagari',monospace" }}>{t("Pain: {level}/10", { level: d.loggedPeriod.pain_level })}</div>}
+                      {(d.loggedPeriod.symptoms || []).length > 0 && <div style={{ marginTop: ".5rem", display: "flex", flexWrap: "wrap", gap: ".22rem" }}>{d.loggedPeriod.symptoms.slice(0, 4).map(s => <span key={s} className="badge b-m">{symptomLabel(s)}</span>)}</div>}
                       <PeriodDelete period={d.loggedPeriod} token={token} onDeleted={onPeriodDeleted} />
                     </>
-                  ) : <div className="mk-card-head" style={{ fontSize: ".77rem", color: "var(--muted)" }}>Predicted period start</div>}
+                  ) : <div className="mk-card-head" style={{ fontSize: ".77rem", color: "var(--muted)" }}>{t("Predicted period start")}</div>}
                 </div>
               );
             })()}
@@ -1013,6 +1029,7 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
 
 // ─── LOG PERIOD MODAL ─────────────────────────────────────────────────────────
 function LogModal({ token, onClose, onSave }) {
+  useLanguage();
   const today = localDateString();
   const [startDate, setStartDate] = useState(today); const [endDate, setEndDate] = useState("");
   const [flow, setFlow] = useState("medium"); const [pain, setPain] = useState(3);
@@ -1033,7 +1050,7 @@ function LogModal({ token, onClose, onSave }) {
           setStats(st);
         }
       } catch (e) {
-        if (!cancelled) setStatsErr(e.message || "Unable to load recent pattern");
+        if (!cancelled) setStatsErr(translateServer(e.message) || t("Unable to load recent pattern"));
       } finally {
         if (!cancelled) setStatsLoading(false);
       }
@@ -1041,56 +1058,56 @@ function LogModal({ token, onClose, onSave }) {
     return () => { cancelled = true; };
   }, [token]);
   async function save() {
-    if (!startDate) { setErr("Start date required"); return; }
+    if (!startDate) { setErr(t("Start date required")); return; }
     const todayNow = localDateString();
-    if (endDate && endDate < startDate) { setErr("The end date can't be before the start date."); return; }
-    if (startDate > todayNow || (endDate && endDate > todayNow)) { setErr("Dates can't be in the future."); return; }
+    if (endDate && endDate < startDate) { setErr(t("The end date can't be before the start date.")); return; }
+    if (startDate > todayNow || (endDate && endDate > todayNow)) { setErr(t("Dates can't be in the future.")); return; }
     setSaving(true); setErr("");
     try { await API.periods.create({ start_date: startDate, end_date: endDate || null, flow_intensity: flow, pain_level: pain, symptoms, notes }, token); onSave(); }
-    catch (e) { setErr(e.message); } finally { setSaving(false); }
+    catch (e) { setErr(translateServer(e.message)); } finally { setSaving(false); }
   }
   return (
-    <Modal title="Log New Period" onClose={onClose}
-      footer={<><button className="btn btn-g" onClick={onClose}>Cancel</button><button className="btn btn-p" onClick={save} disabled={saving}>{saving ? <><Spinner /> Saving…</> : "Save to Journey"}</button></>}>
+    <Modal title={t("Log New Period")} onClose={onClose}
+      footer={<><button className="btn btn-g" onClick={onClose}>{t("Cancel")}</button><button className="btn btn-p" onClick={save} disabled={saving}>{saving ? <><Spinner /> {t("Saving…")}</> : t("Save to Journey")}</button></>}>
       <div className="f-row">
-        <div className="f"><label>Start Date *</label><input type="date" value={startDate} max={today} onChange={e => { const v = e.target.value; setStartDate(v); if (endDate && v > endDate) setEndDate(""); }} /></div>
-        <div className="f"><label>End Date</label><input type="date" value={endDate} min={startDate} max={today} onChange={e => setEndDate(e.target.value)} /></div>
+        <div className="f"><label>{t("Start Date *")}</label><input type="date" value={startDate} max={today} onChange={e => { const v = e.target.value; setStartDate(v); if (endDate && v > endDate) setEndDate(""); }} /></div>
+        <div className="f"><label>{t("End Date")}</label><input type="date" value={endDate} min={startDate} max={today} onChange={e => setEndDate(e.target.value)} /></div>
       </div>
-      <div className="f"><label>Flow Intensity</label><select value={flow} onChange={e => setFlow(e.target.value)}><option value="light">Light</option><option value="medium">Medium</option><option value="heavy">Heavy</option></select></div>
+      <div className="f"><label>{t("Flow Intensity")}</label><select value={flow} onChange={e => setFlow(e.target.value)}><option value="light">{t("Light")}</option><option value="medium">{t("Medium")}</option><option value="heavy">{t("Heavy")}</option></select></div>
       <div className="f">
-        <label>Pain Level — <span style={{ color: "#C4544A", fontFamily: "'Fira Code','Noto Sans Devanagari',monospace" }}>{pain}/10</span></label>
+        <label>{t("Pain Level")} — <span style={{ color: "#C4544A", fontFamily: "'Fira Code','Noto Sans Devanagari',monospace" }}>{pain}/10</span></label>
         <input type="range" min="0" max="10" value={pain} onChange={e => setPain(Number(e.target.value))} style={{ accentColor: "#C4544A" }} />
       </div>
-      <div className="f"><label>Symptoms</label><div className="chips">{SYMPTOMS_LIST.map(s => <button key={s} type="button" className={`chip ${symptoms.includes(s) ? "on" : ""}`} onClick={() => toggle(s)}>{s}</button>)}</div></div>
-      <div className="f"><label>Notes</label><textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Any additional observations…" /></div>
+      <div className="f"><label>{t("Symptoms")}</label><div className="chips">{SYMPTOMS_LIST.map(s => <button key={s} type="button" className={`chip ${symptoms.includes(s) ? "on" : ""}`} onClick={() => toggle(s)}>{symptomLabel(s)}</button>)}</div></div>
+      <div className="f"><label>{t("Notes")}</label><textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder={t("Any additional observations…")} /></div>
       <Err msg={err} />
       <div className="divider" style={{ marginTop: "1.2rem", marginBottom: "1rem" }} />
       <div className="q-sec">
-        <div className="q-sec-title">How your cycles usually look</div>
-        {statsLoading && <div style={{ fontSize: ".75rem", color: "var(--muted)" }}>Reading your recent pattern…</div>}
-        {!statsLoading && statsErr && <div style={{ fontSize: ".75rem", color: "var(--muted)" }}>We couldn't load past data ({statsErr}). You can still log this period.</div>}
+        <div className="q-sec-title">{t("How your cycles usually look")}</div>
+        {statsLoading && <div style={{ fontSize: ".75rem", color: "var(--muted)" }}>{t("Reading your recent pattern…")}</div>}
+        {!statsLoading && statsErr && <div style={{ fontSize: ".75rem", color: "var(--muted)" }}>{t("We couldn't load past data ({error}). You can still log this period.", { error: statsErr })}</div>}
         {!statsLoading && !statsErr && !stats && (
           <div style={{ fontSize: ".78rem", color: "var(--muted)" }}>
-            Once you've logged a few periods, we'll summarise your typical cycle length, bleed days and pain pattern here.
+            {t("Once you've logged a few periods, we'll summarise your typical cycle length, bleed days and pain pattern here.")}
           </div>
         )}
         {!statsLoading && stats && (
           <div style={{ display: "flex", flexDirection: "column", gap: ".65rem", fontSize: ".78rem" }}>
             <div style={{ color: "var(--muted)" }}>
-              Based on your last <span style={{ fontFamily: "'Fira Code','Noto Sans Devanagari',monospace" }}>{stats.count}</span> logged periods.
+              {tn(stats.count, "Based on your {count} logged period.", "Based on your last {count} logged periods.")}
             </div>
             {stats.avgCycle && (
               <div>
                 <div className="sbar-lbl">
-                  <span>Typical cycle length</span>
-                  <span style={{ fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", color: "#E8A09A" }}>{stats.avgCycle} days</span>
+                  <span>{t("Typical cycle length")}</span>
+                  <span style={{ fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", color: "#E8A09A" }}>{tn(stats.avgCycle, "{count} day", "{count} days")}</span>
                 </div>
                 <div className="sbar-track">
                   <div className="sbar-fill" style={{ width: `${Math.min((stats.avgCycle / 40) * 100, 100)}%` }} />
                 </div>
                 {(stats.minCycle && stats.maxCycle && stats.minCycle !== stats.maxCycle) && (
                   <div style={{ fontSize: ".7rem", color: "var(--muted)", marginTop: ".2rem" }}>
-                    Most cycles fall between {stats.minCycle}–{stats.maxCycle} days.
+                    {t("Most cycles fall between {min}–{max} days.", { min: stats.minCycle, max: stats.maxCycle })}
                   </div>
                 )}
               </div>
@@ -1098,15 +1115,15 @@ function LogModal({ token, onClose, onSave }) {
             {stats.avgDuration && (
               <div>
                 <div className="sbar-lbl">
-                  <span>Bleeding days</span>
-                  <span style={{ fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", color: "#E8A09A" }}>{stats.avgDuration} days</span>
+                  <span>{t("Bleeding days")}</span>
+                  <span style={{ fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", color: "#E8A09A" }}>{tn(stats.avgDuration, "{count} day", "{count} days")}</span>
                 </div>
                 <div className="sbar-track">
                   <div className="sbar-fill" style={{ width: `${Math.min((stats.avgDuration / 14) * 100, 100)}%`, background: "linear-gradient(90deg,#C4544A,#E8A09A)" }} />
                 </div>
                 {(stats.minDuration && stats.maxDuration && stats.minDuration !== stats.maxDuration) && (
                   <div style={{ fontSize: ".7rem", color: "var(--muted)", marginTop: ".2rem" }}>
-                    Usually between {stats.minDuration}–{stats.maxDuration} days of bleeding.
+                    {t("Usually between {min}–{max} days of bleeding.", { min: stats.minDuration, max: stats.maxDuration })}
                   </div>
                 )}
               </div>
@@ -1114,7 +1131,7 @@ function LogModal({ token, onClose, onSave }) {
             {typeof stats.avgPain === "number" && (
               <div>
                 <div className="sbar-lbl">
-                  <span>Average pain level</span>
+                  <span>{t("Average pain level")}</span>
                   <span style={{ fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", color: "#E8A09A" }}>{stats.avgPain}/10</span>
                 </div>
                 <div className="sbar-track">
@@ -1124,8 +1141,8 @@ function LogModal({ token, onClose, onSave }) {
             )}
             {stats.commonFlow && (
               <div style={{ display: "flex", alignItems: "center", gap: ".4rem" }}>
-                <span className="badge b-r" style={{ textTransform: "capitalize" }}>{stats.commonFlow} flow</span>
-                <span style={{ fontSize: ".74rem", color: "var(--muted)" }}>This is the most common flow pattern you log.</span>
+                <span className="badge b-r" style={{ textTransform: "capitalize" }}>{flowLabel(stats.commonFlow)}</span>
+                <span style={{ fontSize: ".74rem", color: "var(--muted)" }}>{t("This is the most common flow pattern you log.")}</span>
               </div>
             )}
           </div>
@@ -1822,6 +1839,7 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
 
 // ─── MAIN JOURNEY APP ─────────────────────────────────────────────────────────
 function JourneyApp({ token, email, onLogout }) {
+  useLanguage();
   const [periods, setPeriods] = useState([]); const [loading, setLoading] = useState(true);
   const [overlay, setOverlay] = useState(null);
   const [dayDate, setDayDate] = useState(null);
@@ -1892,14 +1910,14 @@ function JourneyApp({ token, email, onLogout }) {
       <div className="auth-wrap">
         <div className="auth-card">
           <Err msg={consentError} />
-          <button className="btn btn-p btn-full" style={{ marginTop: "1rem" }} onClick={reloadConsents}>Retry</button>
-          <button className="btn btn-g btn-full" style={{ marginTop: ".5rem" }} onClick={onLogout}>Sign out</button>
+          <button className="btn btn-p btn-full" style={{ marginTop: "1rem" }} onClick={reloadConsents}>{t("Retry")}</button>
+          <button className="btn btn-g btn-full" style={{ marginTop: ".5rem" }} onClick={onLogout}>{t("Sign out")}</button>
         </div>
       </div>
     );
   }
   if (!consents) {
-    return <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><LoadingC text="Loading your privacy settings…" /></div>;
+    return <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><LoadingC text={t("Loading your privacy settings…")} /></div>;
   }
   if (!consents.terms_privacy || !consents.age_18_plus) {
     return (
@@ -1933,6 +1951,7 @@ function JourneyApp({ token, email, onLogout }) {
   }
 
   const ph = PHASES[currentPhase] || PHASES.unknown;
+  const phText = phaseText(PHASES[currentPhase] ? currentPhase : "unknown");
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
@@ -1945,20 +1964,20 @@ function JourneyApp({ token, email, onLogout }) {
         <div style={{ display: "flex", alignItems: "center", gap: ".5rem" }}>
           {currentPhase !== "unknown" && (
             <div className="phase-pill" style={{ color: ph.color, background: ph.bg, borderColor: ph.border }}>
-              {ph.icon} {ph.territory}
+              {ph.icon} {phText.territory}
             </div>
           )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: ".65rem" }}>
-          {cycleDay && <div className="cday-badge">Day {cycleDay} · {ph.name}</div>}
-          <button className="avatar-btn" aria-label="Open profile" onClick={() => setOverlay("profile")} style={{ background: `linear-gradient(135deg,${ph.color},#7C66C0)` }}>{email[0]?.toUpperCase()}</button>
+          {cycleDay && <div className="cday-badge">{t("Day {day} · {phase}", { day: cycleDay, phase: phText.name })}</div>}
+          <button className="avatar-btn" aria-label={t("Open profile")} onClick={() => setOverlay("profile")} style={{ background: `linear-gradient(135deg,${ph.color},#7C66C0)` }}>{email[0]?.toUpperCase()}</button>
         </div>
       </div>
 
       {/* JOURNEY MAP */}
       {loading ? (
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <LoadingC text="Loading your journey…" />
+          <LoadingC text={t("Loading your journey…")} />
         </div>
       ) : (
         <JourneyMap periods={periods} avgCycle={avgCycle} selectedInfo={selectedInfo}
@@ -1977,22 +1996,23 @@ function JourneyApp({ token, email, onLogout }) {
       )}
 
       {/* STATS STRIP */}
+      {/* i18n-note: "Next in" is shown as अगली माहवारी above "N दिन"; the label is long for a five-column strip, check the layout */}
       <div className="stats-strip">
-        <div className="st-item"><div className="st-val" style={{ color: ph.color, fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", fontSize: "1.2rem" }}>{cycleDay ?? "—"}</div><div className="st-lbl">Cycle Day</div></div>
-        <div className="st-item"><div className="st-val">{daysToNext != null ? `${daysToNext}d` : "—"}</div><div className="st-lbl">Next in</div></div>
-        <div className="st-item"><div className="st-val">{avgCycle}</div><div className="st-lbl">Avg Cycle</div></div>
-        <div className="st-item"><div className="st-val">{periods.length}</div><div className="st-lbl">Logged</div></div>
-        <div className="st-item"><div className="st-val st-val-phase" style={{ color: ph.color, lineHeight: 1.2, fontFamily: "'Outfit','Noto Sans Devanagari',sans-serif" }}>{ph.name}</div><div className="st-lbl">Phase</div></div>
+        <div className="st-item"><div className="st-val" style={{ color: ph.color, fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", fontSize: "1.2rem" }}>{cycleDay ?? "—"}</div><div className="st-lbl">{t("Cycle Day")}</div></div>
+        <div className="st-item"><div className="st-val">{daysToNext != null ? t("{days}d", { days: daysToNext }) : "—"}</div><div className="st-lbl">{t("Next in")}</div></div>
+        <div className="st-item"><div className="st-val">{avgCycle}</div><div className="st-lbl">{t("Avg Cycle")}</div></div>
+        <div className="st-item"><div className="st-val">{periods.length}</div><div className="st-lbl">{t("Logged")}</div></div>
+        <div className="st-item"><div className="st-val st-val-phase" style={{ color: ph.color, lineHeight: 1.2, fontFamily: "'Outfit','Noto Sans Devanagari',sans-serif" }}>{phText.name}</div><div className="st-lbl">{t("Phase")}</div></div>
       </div>
 
       {/* BOTTOM DOCK */}
       <div className="dock">
-        <button className="dk on"><span className="di">🗺</span><span className="dl">Journey</span></button>
-        <button className="dk" onClick={() => setOverlay("calendar")}><span className="di">🗓</span><span className="dl">Calendar</span></button>
-        <button className="dk" onClick={() => openAi("analysis")}><span className="di">✦</span><span className="dl">Insights</span></button>
-        <button className="dock-log" onClick={() => setOverlay("log")} title="Log period">+</button>
-        <button className="dk" onClick={() => openAi("chat")}><span className="di">💬</span><span className="dl">Chat</span></button>
-        <button className="dk" onClick={() => setOverlay("profile")}><span className="di">👤</span><span className="dl">Profile</span></button>
+        <button className="dk on"><span className="di">🗺</span><span className="dl">{t("Journey")}</span></button>
+        <button className="dk" onClick={() => setOverlay("calendar")}><span className="di">🗓</span><span className="dl">{t("Calendar")}</span></button>
+        <button className="dk" onClick={() => openAi("analysis")}><span className="di">✦</span><span className="dl">{t("Insights")}</span></button>
+        <button className="dock-log" onClick={() => setOverlay("log")} title={t("Log period")}>+</button>
+        <button className="dk" onClick={() => openAi("chat")}><span className="di">💬</span><span className="dl">{t("Chat")}</span></button>
+        <button className="dk" onClick={() => setOverlay("profile")}><span className="di">👤</span><span className="dl">{t("Profile")}</span></button>
       </div>
 
       {/* OVERLAYS */}

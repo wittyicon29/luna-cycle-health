@@ -79,6 +79,10 @@ cont'); t('un\qknown'); t('nul\0');`;
     const r = checkCatalog(project({ 'a.js': "const re = /['\"`]/g; t('After');" }, {}));
     expect(r.missing).toEqual(['After']);
   });
+  test('JSX closing and self-closing tags are not regex literals', () => {
+    const src = "const a = <A x={y} />; const b = <b>{c}</b>; const s = `${d}%`; const e = <i>{t('After JSX')}</i>;";
+    expect(checkCatalog(project({ 'a.js': src }, {})).missing).toEqual(['After JSX']);
+  });
   test('flags aliased imports and bare references to t/tn', () => {
     const alias = checkCatalog(project({ 'a.js': "import { t as tr } from './i18n';\ntr('x');" }, {}));
     expect(alias.invalidCalls.length).toBe(1);
