@@ -67,11 +67,16 @@ export async function open(blob, aad) {
   } catch (e) { return null; }
 }
 
-export async function dropKey() {
-  try { await inflight; } catch (e) { /* ignore */ }
-  cachedKey = null;
-  if (!isNative()) return;
-  try { await (await secure()).remove(KEY_NAME); } catch (e) { /* nothing to remove */ }
+// Runs in the same chain as key loads: a load queued before it finishes first, one queued after it sees no key, so
+// the old key can never come back into memory after it was removed from storage.
+export function dropKey() {
+  const run = (inflight || Promise.resolve()).then(async () => {
+    cachedKey = null;
+    if (!isNative()) return;
+    try { await (await secure()).remove(KEY_NAME); } catch (e) { /* nothing to remove */ }
+  });
+  inflight = run.catch(() => null);
+  return run;
 }
 
 // Forget the in-memory key only (simulates an app restart).

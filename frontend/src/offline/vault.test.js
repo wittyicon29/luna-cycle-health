@@ -102,3 +102,25 @@ test('dropKey does not touch secure storage on web', async () => {
   await vault.dropKey();
   expect(mockSecure.remove).not.toHaveBeenCalled();
 });
+
+test('a key read racing dropKey never puts the old key back in memory; the next seal persists a fresh key', async () => {
+  const blob = await vault.seal({ a: 1 }, 'h');
+  const oldRaw = mockData.get('luna_vault_key');
+  vault.__resetCacheForTests(); // app restart: key only in secure storage
+  let release;
+  const gate = new Promise(r => { release = r; });
+  mockSecure.remove.mockImplementationOnce(async k => { await gate; mockData.delete(k); });
+  const dropping = vault.dropKey();
+  const opening = vault.open(blob, 'h');
+  await new Promise(r => setTimeout(r, 0));
+  release();
+  await dropping;
+  await opening;
+  expect(mockData.has('luna_vault_key')).toBe(false);
+  expect(await vault.open(blob, 'h')).toBeNull();
+  const fresh = await vault.seal({ b: 2 }, 'h');
+  expect(mockData.get('luna_vault_key')).toBeTruthy();
+  expect(mockData.get('luna_vault_key')).not.toBe(oldRaw);
+  vault.__resetCacheForTests();
+  expect(await vault.open(fresh, 'h')).toEqual({ b: 2 });
+});
