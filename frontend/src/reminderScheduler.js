@@ -1,6 +1,7 @@
 import { isNative } from './platform';
 import { planReminders } from './reminderPlanner';
 import { anyEnabled, clearPrefs } from './reminderPrefs';
+import { getAppearance, isDiscreet } from './launcherAppearance';
 
 const CHANNEL_NEUTRAL = 'reminders';
 const CHANNEL_DETAILS = 'reminders_details';
@@ -26,14 +27,16 @@ async function plugin() {
   };
 }
 
-export function reminderText(kind, prefs) {
-  if (!prefs || prefs.explicit !== true) return { ...NEUTRAL };
+export function reminderText(kind, prefs, appearance = 'default') {
+  // In a non-default appearance the title is generic too, so it never names the real app.
+  const title = isDiscreet(appearance) ? 'Reminder' : 'Luna';
+  if (!prefs || prefs.explicit !== true) return { ...NEUTRAL, title };
   if (kind === 'periodExpected') {
     const n = prefs.periodExpected.daysBefore;
-    return { title: 'Luna', body: `Your period is expected in ${n} day${n === 1 ? '' : 's'}.` };
+    return { title, body: `Your period is expected in ${n} day${n === 1 ? '' : 's'}.` };
   }
-  if (kind === 'lateCheckIn') return { title: 'Luna', body: 'Your period may be a little late. Tap to log or check in.' };
-  return { title: 'Luna', body: 'Have you logged today?' };
+  if (kind === 'lateCheckIn') return { title, body: 'Your period may be a little late. Tap to log or check in.' };
+  return { title, body: 'Have you logged today?' };
 }
 
 export async function getReminderPermission() {
@@ -109,12 +112,14 @@ async function doRebuild(args) {
     if (display !== 'granted') return { skipped: 'no-permission' };
     const channelId = prefs.explicit === true ? CHANNEL_DETAILS : CHANNEL_NEUTRAL;
     await ln.createChannel(CHANNELS[channelId]);
+    let appearance = 'default';
+    try { appearance = await getAppearance(); } catch (e) { /* default */ }
     const plan = planReminders({ prefs, prediction, lastPeriodStart, lastLoggedOn, now });
     if (plan.length === 0) return { scheduled: 0 };
     await ln.schedule({
       notifications: plan.map(item => ({
         id: item.id,
-        ...reminderText(item.kind, prefs),
+        ...reminderText(item.kind, prefs, appearance),
         channelId,
         schedule: { at: item.at, allowWhileIdle: true },
       })),
