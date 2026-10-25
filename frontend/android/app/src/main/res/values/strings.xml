@@ -4,4 +4,10 @@
     <string name="title_activity_main">Luna Health</string>
     <string name="package_name">app.placeholder.luna</string>
     <string name="custom_url_scheme">app.placeholder.luna</string>
+    <string name="launcher_label_default">Luna Health</string>
+    <string name="launcher_label_notes">Notes</string>
+    <string name="launcher_label_planner">Daily Planner</string>
+    <string name="launcher_label_journal">Journal</string>
+    <string name="launcher_label_checklist">Checklist</string>
+    <string name="launcher_label_organizer">Organizer</string>
 </resources>
