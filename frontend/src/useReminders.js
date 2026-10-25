@@ -6,6 +6,7 @@ import { anyEnabled } from './reminderPrefs';
 import { cancelAllReminders, rebuildReminders } from './reminderScheduler';
 
 const DEBOUNCE_MS = 500;
+const safeRemove = h => { try { Promise.resolve(h.remove()).catch(() => {}); } catch (e) { /* already gone */ } };
 
 function summarize(periods) {
   let lastPeriodStart = null;
@@ -32,10 +33,10 @@ export function useReminders({ token, periods, prefs }) {
         const h = await App.addListener('appStateChange', ({ isActive }) => {
           if (isActive) setResumeTick(t => t + 1);
         });
-        if (cancelled) h.remove(); else handle = h;
+        if (cancelled) safeRemove(h); else handle = h;
       } catch (e) { /* resume rebuilds are best effort */ }
     })();
-    return () => { cancelled = true; if (handle) handle.remove(); };
+    return () => { cancelled = true; if (handle) safeRemove(handle); };
   }, []);
 
   useEffect(() => {

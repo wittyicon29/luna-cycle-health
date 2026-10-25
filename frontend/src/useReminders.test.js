@@ -94,3 +94,23 @@ test('unmount before debounce runs nothing', async () => {
   expect(API.periods.prediction).not.toHaveBeenCalled();
   expect(rebuildReminders).not.toHaveBeenCalled();
 });
+
+test('unmount during the prediction await skips the rebuild', async () => {
+  let resolve;
+  API.periods.prediction.mockImplementation(() => new Promise(r => { resolve = r; }));
+  const { unmount } = render(<Probe token="t" periods={P1} prefs={ON} />);
+  await flush(500);
+  unmount();
+  await act(async () => { resolve({ next: 'y' }); });
+  expect(rebuildReminders).not.toHaveBeenCalled();
+});
+
+test('prediction failing after a success reuses the cached prediction', async () => {
+  const { rerender } = render(<Probe token="t" periods={P1} prefs={ON} />);
+  await flush(500);
+  API.periods.prediction.mockRejectedValue(new Error('x'));
+  rerender(<Probe token="t" periods={[...P1]} prefs={ON} />);
+  await flush(500);
+  expect(rebuildReminders).toHaveBeenCalledTimes(2);
+  expect(rebuildReminders.mock.calls[1][0].prediction).toEqual({ next: 'x' });
+});

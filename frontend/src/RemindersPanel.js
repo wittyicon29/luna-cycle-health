@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { isNative } from './platform';
 import { getReminderPermission, requestReminderPermission } from './reminderScheduler';
 
@@ -11,16 +11,32 @@ const note = { fontSize: '.7rem', color: 'var(--muted)' };
 const DENIED =
   'Notifications are turned off for Luna. Turn them on in Android Settings → Apps → Luna → Notifications, then try again.';
 
+const safeRemove = h => { try { Promise.resolve(h.remove()).catch(() => {}); } catch (e) { /* already gone */ } };
+const WARN =
+  "Notifications are turned off for Luna, so these reminders won't appear. Turn them on in Android Settings → Apps → Luna → Notifications.";
+
 export default function RemindersPanel({ prefs, onChange }) {
-  const [permission, setPermission] = useState('prompt');
+  const [permission, setPermission] = useState(null);
   const [message, setMessage] = useState('');
   const native = isNative();
+  const prefsRef = useRef(prefs);
+  prefsRef.current = prefs;
+  const busy = useRef(false);
 
   useEffect(() => {
     if (!native) return undefined;
     let live = true;
-    getReminderPermission().then(p => { if (live) setPermission(p); });
-    return () => { live = false; };
+    const refresh = () => getReminderPermission().then(p => { if (live) setPermission(p); }).catch(() => {});
+    refresh();
+    let handle = null;
+    (async () => {
+      try {
+        const { App } = await import('@capacitor/app');
+        const h = await App.addListener('appStateChange', ({ isActive }) => { if (isActive) refresh(); });
+        if (!live) safeRemove(h); else handle = h;
+      } catch (e) { /* resume refresh is best effort */ }
+    })();
+    return () => { live = false; if (handle) safeRemove(handle); };
   }, [native]);
 
   if (!native || !prefs) return null;
@@ -28,21 +44,29 @@ export default function RemindersPanel({ prefs, onChange }) {
   async function toggle(kind) {
     setMessage('');
     if (prefs[kind].enabled) {
-      onChange({ ...prefs, [kind]: { ...prefs[kind], enabled: false } });
+      const cur = prefsRef.current;
+      onChange({ ...cur, [kind]: { ...cur[kind], enabled: false } });
       return;
     }
-    if (permission !== 'granted') {
-      const result = await requestReminderPermission();
-      setPermission(result);
-      if (result !== 'granted') {
+    if (busy.current) return;
+    busy.current = true;
+    try {
+      let current = await getReminderPermission();
+      if (current !== 'granted') current = await requestReminderPermission();
+      setPermission(current);
+      if (current !== 'granted') {
         setMessage(DENIED);
         return;
       }
+      const cur = prefsRef.current;
+      onChange({ ...cur, [kind]: { ...cur[kind], enabled: true } });
+    } finally {
+      busy.current = false;
     }
-    onChange({ ...prefs, [kind]: { ...prefs[kind], enabled: true } });
   }
 
   const setField = (kind, patch) => onChange({ ...prefs, [kind]: { ...prefs[kind], ...patch } });
+  const anyOn = prefs.periodExpected.enabled || prefs.dailyLog.enabled || prefs.lateCheckIn.enabled;
 
   return (
     <div style={section}>
@@ -98,12 +122,16 @@ export default function RemindersPanel({ prefs, onChange }) {
           type="checkbox"
           style={box}
           checked={prefs.explicit}
+          aria-describedby="reminders-explicit-help"
           onChange={() => onChange({ ...prefs, explicit: !prefs.explicit })}
         />
         Show details in notifications
       </label>
-      <div style={note}>Details stay hidden while your phone is locked.</div>
+      <div id="reminders-explicit-help" style={note}>Details stay hidden while your phone is locked.</div>
 
+      {anyOn && permission && permission !== 'granted' && !message && (
+        <div style={{ fontSize: '.75rem', color: 'var(--muted)' }}>{WARN}</div>
+      )}
       {message && <div role="alert" style={{ fontSize: '.75rem', color: '#E07070' }}>{message}</div>}
       <div style={note}>Reminders arrive within a few minutes of the set time.</div>
     </div>

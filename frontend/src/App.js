@@ -1973,6 +1973,7 @@ export default function App() {
   // is deliberately left alone); bounce to login only if the session dies.
   useEffect(() => {
     const onExpired = () => {
+      teardownReminders();
       setToken(null);
       setEmail("");
       setAuthMode("login");
