@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { SUPPORTED, useLanguage, setLanguage, languageLabel } from './index';
+import { SUPPORTED, useLanguage, setLanguage, languageLabel, t } from './index';
 
 const groupStyle = { display: 'flex', gap: '.4rem', justifyContent: 'center' };
 
@@ -38,7 +38,7 @@ export default function LanguageSwitcher() {
   }
 
   return (
-    <div role="radiogroup" aria-label="Language" style={groupStyle}>
+    <div role="radiogroup" aria-label={t('Language')} style={groupStyle}>
       {SUPPORTED.map((lang, index) => {
         const active = current === lang;
         return (

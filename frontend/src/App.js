@@ -1229,7 +1229,7 @@ function ChatDrawer({ token, onClose }) {
       if (isNew) setCurrentSessionId(finalSid);
     } catch (e) {
       setErr(e.message);
-      setSessions(prev => prev.map(s => s.id === tempSid ? { ...s, messages: [...s.messages, { role: "assistant", errorText: e.message }] } : s));
+      setSessions(prev => prev.map(s => s.id === tempSid ? { ...s, messages: [...s.messages, { role: "assistant", errorText: e?.message ?? "" }] } : s));
     } finally {
       setSending(false);
     }
@@ -1286,7 +1286,7 @@ function ChatDrawer({ token, onClose }) {
                   <div className="bname">{m.role === "user" ? t("You") : "◐ Luna"}</div>
                   {/* i18n-note: the welcome message addresses the user with the neutral "आप कैसा महसूस कर रहे हैं" and uses feminine verbs for Luna (मदद कर सकती हूँ) */}
                   {m.welcome ? <div style={{ whiteSpace: "pre-wrap" }}>{t("Hey there! 👋 I'm Luna. I can help you understand your cycle, your symptoms and how you're feeling.\n\nWhat's on your mind today? 💜")}</div>
-                    : m.errorText !== undefined ? <div style={{ whiteSpace: "pre-wrap" }}>{t("⚠ Error: {message}", { message: m.errorText })}</div>
+                    : "errorText" in m ? <div style={{ whiteSpace: "pre-wrap" }}>{t("⚠ Error: {message}", { message: m.errorText })}</div>
                     : m.role === "assistant" ? <ThinkMsg content={m.content} /> : <div data-i18n-ignore style={{ whiteSpace: "pre-wrap" }}>{m.content}</div>}
                   {/* Show quick actions for the default welcome message */}
                   {m.role === "assistant" && i === 0 && m.welcome && (
@@ -1348,7 +1348,7 @@ function ChatDrawer({ token, onClose }) {
 
 // ─── INSIGHTS COMPONENT ──────────────────────────────────────────────────────────
 // Labels for a few fixed values the API returns (urgency, confidence, data quality). Unknown values show as returned.
-// i18n-note: levelLabel maps urgency / confidence / data-quality words; "Confidence" is विश्वास स्तर (level of confidence in the prediction), "Fair" is ठीक-ठाक, "Limited" is सीमित; unsure these read naturally as tile values
+// i18n-note: levelLabel maps urgency / confidence / data-quality words; "Confidence" is भरोसा, "Fair" is ठीक-ठाक, "Limited" is सीमित; unsure these read naturally as tile values
 function levelLabel(value) {
   switch (String(value || "").toLowerCase()) {
     case "high": return t("high");
@@ -1483,7 +1483,7 @@ const Insights = ({ raw, medicalAnalysis, userReport }) => {
               marginTop: ".6rem"
             }}>
               <span style={{ fontSize: ".62rem", textTransform: "uppercase", letterSpacing: ".1em", color: medicalData.urgency === "high" ? "#E07070" : "#D4A040", display: "block", marginBottom: ".2rem", fontWeight: 500 }}>
-                {/* i18n-note: "Urgency" as तात्कालिकता is formal; unsure a softer wording such as "कितनी जल्दी ध्यान देना है" reads better */}
+                {/* i18n-note: "Urgency Level" is rendered as "ध्यान देने की ज़रूरत" (how much attention is needed) to stay calm rather than clinical */}
                 {t("Urgency Level: {level}", { level: levelLabel(medicalData.urgency) })}
               </span>
               {medicalData.urgency === "high" ? t("Consider consulting with a healthcare provider soon.") : t("Monitor symptoms and consult if they worsen.")}
@@ -1736,8 +1736,9 @@ function AnalysisDrawer({ token, onClose }) {
 
 // ─── PROFILE DRAWER ───────────────────────────────────────────────────────────
 function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent, reminderPrefs, onReminderPrefsChange, appearance, onAppearanceChange, initialView = "main" }) {
+  useLanguage();
   const [view, setView] = useState(initialView);
-  const [saving, setSaving] = useState(false); const [err, setErr] = useState(""); const [done, setDone] = useState(false);
+  const [saving, setSaving] = useState(false); const [err, setErr] = useState(null); const [done, setDone] = useState(false);
   const [age, setAge] = useState(25); const [sex, setSex] = useState("female"); const [wt, setWt] = useState(60); const [ht, setHt] = useState(165);
   const [lmp, setLmp] = useState(""); const [cl, setCl] = useState(28); const [cv, setCv] = useState(2);
   const [bd, setBd] = useState(5); const [bv, setBv] = useState("moderate"); const [prod, setProd] = useState(4);
@@ -1751,21 +1752,23 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
   const [questionnaireAnalysis, setQuestionnaireAnalysis] = useState(null);
 
   async function submitQ(e) {
-    e.preventDefault(); if (!lmp) { setErr("Last period date required"); return; }
-    if (!consent) { setErr("Please tick the consent box to save your health profile."); return; }
-    setSaving(true); setErr("");
+    e.preventDefault(); if (!lmp) { setErr({ code: "lmp" }); return; }
+    if (!consent) { setErr({ code: "consent" }); return; }
+    setSaving(true); setErr(null);
     const payload = { basic_demographic: { age, biological_sex: sex, weight_kg: wt, height_cm: ht }, cycle_pattern: { last_menstrual_period: lmp, typical_cycle_length: cl, cycle_variability_days: cv, typical_bleeding_duration: bd, bleeding_volume: bv, sanitary_products_per_day: prod, passes_large_clots: clots, intermenstrual_bleeding: ib }, pain_symptoms: { has_cramping: cramp, pain_severity: psev, pain_timing: pt, painkiller_effectiveness: pe, has_nausea: nausea, has_vomiting: vomit, has_fainting: faint, has_diarrhea: diarr }, pms_symptoms: { mood_swings: ms, severe_sadness: sad, anger: ang, anxiety: anx, poor_concentration: conc, breast_tenderness: bt, bloating: bloat, headaches: head, interferes_with_daily_activities: interf, interference_severity: interf ? intSev : null }, optional_data: { additional_notes: notes || null, data_consent_given: consent } };
     try {
       const response = await API.questionnaires.submit(payload, token);
       setQuestionnaireAnalysis(response.analysis);
       setDone(true);
     } catch (e) {
-      setErr(e.message);
+      setErr({ text: e.message });
     } finally {
       setSaving(false);
     }
   }
 
+  // err is { code } for our own messages and { text } for server text (already translated)
+  const errText = err && (err.code === "lmp" ? t("Last period date required") : err.code === "consent" ? t("Please tick the consent box to save your health profile.") : err.text);
   const R = (label, val, set, min, max) => (<div className="f"><label>{label}: <span style={{ color: "#C4544A", fontFamily: "'Fira Code','Noto Sans Devanagari',monospace" }}>{val}/{max}</span></label><input type="range" min={min} max={max} value={val} onChange={e => set(Number(e.target.value))} style={{ accentColor: "#C4544A" }} /></div>);
   const CB = (label, val, set) => (<div className="f"><label style={{ display: "flex", alignItems: "center", gap: ".5rem", cursor: "pointer", textTransform: "none", letterSpacing: 0 }}><input type="checkbox" checked={val} onChange={e => set(e.target.checked)} style={{ width: "auto", accentColor: "#C4544A" }} /><span style={{ fontSize: ".82rem", color: "var(--cream)" }}>{label}</span></label></div>);
 
@@ -1775,11 +1778,11 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
       <div className="drawer" style={{ height: "88vh" }}>
         <div className="drawer-handle" onClick={onClose} />
         <div className="drawer-head">
-          <div className="drawer-title">{view === "questionnaire" ? "Health Profile" : "Profile"}</div>
+          <div className="drawer-title">{view === "questionnaire" ? t("Health Profile") : t("Profile")}</div>
           <div style={{ display: "flex", alignItems: "center", gap: ".75rem" }}>
-            {view === "main" && <button className="btn btn-g btn-sm" onClick={() => setView("questionnaire")}>Health Profile →</button>}
-            {view === "questionnaire" && <button className="btn btn-g btn-sm" onClick={() => setView("main")}>← Back</button>}
-            <button className="drawer-close" aria-label="Close" onClick={onClose}>×</button>
+            {view === "main" && <button className="btn btn-g btn-sm" onClick={() => setView("questionnaire")}>{t("Health Profile →")}</button>}
+            {view === "questionnaire" && <button className="btn btn-g btn-sm" onClick={() => setView("main")}>{t("← Back")}</button>}
+            <button className="drawer-close" aria-label={t("Close")} onClick={onClose}>×</button>
           </div>
         </div>
         <div className="drawer-body">
@@ -1787,16 +1790,16 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1.5rem" }}>
                 <div style={{ width: 50, height: 50, borderRadius: "50%", background: "linear-gradient(135deg,#C4544A,#7C66C0)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.15rem", fontWeight: 600, color: "#fff", flexShrink: 0 }}>{email[0]?.toUpperCase()}</div>
-                <div><div style={{ fontFamily: "'Cormorant Garamond','Noto Sans Devanagari',serif", fontSize: "1.1rem" }}>{email}</div><div style={{ fontSize: ".7rem", color: "var(--muted)", marginTop: ".1rem" }}>Luna Health member</div></div>
+                <div><div style={{ fontFamily: "'Cormorant Garamond','Noto Sans Devanagari',serif", fontSize: "1.1rem" }}>{email}</div><div style={{ fontSize: ".7rem", color: "var(--muted)", marginTop: ".1rem" }}>{t("Luna Health member")}</div></div>
               </div>
               <div className="divider" />
               <div style={{ display: "flex", flexDirection: "column", gap: ".45rem" }}>
-                <button className="btn btn-g" style={{ justifyContent: "flex-start", gap: ".6rem" }} onClick={() => setView("questionnaire")}><span aria-hidden="true" className="btn-ico">📋</span>Update Health Profile</button>
-                <button className="btn btn-g" style={{ justifyContent: "flex-start", gap: ".6rem", color: "#E07070", borderColor: "rgba(224,112,112,.2)" }} onClick={onLogout}><span aria-hidden="true" className="btn-ico">⏻</span>Sign Out</button>
+                <button className="btn btn-g" style={{ justifyContent: "flex-start", gap: ".6rem" }} onClick={() => setView("questionnaire")}><span aria-hidden="true" className="btn-ico">📋</span>{t("Update Health Profile")}</button>
+                <button className="btn btn-g" style={{ justifyContent: "flex-start", gap: ".6rem", color: "#E07070", borderColor: "rgba(224,112,112,.2)" }} onClick={onLogout}><span aria-hidden="true" className="btn-ico">⏻</span>{t("Sign Out")}</button>
               </div>
               <div className="divider" />
               <div style={{ display: "flex", flexDirection: "column", gap: ".5rem" }}>
-                <div className="ins-lbl">Language</div>
+                <div className="ins-lbl">{t("Language")}</div>
                 <LanguageSwitcher />
               </div>
               <div className="divider" />
@@ -1810,12 +1813,12 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
           {view === "questionnaire" && (done ? (
             <div style={{ paddingTop: "2rem" }}>
               <div className="ei">🌸</div>
-              <h3 style={{ fontFamily: "'Cormorant Garamond','Noto Sans Devanagari',serif", fontSize: "1.25rem", color: "#E8A09A", marginBottom: ".6rem", fontWeight: 400 }}>Profile Saved</h3>
-              <p>Your health profile has been updated.</p>
+              <h3 style={{ fontFamily: "'Cormorant Garamond','Noto Sans Devanagari',serif", fontSize: "1.25rem", color: "#E8A09A", marginBottom: ".6rem", fontWeight: 400 }}>{t("Profile Saved")}</h3>
+              <p>{t("Your health profile has been updated.")}</p>
               
               {questionnaireAnalysis && (
                 <div style={{ marginTop: "1.5rem" }}>
-                  <div className="ins-lbl">Initial Analysis</div>
+                  <div className="ins-lbl">{t("Initial Analysis")}</div>
                   <Insights 
                     raw={JSON.stringify(questionnaireAnalysis)} 
                     medicalAnalysis={questionnaireAnalysis.medical_analysis} 
@@ -1824,40 +1827,40 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
                 </div>
               )}
               
-              <button className="btn btn-p" style={{ marginTop: "1.2rem" }} onClick={() => setDone(false)}>Update Again</button>
+              <button className="btn btn-p" style={{ marginTop: "1.2rem" }} onClick={() => setDone(false)}>{t("Update Again")}</button>
             </div>
           ) : (
             <form onSubmit={submitQ}>
               <div style={{ fontSize: ".78rem", color: "var(--muted)", marginBottom: ".8rem", padding: ".6rem .75rem", borderRadius: "8px", background: "rgba(255,255,255,.02)", border: "1px dashed var(--border)" }}>
-                This is your health questionnaire. It helps Luna understand your body and symptoms. You can always edit these answers later under <strong>Profile → Health Profile</strong>.
+                {t("This is your health questionnaire. It helps Luna understand your body and symptoms. You can always edit these answers later under Profile → Health Profile.")}
               </div>
-              <div className="q-sec"><div className="q-sec-title">Basic Info</div>
-                <div className="f-row"><div className="f"><label>Age</label><input type="number" value={age} onChange={e => setAge(Number(e.target.value))} min="18" max="100" required /></div><div className="f"><label>Biological Sex</label><select value={sex} onChange={e => setSex(e.target.value)}><option value="female">Female</option><option value="male">Male</option><option value="other">Other</option></select></div></div>
-                <div className="f-row"><div className="f"><label>Weight (kg)</label><input type="number" value={wt} onChange={e => setWt(Number(e.target.value))} min="30" max="200" /></div><div className="f"><label>Height (cm)</label><input type="number" value={ht} onChange={e => setHt(Number(e.target.value))} min="100" max="250" /></div></div>
+              <div className="q-sec"><div className="q-sec-title">{t("Basic Info")}</div>
+                <div className="f-row"><div className="f"><label>{t("Age")}</label><input type="number" value={age} onChange={e => setAge(Number(e.target.value))} min="18" max="100" required /></div><div className="f"><label>{t("Biological Sex")}</label><select value={sex} onChange={e => setSex(e.target.value)}><option value="female">{t("Female")}</option><option value="male">{t("Male")}</option><option value="other">{t("Other")}</option></select></div></div>
+                <div className="f-row"><div className="f"><label>{t("Weight (kg)")}</label><input type="number" value={wt} onChange={e => setWt(Number(e.target.value))} min="30" max="200" /></div><div className="f"><label>{t("Height (cm)")}</label><input type="number" value={ht} onChange={e => setHt(Number(e.target.value))} min="100" max="250" /></div></div>
               </div>
-              <div className="q-sec"><div className="q-sec-title">Cycle Pattern</div>
-                <div className="f"><label>Last Menstrual Period *</label><input type="date" value={lmp} onChange={e => setLmp(e.target.value)} required /></div>
-                <div className="f-row"><div className="f"><label>Cycle Length (days)</label><input type="number" value={cl} onChange={e => setCl(Number(e.target.value))} min="10" max="120" /></div><div className="f"><label>Variability (days)</label><input type="number" value={cv} onChange={e => setCv(Number(e.target.value))} min="0" max="30" /></div></div>
-                <div className="f-row"><div className="f"><label>Bleed Duration</label><input type="number" value={bd} onChange={e => setBd(Number(e.target.value))} min="1" max="15" /></div><div className="f"><label>Bleed Volume</label><select value={bv} onChange={e => setBv(e.target.value)}><option value="light">Light</option><option value="moderate">Moderate</option><option value="heavy">Heavy</option></select></div></div>
-                {CB("Passes large clots", clots, setClots)}{CB("Intermenstrual bleeding", ib, setIb)}
+              <div className="q-sec"><div className="q-sec-title">{t("Cycle Pattern")}</div>
+                <div className="f"><label>{t("Last Menstrual Period *")}</label><input type="date" value={lmp} onChange={e => setLmp(e.target.value)} required /></div>
+                <div className="f-row"><div className="f"><label>{t("Cycle Length (days)")}</label><input type="number" value={cl} onChange={e => setCl(Number(e.target.value))} min="10" max="120" /></div><div className="f"><label>{t("Variability (days)")}</label><input type="number" value={cv} onChange={e => setCv(Number(e.target.value))} min="0" max="30" /></div></div>
+                <div className="f-row"><div className="f"><label>{t("Bleed Duration")}</label><input type="number" value={bd} onChange={e => setBd(Number(e.target.value))} min="1" max="15" /></div><div className="f"><label>{t("Bleed Volume")}</label><select value={bv} onChange={e => setBv(e.target.value)}><option value="light">{t("Light")}</option><option value="moderate">{t("Moderate")}</option><option value="heavy">{t("Heavy")}</option></select></div></div>
+                {CB(t("Passes large clots"), clots, setClots)}{CB(t("Intermenstrual bleeding"), ib, setIb)}
               </div>
-              <div className="q-sec"><div className="q-sec-title">Pain & Symptoms</div>
-                {CB("Has cramping", cramp, setCramp)}{R("Pain Severity", psev, setPsev, 0, 10)}
-                <div className="f"><label>Pain Timing</label><select value={pt} onChange={e => setPt(e.target.value)}><option value="before_menses">Before</option><option value="during_menses">During</option><option value="after_menses">After</option></select></div>
-                <div className="f"><label>Painkiller Effectiveness</label><select value={pe} onChange={e => setPe(e.target.value)}><option value="none">None</option><option value="partial">Partial</option><option value="complete">Complete</option></select></div>
-                <div className="f-row">{CB("Nausea", nausea, setNausea)}{CB("Vomiting", vomit, setVomit)}</div>
+              <div className="q-sec"><div className="q-sec-title">{t("Pain & Symptoms")}</div>
+                {CB(t("Has cramping"), cramp, setCramp)}{R(t("Pain Severity"), psev, setPsev, 0, 10)}
+                <div className="f"><label>{t("Pain Timing")}</label><select value={pt} onChange={e => setPt(e.target.value)}><option value="before_menses">{t("Before")}</option><option value="during_menses">{t("During")}</option><option value="after_menses">{t("After")}</option></select></div>
+                <div className="f"><label>{t("Painkiller Effectiveness")}</label><select value={pe} onChange={e => setPe(e.target.value)}><option value="none">{t("None")}</option><option value="partial">{t("Partial")}</option><option value="complete">{t("Complete")}</option></select></div>
+                <div className="f-row">{CB(t("Nausea"), nausea, setNausea)}{CB(t("Vomiting"), vomit, setVomit)}</div>
               </div>
-              <div className="q-sec"><div className="q-sec-title">PMS Symptoms (0–3)</div>
-                {R("Mood Swings", ms, setMs, 0, 3)}{R("Anxiety", anx, setAnx, 0, 3)}{R("Bloating", bloat, setBloat, 0, 3)}{R("Headaches", head, setHead, 0, 3)}
-                {CB("Interferes with daily life", interf, setInterf)}
-                {interf && R("Interference Severity", intSev, setIntSev, 0, 10)}
+              <div className="q-sec"><div className="q-sec-title">{t("PMS Symptoms (0–3)")}</div>
+                {R(t("Mood Swings"), ms, setMs, 0, 3)}{R(t("Anxiety"), anx, setAnx, 0, 3)}{R(t("Bloating"), bloat, setBloat, 0, 3)}{R(t("Headaches"), head, setHead, 0, 3)}
+                {CB(t("Interferes with daily life"), interf, setInterf)}
+                {interf && R(t("Interference Severity"), intSev, setIntSev, 0, 10)}
               </div>
               <div className="q-sec">
-                <div className="f"><label>Additional Notes</label><textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Any other health information…" /></div>
-                {CB("I consent to data analysis", consent, setConsent)}
+                <div className="f"><label>{t("Additional Notes")}</label><textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder={t("Any other health information…")} /></div>
+                {CB(t("I consent to data analysis"), consent, setConsent)}
               </div>
-              <Err msg={err} />
-              <button className="btn btn-p btn-full" type="submit" disabled={saving} style={{ marginTop: ".5rem" }}>{saving ? <><Spinner />Saving…</> : "Save Health Profile"}</button>
+              <Err msg={errText} />
+              <button className="btn btn-p btn-full" type="submit" disabled={saving} style={{ marginTop: ".5rem" }}>{saving ? <><Spinner />{t("Saving…")}</> : t("Save Health Profile")}</button>
             </form>
           ))}
         </div>

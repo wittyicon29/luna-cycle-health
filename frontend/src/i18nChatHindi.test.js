@@ -147,6 +147,16 @@ describe('ChatDrawer in Hindi', () => {
     expect(screen.getAllByText('⚠ Error: boom').length).toBeGreaterThan(0);
   });
 
+  test('a rejection that is not an Error still renders an error row instead of crashing', async () => {
+    API.chat.send.mockRejectedValue('nope');
+    const { container } = chat();
+    await screen.findByText(WELCOME);
+    userEvent.type(screen.getByPlaceholderText('Luna से अपने चक्र के बारे में पूछें…'), 'hello');
+    userEvent.click(screen.getByRole('button', { name: 'भेजें' }));
+    await waitFor(() => expect(screen.getAllByText(/^⚠ त्रुटि:/).length).toBe(1));
+    noEnglish(container);
+  });
+
   test('switching language while open keeps the typed draft and re-renders the welcome', async () => {
     chat();
     await screen.findByText(WELCOME);
@@ -225,14 +235,14 @@ describe('AnalysisDrawer and Insights in Hindi', () => {
     expect(screen.getByRole('button', { name: /विश्लेषण चलाएँ/ })).toBeInTheDocument();
     ['औसत चक्र', 'नियमितता'].forEach(l => expect(screen.getByText(l)).toBeInTheDocument());
     expect(screen.getByText('29 दिन')).toBeInTheDocument();
-    ['अगली माहवारी', 'डेटा की गुणवत्ता', 'विश्वास स्तर'].forEach(l => expect(screen.getAllByText(new RegExp(l)).length).toBeGreaterThan(0));
+    ['अगली माहवारी', 'डेटा की गुणवत्ता', 'भरोसा'].forEach(l => expect(screen.getAllByText(new RegExp(l)).length).toBeGreaterThan(0));
     expect(screen.getByText('उच्च (85%)')).toBeInTheDocument();
-    expect(screen.getByText('अच्छा')).toBeInTheDocument();
-    ['मुख्य इनसाइट्स', 'यह नतीजा क्यों', 'सुझाव', 'अनुमान संबंधी सूचना', 'क्या उम्मीद करें', 'अगले कदम', 'डॉक्टर को कब दिखाएँ',
+    expect(screen.getByText('अच्छी')).toBeInTheDocument();
+    ['मुख्य इनसाइट्स', 'यह नतीजा क्यों', 'सुझाव', 'अनुमान संबंधी सूचना', 'आगे क्या हो सकता है', 'अगले कदम', 'डॉक्टर को कब दिखाएँ',
       'चिकित्सीय निष्कर्ष:', 'जोखिम कारक:', 'चिकित्सीय सुझाव:'].forEach(l => expect(screen.getByText(l)).toBeInTheDocument());
     expect(screen.getByText('चिकित्सीय विश्लेषण (MedGemma)')).toBeInTheDocument();
-    expect(screen.getByText(/तात्कालिकता का स्तर: उच्च/)).toBeInTheDocument();
-    expect(screen.getByText('जल्द ही किसी स्वास्थ्य सेवा प्रदाता से सलाह लेने पर विचार करें।')).toBeInTheDocument();
+    expect(screen.getByText(/ध्यान देने की ज़रूरत: उच्च/)).toBeInTheDocument();
+    expect(screen.getByText('जल्द ही किसी डॉक्टर या स्वास्थ्य विशेषज्ञ से सलाह लेने पर विचार करें।')).toBeInTheDocument();
     // AI-provided English clinical text is rendered as returned
     expect(screen.getByText('Cycle length varies by two days.')).toBeInTheDocument();
     expect(screen.getByText('आपका औसत चक्र 29 दिन का है।')).toBeInTheDocument();
@@ -278,7 +288,6 @@ describe('AnalysisDrawer and Insights in Hindi', () => {
     userEvent.click(within(second.container).getByRole('button', { name: 'इतिहास' }));
     expect(second.container.querySelector('.empty p').textContent).toContain('अभी तक कोई पिछला विश्लेषण नहीं।');
     noEnglish(second.container);
-    expect(container).toBeTruthy();
   });
 
   test('loading, generating and error states; generate posts the English analysis_type', async () => {

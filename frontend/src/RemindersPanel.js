@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { isNative } from './platform';
 import { getReminderPermission, requestReminderPermission } from './reminderScheduler';
+import { t, tn, useLanguage } from './i18n';
 
 const section = { display: 'flex', flexDirection: 'column', gap: '.45rem' };
 const title = { fontFamily: "'Cormorant Garamond','Noto Sans Devanagari',serif", fontSize: '1.05rem', color: '#E8A09A', marginBottom: '.3rem' };
@@ -8,16 +9,12 @@ const row = { display: 'flex', alignItems: 'center', gap: '.6rem', minHeight: 44
 const box = { width: 20, height: 20, flexShrink: 0 };
 const field = { minHeight: 44, minWidth: 44 };
 const note = { fontSize: '.7rem', color: 'var(--muted)' };
-const DENIED =
-  'Notifications are turned off for Luna. Turn them on in Android Settings → Apps → Luna → Notifications, then try again.';
-
 const safeRemove = h => { try { Promise.resolve(h.remove()).catch(() => {}); } catch (e) { /* already gone */ } };
-const WARN =
-  "Notifications are turned off for Luna, so these reminders won't appear. Turn them on in Android Settings → Apps → Luna → Notifications.";
 
 export default function RemindersPanel({ prefs, onChange }) {
+  useLanguage();
   const [permission, setPermission] = useState(null);
-  const [message, setMessage] = useState('');
+  const [denied, setDenied] = useState(false); // shown as a message that follows the language
   const native = isNative();
   const prefsRef = useRef(prefs);
   prefsRef.current = prefs;
@@ -42,7 +39,7 @@ export default function RemindersPanel({ prefs, onChange }) {
   if (!native || !prefs) return null;
 
   async function toggle(kind) {
-    setMessage('');
+    setDenied(false);
     if (prefs[kind].enabled) {
       const cur = prefsRef.current;
       onChange({ ...cur, [kind]: { ...cur[kind], enabled: false } });
@@ -55,7 +52,7 @@ export default function RemindersPanel({ prefs, onChange }) {
       if (current !== 'granted') current = await requestReminderPermission();
       setPermission(current);
       if (current !== 'granted') {
-        setMessage(DENIED);
+        setDenied(true);
         return;
       }
       const cur = prefsRef.current;
@@ -70,27 +67,27 @@ export default function RemindersPanel({ prefs, onChange }) {
 
   return (
     <div style={section}>
-      <div style={title}>Reminders</div>
+      <div style={title}>{t('Reminders')}</div>
 
       <label style={row}>
         <input type="checkbox" style={box} checked={prefs.periodExpected.enabled} onChange={() => toggle('periodExpected')} />
-        Period expected soon
+        {t('Period expected soon')}
       </label>
       {prefs.periodExpected.enabled && (
         <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
           <select
-            aria-label="Days before"
+            aria-label={t('Days before')}
             style={field}
             value={prefs.periodExpected.daysBefore}
             onChange={e => setField('periodExpected', { daysBefore: Number(e.target.value) })}
           >
             {[1, 2, 3, 4, 5, 6, 7].map(n => (
-              <option key={n} value={n}>{n} {n === 1 ? 'day' : 'days'} before</option>
+              <option key={n} value={n}>{tn(n, '{count} day before', '{count} days before')}</option>
             ))}
           </select>
           <input
             type="time"
-            aria-label="Period expected reminder time"
+            aria-label={t('Period expected reminder time')}
             style={field}
             value={prefs.periodExpected.time}
             onChange={e => e.target.value && setField('periodExpected', { time: e.target.value })}
@@ -100,12 +97,12 @@ export default function RemindersPanel({ prefs, onChange }) {
 
       <label style={row}>
         <input type="checkbox" style={box} checked={prefs.dailyLog.enabled} onChange={() => toggle('dailyLog')} />
-        Daily check-in nudge
+        {t('Daily check-in nudge')}
       </label>
       {prefs.dailyLog.enabled && (
         <input
           type="time"
-          aria-label="Daily check-in reminder time"
+          aria-label={t('Daily check-in reminder time')}
           style={field}
           value={prefs.dailyLog.time}
           onChange={e => e.target.value && setField('dailyLog', { time: e.target.value })}
@@ -114,7 +111,7 @@ export default function RemindersPanel({ prefs, onChange }) {
 
       <label style={row}>
         <input type="checkbox" style={box} checked={prefs.lateCheckIn.enabled} onChange={() => toggle('lateCheckIn')} />
-        Late period check-in
+        {t('Late period check-in')}
       </label>
 
       <label style={row}>
@@ -125,16 +122,16 @@ export default function RemindersPanel({ prefs, onChange }) {
           aria-describedby="reminders-explicit-help"
           onChange={() => onChange({ ...prefs, explicit: !prefs.explicit })}
         />
-        Show details in notifications
+        {t('Show details in notifications')}
       </label>
-      <div id="reminders-explicit-help" style={note}>Details are hidden on the lock screen where Android allows it; check Settings → Notifications → Lock screen.</div>
+      <div id="reminders-explicit-help" style={note}>{t('Details are hidden on the lock screen where Android allows it; check Settings → Notifications → Lock screen.')}</div>
 
-      {anyOn && permission && permission !== 'granted' && !message && (
-        <div style={{ fontSize: '.75rem', color: 'var(--muted)' }}>{WARN}</div>
+      {anyOn && permission && permission !== 'granted' && !denied && (
+        <div style={{ fontSize: '.75rem', color: 'var(--muted)' }}>{t("Notifications are turned off for Luna, so these reminders won't appear. Turn them on in Android Settings → Apps → Luna → Notifications.")}</div>
       )}
-      <div style={note}>Daily nudges are scheduled for the next two weeks each time you open the app.</div>
-      {message && <div role="alert" style={{ fontSize: '.75rem', color: '#E07070' }}>{message}</div>}
-      <div style={note}>Reminders arrive within a few minutes of the set time.</div>
+      <div style={note}>{t('Daily nudges are scheduled for the next two weeks each time you open the app.')}</div>
+      {denied && <div role="alert" style={{ fontSize: '.75rem', color: '#E07070' }}>{t('Notifications are turned off for Luna. Turn them on in Android Settings → Apps → Luna → Notifications, then try again.')}</div>}
+      <div style={note}>{t('Reminders arrive within a few minutes of the set time.')}</div>
     </div>
   );
 }

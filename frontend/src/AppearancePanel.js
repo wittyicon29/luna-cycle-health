@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { isNative } from './platform';
 import { rebuildRemindersForAppearance } from './reminderScheduler';
-import { APPEARANCES, APPEARANCE_ICONS, setAppearance } from './launcherAppearance';
+import { APPEARANCES, APPEARANCE_ICONS, setAppearance, appearanceLabel, appearanceHint } from './launcherAppearance';
+import { t, useLanguage } from './i18n';
 
 const noteStyle = { fontSize: '.72rem', color: 'var(--muted)', lineHeight: 1.5 };
 
@@ -17,32 +18,34 @@ function IconPreview({ iconKey }) {
 }
 
 export default function AppearancePanel({ appearance, onChange }) {
+  useLanguage();
   const [pending, setPending] = useState(null);   // key awaiting confirmation
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState(null); // { kind: 'done' | 'failed', key } so it follows a language change
 
   // Once the applied appearance catches up with the pending choice, there is nothing left to confirm.
   useEffect(() => { if (pending && pending === appearance) setPending(null); }, [appearance, pending]);
 
   if (!isNative()) return null;
 
-  const labelOf = key => (APPEARANCES.find(a => a.key === key) || {}).label;
+  // The phone's launcher shows the English name from the Android resources, so confirmations name that one.
+  const launcherName = key => (APPEARANCES.find(a => a.key === key) || {}).label;
 
   async function confirm() {
     if (busy || !pending) return;
     setBusy(true);
-    setMessage('');
+    setMessage(null);
     const key = pending;
     try {
       // Reminder wording first: the switch can send the app to the background or close it.
       await rebuildRemindersForAppearance(key);
       await setAppearance(key);
-      setMessage(`Done. Look for “${labelOf(key)}” in your app list. You may need to add it to your home screen again.`);
+      setMessage({ kind: 'done', key });
       setPending(null);
       onChange(key);
     } catch (e) {
       await rebuildRemindersForAppearance(appearance);
-      setMessage("Couldn't change the app appearance. Nothing was changed.");
+      setMessage({ kind: 'failed' });
       setPending(null);
     } finally {
       setBusy(false);
@@ -51,8 +54,8 @@ export default function AppearancePanel({ appearance, onChange }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '.5rem' }}>
-      <div className="ins-lbl">App appearance on this phone</div>
-      <div role="radiogroup" aria-label="App appearance" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '.5rem' }}>
+      <div className="ins-lbl">{t('App appearance on this phone')}</div>
+      <div role="radiogroup" aria-label={t('App appearance')} style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '.5rem' }}>
         {APPEARANCES.map(a => (
           <button
             key={a.key}
@@ -62,27 +65,31 @@ export default function AppearancePanel({ appearance, onChange }) {
             disabled={busy}
             className="btn btn-g"
             style={{ minHeight: 44, gap: '.35rem', alignItems: 'flex-start', textAlign: 'left', borderColor: a.key === appearance ? 'var(--cta, #FF6B8A)' : undefined }}
-            onClick={() => { setMessage(''); if (a.key !== appearance) setPending(a.key); else setPending(null); }}
+            onClick={() => { setMessage(null); if (a.key !== appearance) setPending(a.key); else setPending(null); }}
           >
             <IconPreview iconKey={a.key} />
             <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-              <span>{a.label}{a.key === appearance ? ' ✓' : ''}</span>
-              <span style={noteStyle}>{a.hint}</span>
+              <span>{appearanceLabel(a.key)}{a.key === appearance ? ' ✓' : ''}</span>
+              <span style={noteStyle}>{appearanceHint(a.key)}</span>
             </span>
           </button>
         ))}
       </div>
       {pending && (
-        <div role="group" aria-label="Confirm app appearance" style={{ ...noteStyle, color: 'var(--cream)' }}>
-          <div>The app will appear as “{labelOf(pending)}” in your app list; your old home-screen shortcut will disappear. It can take a moment to update, and some launchers need a restart. The app may close once when this changes.</div>
+        <div role="group" aria-label={t('Confirm app appearance')} style={{ ...noteStyle, color: 'var(--cream)' }}>
+          {/* i18n-note: the name in quotes is the English launcher label (Android resources are English), so it matches what the phone shows */}
+          <div>{t('The app will appear as “{label}” in your app list; your old home-screen shortcut will disappear. It can take a moment to update, and some launchers need a restart. The app may close once when this changes.', { label: launcherName(pending) })}</div>
           <div style={{ display: 'flex', gap: '.5rem', marginTop: '.5rem' }}>
-            <button type="button" className="btn btn-p" style={{ minHeight: 44 }} disabled={busy} onClick={confirm}>Change</button>
-            <button type="button" className="btn btn-g" style={{ minHeight: 44 }} disabled={busy} onClick={() => setPending(null)}>Cancel</button>
+            <button type="button" className="btn btn-p" style={{ minHeight: 44 }} disabled={busy} onClick={confirm}>{t('Change')}</button>
+            <button type="button" className="btn btn-g" style={{ minHeight: 44 }} disabled={busy} onClick={() => setPending(null)}>{t('Cancel')}</button>
           </div>
         </div>
       )}
-      <div role="status" aria-live="polite" style={noteStyle}>{message}</div>
-      <div style={noteStyle}>Android still shows the real app name in Settings → Apps and in notifications.</div>
+      <div role="status" aria-live="polite" style={noteStyle}>
+        {message && message.kind === 'done' && t('Done. Look for “{label}” in your app list. You may need to add it to your home screen again.', { label: launcherName(message.key) })}
+        {message && message.kind === 'failed' && t("Couldn't change the app appearance. Nothing was changed.")}
+      </div>
+      <div style={noteStyle}>{t('Android still shows the real app name in Settings → Apps and in notifications.')}</div>
     </div>
   );
 }
