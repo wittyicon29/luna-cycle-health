@@ -295,7 +295,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .dk .di{font-size:1.15rem;transition:transform .2s}
 .dk:hover .di{transform:translateY(-2px)}
 .dk .dl{font-size:.58rem;font-weight:500;letter-spacing:.05em;text-transform:uppercase}
-@media(max-width:340px){.cal-body{padding-left:.25rem;padding-right:.25rem}.cal-grid{gap:1px}.dk .dl{font-size:.54rem;letter-spacing:.02em}.dk{padding:.4rem .15rem}}
+@media(max-width:340px){.dk .dl{font-size:.54rem;letter-spacing:.02em}.dk{padding:.4rem .15rem}}
 .dock-log{width:46px;height:46px;border-radius:50%;background:#FF6B8A;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1.4rem;color:#fff;box-shadow:0 0 20px rgba(255, 107, 138, 0.45);transition:all .2s;user-select:none;flex-shrink:0}
 .dock-log:hover{transform:scale(1.1) rotate(8deg);background:#FF4D70;box-shadow:0 0 25px rgba(255, 107, 138, 0.6)}
 .dock-log:active{transform:scale(.95)}
@@ -303,6 +303,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 /* OVERLAY / DRAWER */
 .cal-body{flex:1;overflow-y:auto;padding:1rem 1rem 1.5rem}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+@media(max-width:340px){.cal-body{padding-left:.25rem;padding-right:.25rem}.cal-grid{gap:1px}}
 .cal-wd{text-align:center;font-size:.7rem;color:var(--muted);padding:.25rem 0}
 .cal-day{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-width:0;border-radius:10px;border:1px solid transparent;background:transparent;color:var(--cream);font-size:.9rem;cursor:pointer;padding:2px 0}
 .cal-day.out{opacity:.4}
