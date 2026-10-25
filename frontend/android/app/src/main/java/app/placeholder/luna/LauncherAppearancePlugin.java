@@ -68,7 +68,9 @@ public class LauncherAppearancePlugin extends Plugin {
         try {
             setState(target, true);                       // never leave zero launcher entries
             for (int i = 0; i < KEYS.length; i++) if (i != target) setState(i, false);
-            if (currentIndex() != target) throw new IllegalStateException("verify failed");
+            for (int i = 0; i < KEYS.length; i++) {
+                if (isEnabled(i) != (i == target)) throw new IllegalStateException("verify failed");
+            }
             call.resolve(result(target));
         } catch (Exception e) {
             try {

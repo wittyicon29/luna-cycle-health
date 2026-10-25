@@ -18,13 +18,24 @@ RES="$ROOT/frontend/android/app/src/main/res/values/strings.xml"
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
+# Labels are read from the APK itself (resource table -> string pool) so a stale APK cannot pass.
+RES_DUMP="$("$AAPT" dump resources "$APK")"
+STR_DUMP="$("$AAPT" dump strings "$APK")"
 for pair in 'default:Luna Health' 'notes:Notes' 'planner:Daily Planner' 'journal:Journal' 'checklist:Checklist' 'organizer:Organizer'; do
   key="${pair%%:*}"; val="${pair#*:}"
-  grep -qF "<string name=\"launcher_label_$key\">$val</string>" "$RES" || fail "strings.xml missing launcher_label_$key = $val"
+  idx="$(printf '%s\n' "$RES_DUMP" | sed -n "s/.*string\/launcher_label_$key: t=0x03 d=0x\([0-9a-f]*\) .*/\1/p" | head -1)"
+  if [ -n "$idx" ]; then
+    got="$(printf '%s\n' "$STR_DUMP" | sed -n "s/^String #$((16#$idx)): //p" | head -1)"
+    [ "$got" = "$val" ] || fail "APK launcher_label_$key is '$got', expected '$val'"
+  else
+    echo "WARN: cannot resolve launcher_label_$key in APK; falling back to source strings.xml" >&2
+    grep -qF "<string name=\"launcher_label_$key\">$val</string>" "$RES" || fail "strings.xml missing launcher_label_$key = $val"
+  fi
 done
 
 "$AAPT" dump xmltree "$APK" AndroidManifest.xml | python3 -I -c '
 import re, sys
+IS_RELEASE = "release" in sys.argv[1]
 lines = sys.stdin.read().splitlines()
 def fail(m):
     print("FAIL: " + m, file=sys.stderr); sys.exit(1)
@@ -84,8 +95,10 @@ if any(k["name"] == "intent-filter" for k in m["kids"]):
 app = [e for e in elems if e["name"] == "application"][0]
 ab = app["attrs"].get("android:allowBackup", "")
 if not ab.startswith("(type 0x12)0x0"): fail("allowBackup must be false, got %s" % ab)
+uc = app["attrs"].get("android:usesCleartextTraffic", "")
+if IS_RELEASE and not uc.startswith("(type 0x12)0x0"): fail("usesCleartextTraffic must be false, got %s" % uc)
 print("manifest ok: 6 aliases, default enabled only, MainActivity private")
-'
+' "$APK"
 
 # debuggable must be absent only for release APKs
 case "$APK" in
