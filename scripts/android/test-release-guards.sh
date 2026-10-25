@@ -21,6 +21,9 @@ make_copy() {
   cp "$SRC/frontend/android/app/src/main/res/values/strings.xml" "$d/frontend/android/app/src/main/res/values/"
   cp "$SRC/frontend/android/app/src/main/java/app/placeholder/luna/MainActivity.java" \
      "$d/frontend/android/app/src/main/java/app/placeholder/luna/"
+  cp "$SRC/frontend/android/app/src/main/java/app/placeholder/luna/LauncherAppearancePlugin.java" \
+     "$d/frontend/android/app/src/main/java/app/placeholder/luna/"
+  cp "$SRC/frontend/android/app/src/main/AndroidManifest.xml" "$d/frontend/android/app/src/main/"
   cp "$SRC/frontend/android/README.md" "$d/frontend/android/README.md"
   mkdir -p "$d/frontend/android/app/src/main/assets"
   echo '{"appId":"app.placeholder.luna"}' > "$d/frontend/android/app/src/main/assets/capacitor.config.json"
@@ -117,6 +120,21 @@ grep -q org.realco.luna "$B/frontend/android/app/src/main/assets/capacitor.confi
 [ -d "$B/frontend/android/app/src/main/java/app" ] && fail "old package dir remains" || pass "old package dir removed"
 grep -q '^package org.realco.luna;' "$B/frontend/android/app/src/main/java/org/realco/luna/MainActivity.java" \
   && pass "package line updated" || fail "package line not updated"
+
+NEWJ="$B/frontend/android/app/src/main/java/org/realco/luna"
+[ -f "$NEWJ/LauncherAppearancePlugin.java" ] && pass "LauncherAppearancePlugin moved" || fail "LauncherAppearancePlugin not moved"
+grep -q '^package org.realco.luna;' "$NEWJ/LauncherAppearancePlugin.java" \
+  && pass "plugin package line updated" || fail "plugin package line not updated"
+grep -q 'registerPlugin(LauncherAppearancePlugin.class)' "$NEWJ/MainActivity.java" \
+  && pass "MainActivity still registers the plugin" || fail "plugin registration lost"
+MANIFEST="$B/frontend/android/app/src/main/AndroidManifest.xml"
+ALIASES_OK=1
+for a in LauncherDefault LauncherNotes LauncherPlanner LauncherJournal LauncherChecklist LauncherOrganizer; do
+  grep -q "android:name=\"\.$a\"" "$MANIFEST" || ALIASES_OK=0
+done
+[ $ALIASES_OK -eq 1 ] && pass "all six launcher aliases unchanged" || fail "launcher aliases changed or missing"
+n="$(grep -rl --include='*.java' LauncherAppearancePlugin "$B/frontend/android/app/src/main/java" | grep -vc MainActivity.java)"
+[ "$n" = "1" ] && pass "exactly one plugin source file" || fail "plugin source file count is $n"
 
 echo
 if [ $FAILS -eq 0 ]; then echo "ALL PASSED"; else echo "$FAILS FAILED"; exit 1; fi
