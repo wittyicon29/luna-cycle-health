@@ -1,4 +1,13 @@
+"""Language support for AI prompts.
+
+v1 scope: the Hindi instruction is appended to the user-facing prompts only (chat, and the Qwen
+report in analysis). The clinical MedGemma analysis (medical_analysis / risk_flags / health_insights)
+stays English, and fallback texts are English.
+"""
 SUPPORTED_LANGUAGES = ("en", "hi")
+
+# Devanagari uses several times more tokens than English.
+HINDI_MAX_TOKENS = 4096
 
 _HINDI = (
     "LANGUAGE: The user has chosen Hindi. Reply in Hindi written in Devanagari script, using simple everyday words "

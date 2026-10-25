@@ -37,8 +37,9 @@ def captured(monkeypatch):
     calls = {"qwen": [], "medgemma": []}
     answer = {"qwen": "{}"}
 
-    async def fake_qwen(prompt, system_prompt=None):
+    async def fake_qwen(prompt, system_prompt=None, **kwargs):
         calls["qwen"].append((prompt, system_prompt))
+        calls.setdefault("kwargs", []).append(kwargs)
         return answer["qwen"]
 
     async def fake_medgemma(prompt):
@@ -168,3 +169,60 @@ def test_language_instruction_content():
 def test_requests_without_language_still_accepted(client, fixed_periods, captured):
     assert chat(client, fixed_periods).status_code == 200
     assert analyze_with(client, fixed_periods).status_code == 200
+
+
+def test_max_tokens_default_for_english_and_higher_for_hindi_chat(client, fixed_periods, captured):
+    assert chat(client, fixed_periods).status_code == 200
+    assert chat(client, fixed_periods, language="hi").status_code == 200
+    assert captured["kwargs"] == [{}, {"max_tokens": 4096}]
+
+
+def test_max_tokens_default_for_english_and_higher_for_hindi_analysis(client, fixed_periods, captured):
+    assert analyze_with(client, fixed_periods).status_code == 200
+    assert analyze_with(client, fixed_periods, language="hi").status_code == 200
+    assert captured["kwargs"] == [{}, {"max_tokens": 4096}]
+
+
+@pytest.mark.parametrize("language,expected", [("en", 2048), (None, 2048), ("hi", 4096)])
+def test_call_qwen_payload_max_tokens(monkeypatch, language, expected):
+    import asyncio
+
+    sent = {}
+
+    class FakeResponse:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"choices": [{"message": {"content": "ok"}}]}
+
+    class FakeClient:
+        def __init__(self, *a, **k):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def post(self, url, json=None, headers=None):
+            sent.update(json)
+            return FakeResponse()
+
+    monkeypatch.setattr("app.services.llm_service.httpx.AsyncClient", FakeClient)
+    kwargs = {"max_tokens": 4096} if language == "hi" else {}
+    asyncio.run(llm_service.call_qwen("p", "s", **kwargs))
+    assert sent["max_tokens"] == expected
+
+
+def test_truncated_hindi_json_falls_back_cleanly(client, fixed_periods, captured):
+    full = json.dumps(HINDI_VALUES, ensure_ascii=False)
+    captured["answer"]["qwen"] = full[: len(full) // 2]
+
+    response = analyze_with(client, fixed_periods, language="hi")
+
+    assert response.status_code == 200
+    report = response.json()["user_report"]
+    assert report["simple_summary"] == "Your cycle data has been analyzed."
+    assert report["recommendations"] == ["Please consult with a healthcare provider."]
