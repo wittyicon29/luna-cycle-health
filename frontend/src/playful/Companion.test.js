@@ -1,0 +1,44 @@
+import React from "react";
+import { render } from "@testing-library/react";
+import Companion from "./Companion";
+
+const MOODS = ["neutral", "happy", "sleepy", "cozy"];
+
+describe("Companion", () => {
+  test.each(MOODS)("%s renders with its own face", (m) => {
+    const { container } = render(<Companion mood={m} aria-label="x" />);
+    const svg = container.querySelector('svg[viewBox="0 0 64 64"]');
+    expect(svg).toBeTruthy();
+    expect(svg.getAttribute("role")).toBe("img");
+    expect(svg.querySelectorAll("[data-face]")).toHaveLength(1);
+    expect(svg.querySelector("[data-face]").getAttribute("data-face")).toBe(m);
+  });
+  test("faces are distinct", () => {
+    const html = MOODS.map((m) => render(<Companion mood={m} />).container.querySelector("[data-face]").innerHTML);
+    expect(new Set(html).size).toBe(4);
+  });
+  test("animate=false has no animation markup", () => {
+    const { container } = render(<Companion mood="happy" sparkles />);
+    expect(container.querySelector(".lc-animate")).toBeNull();
+    expect(container.querySelector(".lc-spark")).toBeNull();
+    expect(container.querySelector(".lc-hop")).toBeNull();
+  });
+  test("animate and sparkles gives three sparks and a hop", () => {
+    const { container } = render(<Companion mood="happy" animate sparkles />);
+    expect(container.querySelector("svg").classList.contains("lc-animate")).toBe(true);
+    expect(container.querySelectorAll(".lc-spark")).toHaveLength(3);
+    expect(container.querySelector(".lc-hop")).toBeTruthy();
+  });
+  test.each(["neutral", "sleepy", "cozy"])("%s never sparkles or hops", (m) => {
+    const { container } = render(<Companion mood={m} animate sparkles />);
+    expect(container.querySelector(".lc-spark")).toBeNull();
+    expect(container.querySelector(".lc-hop")).toBeNull();
+    expect(container.querySelector(".lc-body")).toBeTruthy();
+  });
+  test("size applies", () => {
+    const { container } = render(<Companion size={96} />);
+    const svg = container.querySelector("svg");
+    expect(svg.getAttribute("width")).toBe("96");
+    expect(svg.getAttribute("height")).toBe("96");
+  });
+});
