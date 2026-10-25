@@ -42,7 +42,7 @@ test('shows toggles, wording switch and caption without fertility words', async 
   expect(screen.getByLabelText('Late period check-in')).toBeInTheDocument();
   expect(screen.getByLabelText('Show details in notifications')).toBeInTheDocument();
   expect(screen.getByText('Reminders arrive within a few minutes of the set time.')).toBeInTheDocument();
-  expect(screen.getByText(/details stay hidden while your phone is locked/i)).toBeInTheDocument();
+  expect(screen.getByText(/details are hidden on the lock screen where android allows it/i)).toBeInTheDocument();
   expect(container.textContent).not.toMatch(/ovulat|fertil|pregnan/i);
 });
 
@@ -142,5 +142,5 @@ test('edits during an in-flight permission request are kept and double taps igno
 test('explicit helper text is linked to its checkbox', async () => {
   await setup();
   const box = screen.getByLabelText('Show details in notifications');
-  expect(document.getElementById(box.getAttribute('aria-describedby'))).toHaveTextContent(/stay hidden/i);
+  expect(document.getElementById(box.getAttribute('aria-describedby'))).toHaveTextContent(/hidden on the lock screen/i);
 });

@@ -127,7 +127,7 @@ export default function RemindersPanel({ prefs, onChange }) {
         />
         Show details in notifications
       </label>
-      <div id="reminders-explicit-help" style={note}>Details stay hidden while your phone is locked.</div>
+      <div id="reminders-explicit-help" style={note}>Details are hidden on the lock screen where Android allows it; check Settings → Notifications → Lock screen.</div>
 
       {anyOn && permission && permission !== 'granted' && !message && (
         <div style={{ fontSize: '.75rem', color: 'var(--muted)' }}>{WARN}</div>
