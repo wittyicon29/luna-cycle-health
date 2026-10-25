@@ -5,8 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from ..core.database import get_db
-from ..models.models import Medication, User
-from ..schemas.schemas import MedicationCreate, MedicationResponse, MedicationUpdate
+from ..models.models import DailyLog, Medication, User
+from ..schemas.schemas import DailyLogData, MedicationCreate, MedicationResponse, MedicationUpdate
 from .auth import get_current_user
 
 router = APIRouter(prefix="/medications", tags=["Medications"])
@@ -68,8 +68,30 @@ def update_medication(med_id: UUID, payload: MedicationUpdate, current_user: Use
     return med
 
 
+def _strip_from_logs(db: Session, user: User, med_id: str) -> None:
+    """Remove a deleted medication's id from this user's daily logs (stored encrypted, so filter in Python).
+
+    A stale id would make every later save of that day fail with "Unknown medication". A day left with nothing
+    else in it is deleted, as the server does for any empty day. Runs in the caller's transaction."""
+    for row in db.query(DailyLog).filter(DailyLog.user_id == user.id).all():
+        data = row.data or {}
+        taken = data.get("medications_taken") or []
+        if med_id not in [str(m) for m in taken]:
+            continue
+        kept = {k: v for k, v in data.items() if k != "medications_taken"}
+        rest = [m for m in taken if str(m) != med_id]
+        if rest:
+            kept["medications_taken"] = rest
+        if DailyLogData.model_validate(kept).is_empty():
+            db.delete(row)
+        else:
+            row.data = kept  # assign a new dict so the encrypted column registers the change
+
+
 @router.delete("/{med_id}")
 def delete_medication(med_id: UUID, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    db.delete(_owned(db, med_id, current_user))
+    med = _owned(db, med_id, current_user)
+    _strip_from_logs(db, current_user, str(med.id))
+    db.delete(med)
     db.commit()
     return {"deleted": True}
