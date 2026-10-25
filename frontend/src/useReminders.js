@@ -24,7 +24,7 @@ function summarize(periods) {
   return { lastPeriodStart, lastLoggedOn: newest ? localDateString(newest) : null };
 }
 
-export function useReminders({ token, periods, prefs }) {
+export function useReminders({ token, periods, prefs, appearance }) {
   const lastPrediction = useRef(null);
   const [resumeTick, setResumeTick] = useState(0);
 
@@ -58,5 +58,5 @@ export function useReminders({ token, periods, prefs }) {
       await rebuildReminders({ prefs, prediction: lastPrediction.current, ...summarize(periods) });
     }, DEBOUNCE_MS);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [token, periods, prefs, resumeTick]);
+  }, [token, periods, prefs, appearance, resumeTick]);
 }

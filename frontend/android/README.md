@@ -50,10 +50,12 @@ emulator -avd luna_test -no-window -no-audio -no-snapshot -gpu swiftshader_indir
 adb wait-for-device
 adb reverse tcp:8000 tcp:8000   # lets the app reach the host API at http://localhost:8000
 adb install -r android/app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n <app-id>/.MainActivity
+adb shell monkey -p <app-id> --pct-syskeys 0 -c android.intent.category.LAUNCHER 1
 ```
 
-Use the real application id in the last command (see `capacitor.config.json`).
+Use the real application id in the last command (see `capacitor.config.json`). `MainActivity` is
+not exported, so `am start -n <app-id>/.MainActivity` fails from the shell; start the enabled
+launcher alias instead (`.LauncherDefault`, or the active `.Launcher<Key>`).
 
 ## Release keystore
 
@@ -178,6 +180,60 @@ Optional check-in reminders are scheduled on the device with `@capacitor/local-n
   `adb shell dumpsys notification` (channels `reminders`/`reminders_details` and posted notifications).
 - The plugin adds a boot receiver (not exported) that re-creates alarms after a reboot, which is why
   `RECEIVE_BOOT_COMPLETED` appears in the merged manifest.
+
+## Discreet mode
+
+Discreet mode lets the user change the launcher icon and name so the app is less obvious on a
+shared phone. It is a convenience, not a security feature.
+
+**Entries.** `AndroidManifest.xml` declares six launcher `activity-alias` entries, all pointing
+at `MainActivity`: `.LauncherDefault` (Luna Health), `.LauncherNotes`, `.LauncherPlanner`,
+`.LauncherJournal`, `.LauncherChecklist` and `.LauncherOrganizer`. Exactly one is enabled at a
+time.
+
+**Where things live.**
+- Labels: `app/src/main/res/values/strings.xml`.
+- Icons: `app/src/main/res/drawable/ic_launcher_fg_*` (foregrounds) with the colours in
+  `app/src/main/res/values/launcher_colors.xml`. The manifest points each alias at
+  `@mipmap/ic_launcher_<key>`: `res/mipmap-anydpi-v26/ic_launcher_<key>.xml` is the adaptive icon
+  (binds foreground + colour) and `res/mipmap-anydpi/ic_launcher_<key>.xml` the Android 6-7 fallback.
+  The default entry keeps the regular `@mipmap/ic_launcher`.
+- The in-app picker reads `frontend/src/launcherAppearance.js`, which mirrors the labels and the
+  icon artwork (previews are inline SVGs). Changing a label means updating both `strings.xml` and
+  `launcherAppearance.js`; changing an icon means updating the vector and `APPEARANCE_ICONS`. Tests
+  check that labels, alias names, colours and paths match.
+- The native side is the app-local `LauncherAppearancePlugin.java`. The rename script moves it
+  with the rest of the package.
+
+**How it works.** `MainActivity` is not exported; only the aliases are. The plugin enables the
+chosen alias first and then disables the others (enable-then-disable), so the app always keeps
+at least one launcher entry. Disabling the alias the app was started from sends it to the home
+screen (and some devices close it), so the app updates the reminder wording before the switch.
+The old home-screen shortcut disappears and the new entry normally shows in the app list only.
+`getAppearance` self-heals an inconsistent state (several aliases enabled, or none): it keeps the
+lowest enabled one (the default when none) and disables the rest.
+
+**Limits.** The real app name still appears in Settings > Apps, in the notification header, in
+the Play listing, and possibly on the system or brief splash icon. Reminder notifications use a
+neutral title and, when disguised, a neutral status-bar icon (`ic_stat_neutral`, instead of the
+moon `ic_stat_luna`), but the header still shows the app name. The data export file is named
+`luna-health-export-<date>.json` and shows that name in the share sheet. Notifications delivered
+before a switch may open nothing, because their intent targets the old alias.
+
+**Play policy.** Icons and names must not imitate other apps or misrepresent what the app does.
+Review the current Google Play metadata and deceptive-behaviour policies before release.
+
+**Verify.**
+```bash
+bash scripts/android/test-launcher-aliases.sh   # needs the built APK
+adb shell pm query-activities --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER app.placeholder.luna
+adb shell dumpsys package app.placeholder.luna | grep -A2 Launcher
+bash scripts/android/test-release-guards.sh     # rename script moves the plugin and keeps the aliases
+```
+`MainActivity` is not exported, so `adb shell am start -n <id>/.MainActivity` fails with a
+SecurityException. Start the enabled alias, e.g. `adb shell am start -n <id>/.LauncherDefault` (or
+the active `.Launcher<Key>`), or `adb shell monkey -p <id> --pct-syskeys 0 -c android.intent.category.LAUNCHER 1`.
+`test-launcher-aliases.sh` checks a built APK, so rebuild before relying on it.
 
 ## Known behaviours
 

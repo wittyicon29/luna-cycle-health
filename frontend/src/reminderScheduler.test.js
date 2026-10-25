@@ -4,8 +4,10 @@ const mockLN = {
 };
 jest.mock('./platform', () => ({ isNative: jest.fn() }));
 jest.mock('@capacitor/local-notifications', () => ({ LocalNotifications: mockLN }));
+jest.mock('./launcherAppearance', () => ({ getAppearance: jest.fn(), isDiscreet: jest.requireActual('./launcherAppearance').isDiscreet }));
 
 const { isNative } = require('./platform');
+const { getAppearance: getAppearanceMock } = require('./launcherAppearance');
 const sched = require('./reminderScheduler');
 const { DEFAULT_PREFS } = require('./reminderPrefs');
 
@@ -15,6 +17,7 @@ const NOW = new Date(2026, 9, 1, 8, 0);
 beforeEach(() => {
   localStorage.clear();
   isNative.mockReturnValue(true);
+  getAppearanceMock.mockResolvedValue('default');
   mockLN.checkPermissions.mockResolvedValue({ display: 'granted' });
   mockLN.requestPermissions.mockResolvedValue({ display: 'granted' });
   mockLN.createChannel.mockResolvedValue(undefined);
@@ -202,4 +205,85 @@ test('a rebuild requested after a teardown still runs', async () => {
   await sched.teardownReminders();
   const r = await sched.rebuildReminders({ prefs: prefs(), now: NOW });
   expect(r.scheduled).toBeGreaterThan(0);
+});
+
+describe('appearance-aware titles', () => {
+  const { getAppearance } = require('./launcherAppearance');
+  const explicit = prefs({ explicit: true });
+
+  test('discreet appearances use a neutral title for neutral and explicit wording', () => {
+    expect(sched.reminderText('dailyLog', DEFAULT_PREFS, 'notes')).toEqual({ title: 'Reminder', body: 'Time for your check-in.' });
+    expect(sched.reminderText('dailyLog', explicit, 'notes')).toEqual({ title: 'Reminder', body: 'Have you logged today?' });
+  });
+
+  test('default appearance or none keeps the Luna title', () => {
+    expect(sched.reminderText('dailyLog', DEFAULT_PREFS, 'default').title).toBe('Luna');
+    expect(sched.reminderText('dailyLog', DEFAULT_PREFS).title).toBe('Luna');
+    expect(sched.reminderText('dailyLog', explicit).title).toBe('Luna');
+  });
+
+  const titles = async () => {
+    await sched.rebuildReminders({ prefs: prefs(), now: NOW });
+    return mockLN.schedule.mock.calls[0][0].notifications.map(n => n.title);
+  };
+
+  test('rebuild reads the appearance: journal gives Reminder', async () => {
+    getAppearance.mockResolvedValue('journal');
+    const t = await titles();
+    expect(t.length).toBeGreaterThan(0);
+    expect(new Set(t)).toEqual(new Set(['Reminder']));
+  });
+
+  test('rebuild with default gives Luna', async () => {
+    getAppearance.mockResolvedValue('default');
+    expect(new Set(await titles())).toEqual(new Set(['Luna']));
+  });
+
+  test('rebuild still schedules when getAppearance rejects', async () => {
+    getAppearance.mockRejectedValue(new Error('x'));
+    expect(new Set(await titles())).toEqual(new Set(['Luna']));
+  });
+});
+
+describe('neutral small icon, override and remembered args', () => {
+  const { getAppearance } = require('./launcherAppearance');
+  const icons = () => mockLN.schedule.mock.calls.at(-1)[0].notifications.map(n => n.smallIcon);
+
+  test('discreet appearance uses the neutral small icon; default keeps the moon', async () => {
+    getAppearance.mockResolvedValue('notes');
+    await sched.rebuildReminders({ prefs: prefs(), now: NOW });
+    expect(new Set(icons())).toEqual(new Set(['ic_stat_neutral']));
+    getAppearance.mockResolvedValue('default');
+    await sched.rebuildReminders({ prefs: prefs(), now: NOW });
+    expect(new Set(icons())).toEqual(new Set(['ic_stat_luna']));
+  });
+
+  test('rebuildReminders honours an appearance override without reading the plugin', async () => {
+    getAppearance.mockResolvedValue('default');
+    await sched.rebuildReminders({ prefs: prefs(), now: NOW, appearance: 'journal' });
+    expect(getAppearance).not.toHaveBeenCalled();
+    expect(mockLN.schedule.mock.calls[0][0].notifications[0].title).toBe('Reminder');
+  });
+
+  test('rebuildRemindersForAppearance replays the remembered args; no-op when none', async () => {
+    await sched.teardownReminders();
+    mockLN.schedule.mockClear();
+    expect(await sched.rebuildRemindersForAppearance('notes')).toEqual({ skipped: 'nothing-remembered' });
+    expect(mockLN.schedule).not.toHaveBeenCalled();
+    await sched.rebuildReminders({ prefs: prefs(), now: NOW });
+    mockLN.schedule.mockClear();
+    const r = await sched.rebuildRemindersForAppearance('notes');
+    expect(r.scheduled).toBeGreaterThan(0);
+    const n = mockLN.schedule.mock.calls[0][0].notifications;
+    expect(new Set(n.map(x => x.title))).toEqual(new Set(['Reminder']));
+    expect(new Set(n.map(x => x.smallIcon))).toEqual(new Set(['ic_stat_neutral']));
+  });
+
+  test('teardown clears the remembered args', async () => {
+    await sched.rebuildReminders({ prefs: prefs(), now: NOW });
+    await sched.teardownReminders();
+    mockLN.schedule.mockClear();
+    expect(await sched.rebuildRemindersForAppearance('notes')).toEqual({ skipped: 'nothing-remembered' });
+    expect(mockLN.schedule).not.toHaveBeenCalled();
+  });
 });

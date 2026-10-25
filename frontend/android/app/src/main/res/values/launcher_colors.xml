@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="launcher_bg_notes">#E9C46A</color>
+    <color name="launcher_bg_planner">#2F4B7C</color>
+    <color name="launcher_bg_journal">#F0E6D8</color>
+    <color name="launcher_bg_checklist">#2E5E4E</color>
+    <color name="launcher_bg_organizer">#3B3F5C</color>
+</resources>

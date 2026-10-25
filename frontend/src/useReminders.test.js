@@ -62,6 +62,17 @@ test('quick changes debounce to one rebuild', async () => {
   expect(rebuildReminders).toHaveBeenCalledTimes(1);
 });
 
+test('changing only appearance re-triggers a debounced rebuild', async () => {
+  const { rerender } = render(<Probe token="t" periods={P1} prefs={ON} appearance="default" />);
+  await flush(500);
+  expect(rebuildReminders).toHaveBeenCalledTimes(1);
+  rerender(<Probe token="t" periods={P1} prefs={ON} appearance="notes" />);
+  await flush(499);
+  expect(rebuildReminders).toHaveBeenCalledTimes(1);
+  await flush(1);
+  expect(rebuildReminders).toHaveBeenCalledTimes(2);
+});
+
 test('prediction failure still rebuilds with null', async () => {
   API.periods.prediction.mockRejectedValue(new Error('x'));
   render(<Probe token="t" periods={P1} prefs={ON} />);
