@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field, StringConstraints, model_validator, validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints, model_validator, validator
 from datetime import date, datetime, timedelta
 from typing import Annotated, Optional, List, Dict, Any, Literal
 from uuid import UUID
@@ -168,3 +168,33 @@ class GoogleIdTokenRequest(BaseModel):
     id_token: str = Field(min_length=20, max_length=4096)
     accepted_privacy_policy: bool = False
     confirmed_18_plus: bool = False
+
+
+MedicationName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=60)]
+
+
+class MedicationCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: MedicationName
+
+
+class MedicationUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: Optional[MedicationName] = None
+    archived: Optional[bool] = None
+
+    @model_validator(mode="after")
+    def need_a_field(self):
+        if self.name is None and self.archived is None:
+            raise ValueError("Nothing to update")
+        return self
+
+
+class MedicationResponse(BaseModel):
+    id: UUID
+    name: str
+    archived: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

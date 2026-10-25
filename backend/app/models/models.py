@@ -33,6 +33,7 @@ class User(Base):
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
     chat_messages = relationship("ChatMessage", back_populates="user", cascade="all, delete-orphan")
     consents = relationship("ConsentRecord", back_populates="user", cascade="all, delete-orphan")
+    medications = relationship("Medication", back_populates="user", cascade="all, delete-orphan")
 
 class Period(Base):
     __tablename__ = "periods"
@@ -49,6 +50,18 @@ class Period(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     
     user = relationship("User", back_populates="periods")
+
+class Medication(Base):
+    __tablename__ = "medications"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    name = Column(EncryptedText, nullable=False)
+    archived = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="medications")
+
 
 class Questionnaire(Base):
     __tablename__ = "questionnaires"

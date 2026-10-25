@@ -1,8 +1,8 @@
 from datetime import date
 
 from app.core.security import create_access_token
-from app.models.models import (Analysis, ChatMessage, ConsentRecord, Period,
-                               Questionnaire)
+from app.models.models import (Analysis, ChatMessage, ConsentRecord, Medication,
+                               Period, Questionnaire)
 
 
 def headers_for(user):
@@ -29,7 +29,7 @@ def test_export_contains_decrypted_user_data(client, db, make_user):
     assert body["questionnaires"][0]["responses"] == {"pain": 3}
     assert body["chat_messages"][0]["content"] == "hello luna"
     assert set(body) == {"exported_at", "account", "periods", "questionnaires",
-                         "analyses", "chat_messages", "consents"}
+                         "analyses", "chat_messages", "consents", "medications"}
 
 
 def test_export_never_includes_another_users_data(client, db, make_user):
@@ -87,3 +87,19 @@ def test_export_response_is_not_cacheable(client, make_user):
 
 def test_export_requires_authentication(client):
     assert client.get("/api/v1/account/export").status_code in (401, 403)
+
+
+def test_export_includes_only_own_medications_decrypted(client, db, make_user):
+    mine, theirs = make_user("a@gmail.com"), make_user("b@gmail.com")
+    db.add_all([
+        Medication(user_id=mine.id, name="Iron tablet"),
+        Medication(user_id=theirs.id, name="secret-med"),
+    ])
+    db.commit()
+
+    response = client.get("/api/v1/account/export", headers=headers_for(mine))
+
+    meds = response.json()["medications"]
+    assert [m["name"] for m in meds] == ["Iron tablet"]
+    assert meds[0]["archived"] is False
+    assert "secret-med" not in response.text

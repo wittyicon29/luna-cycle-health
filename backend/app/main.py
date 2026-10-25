@@ -5,7 +5,7 @@ from slowapi.errors import RateLimitExceeded
 from .core.database import engine, Base
 from .core.config import settings
 from .core.limiter import limiter
-from .api import auth, periods, questionnaire, analysis, chat, email_verification, consents, account, legal
+from .api import auth, periods, questionnaire, analysis, chat, email_verification, consents, account, legal, medications
 
 # Create tables (use Alembic in production)
 if settings.APP_ENV == "development":
@@ -40,6 +40,7 @@ app.include_router(chat.router, prefix="/api/v1")
 app.include_router(email_verification.router, prefix="/api/v1")
 app.include_router(consents.router, prefix="/api/v1")
 app.include_router(account.router, prefix="/api/v1")
+app.include_router(medications.router, prefix="/api/v1")
 app.include_router(legal.router)
 
 @app.get("/")
