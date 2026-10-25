@@ -95,7 +95,7 @@ afterEach(english);
 const app = () => render(<JourneyApp token="tok" email="u@gmail.com" onLogout={jest.fn()} />);
 const openProfile = async () => {
   const utils = app();
-  await screen.findByText('चक्र का दिन');
+  await waitFor(() => expect(document.querySelector('.today-card')).toBeTruthy());
   userEvent.click(screen.getByRole('button', { name: 'प्रोफ़ाइल खोलें' }));
   await screen.findByText('Luna Health सदस्य');
   return { ...utils, drawer: document.querySelector('.drawer') };

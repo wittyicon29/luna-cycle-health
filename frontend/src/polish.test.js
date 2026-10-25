@@ -66,7 +66,7 @@ test('the Phase stat shrinks and truncates instead of overflowing its cell', () 
 
   expect(app).toMatch(/\.st-item\{[^}]*min-width:0/);
   expect(app).toMatch(/\.st-val-phase\{[^}]*font-size:\.85rem[^}]*overflow:hidden[^}]*text-overflow:ellipsis[^}]*white-space:nowrap/);
-  expect(app).toMatch(/className="st-val st-val-phase"/);
+  expect(read('src/home/TodayCard.js')).toMatch(/className="st-val st-val-phase"/);
 });
 
 test('marker card first rows leave room for the close button', () => {

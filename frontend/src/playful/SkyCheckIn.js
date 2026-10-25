@@ -12,7 +12,7 @@ const NONE = Symbol("none");
 
 // One-tap weather check-in. It merges the mood into today's existing log (never overwriting other fields)
 // and serialises writes: one request at a time, later taps collapse into a single queued choice.
-export default function SkyCheckIn({ token, logs, logsReady, onSaved, onAddDetails }) {
+export default function SkyCheckIn({ token, logs, logsReady, onSaved, onAddDetails, compact = false, onShownChange }) {
   const { animated } = usePlayful();
   const today = localDateString();
   const [shown, setShown] = useState(() => (logsReady && logs && logs[today] ? logs[today].mood ?? null : null));
@@ -27,6 +27,7 @@ export default function SkyCheckIn({ token, logs, logsReady, onSaved, onAddDetai
   const shownRef = useRef(shown);
   const latest = useRef({});
   latest.current = { token, logs, logsReady, onSaved, animated };
+  useEffect(() => { if (onShownChange) onShownChange(shown); }, [shown]); // eslint-disable-line react-hooks/exhaustive-deps
   const setMood = v => { shownRef.current = v; if (mounted.current) setShown(v); };
 
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; clearTimeout(pulseTimer.current); }; }, []);
@@ -90,21 +91,21 @@ export default function SkyCheckIn({ token, logs, logsReady, onSaved, onAddDetai
     if (refs.current[idx]) refs.current[idx].focus();
   };
 
-  const wrap = { padding: ".35rem .85rem", minWidth: 0 };
+  const wrap = { padding: compact ? 0 : ".35rem .85rem", minWidth: 0 };
   return (
     <section aria-labelledby="sky-title" style={wrap}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: ".5rem", flexWrap: "wrap", minWidth: 0 }}>
-        <div id="sky-title" style={{ fontSize: ".72rem", fontWeight: 600, minWidth: 0 }}>
+        <div id="sky-title" className={compact ? "vh" : undefined} style={{ fontSize: ".72rem", fontWeight: 600, minWidth: 0 }}>
           {shown != null ? t("Today's sky: {label}", { label: moodLabel(shown - 1) }) : t("How's your sky today?")}
         </div>
-        {shown != null && (
+        {shown != null && !compact && (
           <button type="button" className="btn btn-g" style={{ minHeight: 44, fontSize: ".7rem", padding: "0 .6rem" }} onClick={onAddDetails}>
             {t("Add details")}
           </button>
         )}
       </div>
       <div className="sky-row" role="radiogroup" aria-labelledby="sky-title" onKeyDown={onKey}
-        style={{ flexWrap: "wrap", margin: ".2rem 0 0", gap: ".3rem", minWidth: 0 }}>
+        style={{ flexWrap: compact ? "nowrap" : "wrap", margin: compact ? 0 : ".2rem 0 0", gap: ".3rem", minWidth: 0 }}>
         {WEATHER.map((w, i) => {
           const on = shown === w.value;
           const stop = shown == null ? i === 0 : on;
@@ -117,7 +118,7 @@ export default function SkyCheckIn({ token, logs, logsReady, onSaved, onAddDetai
               onAnimationEnd={() => setPulse(null)}
               onClick={() => select(w.value)}>
               <WeatherIcon name={w.key} size={36} active={on} plate={false} />
-              <span>{label}</span>
+              <span className={compact ? "vh" : undefined}>{label}</span>
             </button>
           );
         })}

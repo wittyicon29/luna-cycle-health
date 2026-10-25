@@ -295,3 +295,52 @@ test('every check-in reads today first, and a failed read sends no PUT', async (
   expect(screen.getByRole('alert')).toHaveTextContent("Couldn't save your check-in. Try again.");
   expect(radio('Good')).toHaveAttribute('aria-checked', 'true');
 });
+
+describe('compact mode', () => {
+  test('hides the Add details button and keeps the radiogroup and radios labelled', () => {
+    draw({ compact: true, logs: { [TODAY]: FULL } });
+    expect(screen.queryByRole('button', { name: 'Add details' })).toBeNull();
+    expect(screen.getByRole('radiogroup', { name: /sky/i })).toBeInTheDocument();
+    expect(document.getElementById('sky-title')).toHaveClass('vh');
+    LABELS.forEach(l => {
+      const r = radio(l);
+      expect(r.querySelector('span')).toHaveClass('vh');
+      expect(r.style.minWidth).toBe('0');
+    });
+    expect(screen.getByRole('radiogroup').style.flexWrap).not.toBe('wrap');
+    expect(screen.getByRole('radiogroup').style.margin).toBe('0px');
+  });
+
+  test('default mode keeps the visible title, labels and wrap', () => {
+    draw({ logs: { [TODAY]: FULL } });
+    expect(document.getElementById('sky-title')).not.toHaveClass('vh');
+    expect(radio('Good').querySelector('span')).not.toHaveClass('vh');
+    expect(screen.getByRole('button', { name: 'Add details' })).toBeInTheDocument();
+  });
+
+  test('a tap still lists then merges', async () => {
+    draw({ compact: true, logs: { [TODAY]: FULL } });
+    fireEvent.click(radio('Good'));
+    await flush();
+    expect(API.logs.list).toHaveBeenCalledTimes(1);
+    expect(API.logs.put).toHaveBeenCalledWith(TODAY, { symptoms: ['cramps'], medications_taken: [UUID], note: 'n', flow: 'light', sleep_hours: 7, water_glasses: 0, mood: 4 }, 'tok');
+    expect(API.logs.list.mock.invocationCallOrder[0]).toBeLessThan(API.logs.put.mock.invocationCallOrder[0]);
+  });
+
+  test('onShownChange gets null first, then 4 after saving Good', async () => {
+    const onShownChange = jest.fn();
+    draw({ compact: true, onShownChange });
+    expect(onShownChange).toHaveBeenNthCalledWith(1, null);
+    fireEvent.click(radio('Good'));
+    await flush();
+    expect(onShownChange).toHaveBeenLastCalledWith(4);
+  });
+
+  test('a failed PUT still renders the alert', async () => {
+    API.logs.put.mockRejectedValueOnce(new Error('x'));
+    draw({ compact: true });
+    fireEvent.click(radio('Good'));
+    await flush();
+    expect(screen.getByRole('alert')).toHaveTextContent("Couldn't save your check-in. Try again.");
+  });
+});

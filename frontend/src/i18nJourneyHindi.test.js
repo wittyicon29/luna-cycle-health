@@ -62,7 +62,9 @@ beforeEach(() => {
 afterEach(english);
 
 const app = () => render(<JourneyApp token="tok" email="u@gmail.com" onLogout={jest.fn()} />);
-const ready = async () => { await screen.findByText('चक्र का दिन'); await waitFor(() => expect(document.querySelector('.j-canvas')).toBeTruthy()); };
+const ready = async () => { await waitFor(() => expect(document.querySelector('.today-card')).toBeTruthy()); await waitFor(() => expect(document.querySelector('.j-canvas')).toBeTruthy()); };
+// The stats now live in the collapsed Today card's panel.
+const openCard = container => { userEvent.click(container.querySelector('.today-chev')); return container.querySelector('.today-panel'); };
 
 describe('dateLocale', () => {
   test('English keeps the explicit en locale, Hindi uses the Hindi tag', () => {
@@ -84,7 +86,9 @@ describe('JourneyApp shell in Hindi', () => {
     ['यात्रा', 'कैलेंडर', 'इनसाइट्स', 'चैट', 'प्रोफ़ाइल'].forEach(l => expect(within(dock).getByText(l)).toBeInTheDocument());
     expect(screen.getByRole('button', { name: 'माहवारी दर्ज करें' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'प्रोफ़ाइल खोलें' })).toBeInTheDocument();
-    const strip = container.querySelector('.stats-strip');
+    expect(container.querySelector('.today-sum').textContent).toMatch(/^दिन \d+ · .+ · अगली माहवारी \d+ दिन/);
+    const strip = openCard(container);
+    noEnglish(container);
     ['चक्र का दिन', 'अगली माहवारी', 'औसत चक्र', 'दर्ज', 'चरण'].forEach(l => expect(within(strip).getByText(l)).toBeInTheDocument());
     expect(within(strip).getByText(/^\d+ दिन$/)).toBeInTheDocument();
   });
@@ -93,9 +97,11 @@ describe('JourneyApp shell in Hindi', () => {
     const { container } = app();
     await ready();
     const phases = ['माहवारी', 'फॉलिक्युलर', 'ओव्यूलेशन', 'ल्यूटियल'];
+    openCard(container);
     const tile = container.querySelector('.st-val-phase').textContent;
     expect(phases).toContain(tile);
-    expect(container.querySelector('.cday-badge').textContent).toMatch(new RegExp(`^दिन \\d+ · ${tile}$`));
+    expect(container.querySelector('.today-sum').textContent).toMatch(new RegExp(`^दिन \\d+ · ${tile}`));
+    expect(container.querySelector('.topbar').textContent).not.toMatch(/दिन \d/);
     expect(container.querySelector('.phase-pill').textContent).toMatch(/घाटी|चढ़ाई|शिखर|वापसी/);
     const labels = [...container.querySelectorAll('.phase-sep-lbl')].map(n => n.textContent);
     expect(labels.length).toBeGreaterThan(0);
@@ -163,14 +169,18 @@ describe('JourneyApp shell in Hindi', () => {
     await screen.findByText('आपकी यात्रा आपकी पहली माहवारी से शुरू होती है।');
     noEnglish(container);
     expect(screen.getByRole('button', { name: 'माहवारी दर्ज करें' })).toBeInTheDocument();
-    expect(container.querySelector('.stats-strip').textContent).toContain('अज्ञात');
+    expect(openCard(container).textContent).toContain('अज्ञात');
   });
 
   test('profile banner and loading / consent-error states', async () => {
     API.auth.status.mockResolvedValue({ has_completed_questionnaire: false });
     const { container } = app();
-    await screen.findByRole('region', { name: 'स्वास्थ्य प्रोफ़ाइल' });
     await ready();
+    expect(screen.queryByRole('region', { name: 'स्वास्थ्य प्रोफ़ाइल' })).toBeNull();
+    await waitFor(() => expect(container.querySelector('.avatar-dot')).toBeTruthy());
+    expect(screen.getByRole('button', { name: 'प्रोफ़ाइल खोलें' })).toHaveAccessibleDescription('प्रोफ़ाइल अधूरी है');
+    openCard(container);
+    await screen.findByRole('region', { name: 'स्वास्थ्य प्रोफ़ाइल' });
     noEnglish(container);
   });
 
@@ -191,13 +201,14 @@ describe('JourneyApp shell in Hindi', () => {
   test('English is unchanged', async () => {
     english();
     const { container } = app();
+    await ready();
+    const strip = openCard(container);
     await screen.findByText('Cycle Day');
     const dock = container.querySelector('.dock');
     ['Journey', 'Calendar', 'Insights', 'Chat', 'Profile'].forEach(l => expect(within(dock).getByText(l)).toBeInTheDocument());
-    const strip = container.querySelector('.stats-strip');
     ['Cycle Day', 'Next in', 'Avg Cycle', 'Logged', 'Phase'].forEach(l => expect(within(strip).getByText(l)).toBeInTheDocument());
     expect(within(strip).getByText(/^\d+d$/)).toBeInTheDocument();
-    expect(container.querySelector('.cday-badge').textContent).toMatch(/^Day \d+ · (Menstrual|Follicular|Ovulation|Luteal)$/);
+    expect(container.querySelector('.today-sum').textContent).toMatch(/^Day \d+ · (Menstrual|Follicular|Ovulation|Luteal) · Next in \d+d/);
     await waitFor(() => expect(container.querySelectorAll('.p-dot').length).toBeGreaterThan(0));
     const titles = [...container.querySelectorAll('.p-dot')].map(n => n.getAttribute('title'));
     expect(titles).toContain('Predicted period');
@@ -218,6 +229,8 @@ describe('JourneyApp shell in Hindi', () => {
   test('pseudo-locale renders every dock label without crashing', async () => {
     act(() => { setLanguage('en-XA'); });
     const { container } = app();
+    await ready();
+    openCard(container);
     await screen.findAllByText(/\S/, { selector: '.st-lbl' });
     const dock = container.querySelector('.dock');
     expect(dock.querySelectorAll('.dl')).toHaveLength(5);
@@ -420,7 +433,8 @@ describe('Task 5 gaps: predicted marker, unknown phase card, singular days', () 
     await screen.findByText('आपकी यात्रा आपकी पहली माहवारी से शुरू होती है।');
     container.querySelectorAll('.phase-bg').forEach(bg => fireEvent.mouseEnter(bg));
     expect(container.querySelector('.ph-card')).toBeNull();
-    expect(container.querySelector('.stats-strip').textContent).toContain('अज्ञात');
+    await ready();
+    expect(openCard(container).textContent).toContain('अज्ञात');
   });
 
   test('singular {count} day in Hindi and English', async () => {

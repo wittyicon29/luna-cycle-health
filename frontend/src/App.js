@@ -24,8 +24,7 @@ import PeriodDelete from "./PeriodDelete";
 import CalendarScreen from "./CalendarScreen";
 import DaySheet from "./DaySheet";
 import { SYMPTOMS_LIST, symptomLabel, flowLabel } from "./symptoms";
-import ProfileBanner from "./ProfileBanner";
-import SkyCheckIn from "./playful/SkyCheckIn";
+import TodayCard from "./home/TodayCard";
 import DockIcon from "./playful/DockIcon";
 import Companion, { companionMood } from "./playful/Companion";
 import { FogLayer } from "./playful/FogLayer";
@@ -249,16 +248,19 @@ body{font-family:'Outfit','Noto Sans Devanagari',sans-serif;background:var(--bg)
 .loading-c{display:flex;align-items:center;justify-content:center;gap:.75rem;padding:3rem;color:var(--muted);font-size:.78rem}
 
 /* TOPBAR */
-.topbar{height:56px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 1.5rem;background:#0F081A;backdrop-filter:blur(12px);border-bottom:1px solid var(--border);z-index:20}
+.topbar{height:48px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 .75rem;background:#0F081A;border-bottom:1px solid var(--border);z-index:20}
 .tlogo{font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;font-size:1.35rem;font-weight:500;color:var(--cream);letter-spacing:.02em;display:flex;align-items:center;gap:.5rem}
 .tlogo .m{display:inline-block;animation:moonFloat 4s ease-in-out infinite}
-.phase-pill{display:flex;align-items:center;gap:.4rem;padding:.28rem .7rem;border-radius:100px;font-size:.72rem;font-weight:500;letter-spacing:.03em;border:1px solid;white-space:nowrap;transition:all .4s}
-.cday-badge{font-family:'Fira Code','Noto Sans Devanagari',monospace;font-size:.68rem;color:var(--muted);padding:.25rem .6rem;border:1px solid var(--border);border-radius:4px;white-space:nowrap}
+.phase-pill{display:flex;align-items:center;gap:.4rem;padding:.28rem .7rem;border-radius:100px;font-size:.72rem;font-weight:500;letter-spacing:.03em;border:1px solid;white-space:nowrap;transition:all .4s;min-width:0;max-width:100%}
+.phase-pill-lbl{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .avatar-btn{width:44px;height:44px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;color:#fff;border:none;transition:transform .2s,box-shadow .2s;flex-shrink:0}
 .avatar-btn:hover{transform:scale(1.08)}
+.avatar-wrap{position:relative;flex-shrink:0}
+.avatar-dot{position:absolute;top:6px;right:6px;width:10px;height:10px;border-radius:50%;background:#FF6B8A;border:2px solid #0F081A;pointer-events:none}
+@media(max-width:400px){.tlogo-word{display:none}}
 
 /* JOURNEY CANVAS */
-.j-canvas{flex:1;overflow:hidden;position:relative;background:var(--bg)}
+.j-canvas{flex:1;overflow:hidden;position:relative;isolation:isolate;background:var(--bg)}
 .j-scroll{width:100%;height:100%;overflow-x:auto;overflow-y:hidden;cursor:grab;user-select:none}
 .j-empty{position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;padding:1rem;text-align:center;pointer-events:none;font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;font-size:1.3rem;color:var(--cream)}
 .j-empty p{background:rgba(26,15,46,.85);background:color-mix(in srgb,var(--bg) 85%,transparent);padding:.6rem 1rem;border-radius:12px;max-width:100%}
@@ -267,14 +269,14 @@ body{font-family:'Outfit','Noto Sans Devanagari',sans-serif;background:var(--bg)
 .j-inner{height:100%;position:relative;display:flex;flex-direction:column}
 
 /* Month row */
-.month-row{height:26px;flex-shrink:0;position:relative;background:rgba(7,8,12,.9);backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
-.month-lbl{position:absolute;bottom:5px;font-size:.58rem;color:var(--muted);font-weight:500;letter-spacing:.1em;text-transform:uppercase;font-family:'Fira Code','Noto Sans Devanagari',monospace;padding-left:6px}
+.month-row{position:absolute;top:0;left:0;height:18px;z-index:6;background:none;border:none;pointer-events:none}
+.month-lbl{position:absolute;bottom:auto;top:3px;font-size:.58rem;color:var(--muted);font-weight:500;letter-spacing:.1em;text-transform:uppercase;font-family:'Fira Code','Noto Sans Devanagari',monospace;padding-left:6px}
 
 /* Terrain */
 .terrain{flex:1;position:relative;overflow:hidden}
 .phase-bg{position:absolute;top:0;bottom:0;transition:background .3s}
 .phase-sep{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.1);pointer-events:none;z-index:2}
-.phase-sep-lbl{position:absolute;top:8px;font-size:.58rem;letter-spacing:.07em;text-transform:uppercase;font-weight:500;white-space:nowrap;z-index:6;padding:2px 7px;border-radius:3px;backdrop-filter:blur(4px);pointer-events:none;left:5px}
+.phase-sep-lbl{position:absolute;top:22px;font-size:.58rem;letter-spacing:.07em;text-transform:uppercase;font-weight:500;white-space:nowrap;z-index:6;padding:2px 7px;border-radius:3px;backdrop-filter:blur(4px);pointer-events:none;left:5px}
 .week-sep{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.03);pointer-events:none;z-index:1}
 .road{position:absolute;left:0;right:0;height:2px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.05);z-index:1}
 .p-dot{position:absolute;border-radius:50%;z-index:10;top:50%;transform:translate(-50%,-50%);cursor:pointer;transition:transform .2s,box-shadow .2s}
@@ -306,25 +308,35 @@ body{font-family:'Outfit','Noto Sans Devanagari',sans-serif;background:var(--bg)
 .mk-card-close:hover{color:var(--cream)}
 .mk-card-head{padding-right:48px}
 
-/* STATS STRIP */
-.stats-strip{height:58px;flex-shrink:0;border-top:1px solid var(--border);background:#120A22;display:flex;align-items:center;padding:0 1.5rem}
+/* STAT ITEMS (inside the Today card) */
 .st-item{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;border-right:1px solid var(--border)}
 .st-item:last-child{border-right:none}
 .st-val{font-family:'Outfit','Noto Sans Devanagari',sans-serif;font-variant-numeric:lining-nums;font-size:1.4rem;line-height:1;letter-spacing:.01em;color:#FF8FAA}
 .st-val-phase{font-size:.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
 .st-lbl{font-size:.58rem;color:#7A5C90;text-transform:uppercase;letter-spacing:.1em;margin-top:2px;font-weight:500}
+.vh{position:absolute !important;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.today-card{position:relative;flex-shrink:0;background:#120A22;border-top:1px solid var(--border);padding:4px 8px 2px;min-width:0}
+.today-sum{cursor:pointer;font-size:.68rem;color:var(--muted);height:16px;line-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.today-row{display:flex;align-items:center;gap:4px;min-width:0}
+.today-sky{flex:1;min-width:0}
+.today-chev{position:relative;flex-shrink:0;width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;color:var(--muted);cursor:pointer;border-radius:8px}
+.today-panel{position:absolute;left:0;right:0;bottom:100%;z-index:25;max-height:min(60vh,360px);overflow-y:auto;background:#1A0F2E;border-top:1px solid var(--border);padding:.6rem .75rem;display:flex;flex-direction:column;gap:.6rem}
+.today-stats{display:flex;flex-wrap:wrap;gap:.6rem 0}
+.today-stats .st-item{flex:1 1 33%;min-width:84px;border-right:none}
+.today-sky .sky-row{margin:0;flex-wrap:nowrap}
+.today-sky .sky-btn{border-color:transparent;padding:2px}
+.today-sky .sky-btn.on{border-color:#FFC84A}
 
 /* DOCK */
-.dock{height:64px;flex-shrink:0;background:var(--s1);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-around;padding:0 .25rem;z-index:20}
-.dk{flex:1;min-width:0;font-family:'Outfit','Noto Sans Devanagari',sans-serif;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:.4rem .25rem;border-radius:8px;transition:all .2s;user-select:none;min-height:44px;background:transparent;border:none;color:var(--muted)}
+.dock{height:56px;flex-shrink:0;background:var(--s1);border-top:1px solid var(--border);display:flex;align-items:stretch;justify-content:space-around;padding:0 .25rem;z-index:20}
+.dk{flex:1;min-width:0;font-family:'Outfit','Noto Sans Devanagari',sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:7px;cursor:pointer;padding:8px .25rem 0;border-radius:8px;transition:color .2s,background-color .2s;user-select:none;min-height:44px;background:transparent;border:none;color:var(--muted)}
 .dk:hover{color:var(--muted-h);background:var(--s2)}
 .dk.on{color:var(--cream)}
-.dk .di{position:relative;display:flex;margin-bottom:3px;transition:transform .2s}
-.dk.on .di::after{content:"";position:absolute;left:50%;bottom:-6px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:#FF6B8A}
+.dk .di{position:relative;display:flex;transition:transform .2s}
+.dk.on .di::after{content:"";position:absolute;left:50%;bottom:-4px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:#FF6B8A}
 .dk:hover .di{transform:translateY(-2px)}
 .dk .dl{font-size:.58rem;font-weight:500;letter-spacing:.05em;text-transform:uppercase}
-@media(max-width:400px){.cday-badge{display:none}}
-@media(max-width:340px){.topbar{padding:0 .75rem}.topbar>div{min-width:0}.phase-pill{min-width:0;overflow:hidden;text-overflow:ellipsis}.dk .dl{font-size:.54rem;letter-spacing:.02em}.dk{padding:.4rem .15rem}}
+@media(max-width:340px){.dk .dl{font-size:.54rem;letter-spacing:.02em}.dk{padding:8px .15rem 0}}
 .log-fab{position:absolute;right:14px;bottom:14px;z-index:20;display:flex;align-items:center;gap:.4rem;min-height:44px;padding:0 1.1rem 0 .9rem;border:none;border-radius:999px;background:#FF6B8A;color:#fff;font-family:'Outfit','Noto Sans Devanagari',sans-serif;font-size:.85rem;font-weight:600;cursor:pointer;user-select:none;transition:transform .2s}
 .log-fab:hover{transform:scale(1.05)}
 .log-fab:active{transform:scale(.96)}
@@ -363,7 +375,7 @@ body{font-family:'Outfit','Noto Sans Devanagari',sans-serif;background:var(--bg)
 :lang(hi) .auth-logo h1,:lang(hi) .auth-logo p,:lang(hi) .auth-tab,:lang(hi) .f label,:lang(hi) .tlogo,:lang(hi) .phase-pill,:lang(hi) .month-lbl,:lang(hi) .phase-sep-lbl,:lang(hi) .beacon-lbl,:lang(hi) .ph-card-title,:lang(hi) .ph-card-sub,:lang(hi) .st-val,:lang(hi) .st-lbl,:lang(hi) .dk .dl,:lang(hi) .drawer-title,:lang(hi) .ch-lbl,:lang(hi) .bname,:lang(hi) .tk-hd,:lang(hi) .ins-lbl,:lang(hi) .score-num .s,:lang(hi) .pred-lbl,:lang(hi) .badge,:lang(hi) .q-sec-title,:lang(hi) .intro-pill{letter-spacing:0}
 :lang(hi) .st-item{min-width:0}
 :lang(hi) .st-val,:lang(hi) .st-lbl{white-space:nowrap}
-@media(max-width:340px){:lang(hi) .stats-strip{padding:0 .4rem}:lang(hi) .st-val:not(.st-val-phase){font-size:1.05rem}:lang(hi) .st-lbl{font-size:.5rem}}
+@media(max-width:340px){:lang(hi) .st-val:not(.st-val-phase){font-size:1.05rem}:lang(hi) .st-lbl{font-size:.5rem}}
 .drawer-close{background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--muted);transition:color .2s;padding:.2rem;line-height:1;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
 .drawer-close:hover{color:var(--cream)}
 .modal-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.2rem;line-height:1;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
@@ -2107,6 +2119,7 @@ function JourneyApp({ token, email, onLogout }) {
 
   const ph = PHASES[currentPhase] || PHASES.unknown;
   const phText = phaseText(PHASES[currentPhase] ? currentPhase : "unknown");
+  const profilePending = profileIncomplete && !bannerDismissed;
 
   return (
     <div data-playful={playfulMode} style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
@@ -2114,18 +2127,19 @@ function JourneyApp({ token, email, onLogout }) {
       {/* TOP BAR */}
       <div className="topbar">
         <div className="tlogo">
-          <span className="m">◐</span>Luna
+          <span className="m">◐</span><span className="tlogo-word">Luna</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: ".5rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: ".5rem", minWidth: 0, flex: 1, justifyContent: "center" }}>
           {currentPhase !== "unknown" && (
             <div className="phase-pill" style={{ color: ph.color, background: ph.bg, borderColor: ph.border }}>
-              {ph.icon} {phText.territory}
+              <span aria-hidden="true" style={{ flexShrink: 0 }}>{ph.icon}</span>
+              <span className="phase-pill-lbl">{phText.territory}</span>
             </div>
           )}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: ".65rem" }}>
-          {cycleDay && <div className="cday-badge">{t("Day {day} · {phase}", { day: cycleDay, phase: phText.name })}</div>}
-          <button className="avatar-btn" aria-label={t("Open profile")} onClick={() => setOverlay("profile")} style={{ background: `linear-gradient(135deg,${ph.color},#7C66C0)` }}>{email[0]?.toUpperCase()}</button>
+        <div className="avatar-wrap">
+          <button className="avatar-btn" aria-label={t("Open profile")} aria-describedby={profilePending ? "avatar-hint" : undefined} onClick={() => setOverlay("profile")} style={{ background: `linear-gradient(135deg,${ph.color},#7C66C0)` }}>{email[0]?.toUpperCase()}</button>
+          {profilePending && <><span className="avatar-dot" aria-hidden="true" /><span id="avatar-hint" className="vh">{t("Profile incomplete")}</span></>}
         </div>
       </div>
 
@@ -2145,34 +2159,23 @@ function JourneyApp({ token, email, onLogout }) {
       )}
 
       {!loading && !consentError && (
-        <SkyCheckIn token={token} logs={mapLogs} logsReady={logsReady}
-          onSaved={() => setLogsVersion(v => v + 1)} onAddDetails={() => setDayDate(localDateString())} />
+        <TodayCard token={token} logs={mapLogs} logsReady={logsReady}
+          onSaved={() => setLogsVersion(v => v + 1)} onAddDetails={() => setDayDate(localDateString())}
+          cycleDay={cycleDay} daysToNext={daysToNext} avgCycle={avgCycle} periodsCount={periods.length}
+          phaseName={phText.name} phaseColor={ph.color}
+          profilePrompt={profilePending ? {
+            onStart: () => { setForceQuestionnaire(true); setOverlay("profile"); },
+            onLater: () => { try { window.sessionStorage.setItem("luna_profile_banner_dismissed", "1"); } catch (e) { /* ignore */ } setBannerDismissed(true); },
+          } : null} />
       )}
-
-      {profileIncomplete && !bannerDismissed && (
-        <ProfileBanner
-          onStart={() => { setForceQuestionnaire(true); setOverlay("profile"); }}
-          onLater={() => { try { window.sessionStorage.setItem("luna_profile_banner_dismissed", "1"); } catch (e) { /* ignore */ } setBannerDismissed(true); }}
-        />
-      )}
-
-      {/* STATS STRIP */}
-      {/* i18n-note: "Next in" is shown as अगली माहवारी above "N दिन"; the label is long for a five-column strip, check the layout */}
-      <div className="stats-strip">
-        <div className="st-item"><div className="st-val" style={{ color: ph.color, fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", fontSize: "1.2rem" }}>{cycleDay ?? "—"}</div><div className="st-lbl">{t("Cycle Day")}</div></div>
-        <div className="st-item"><div className="st-val">{daysToNext != null ? t("{days}d", { days: daysToNext }) : "—"}</div><div className="st-lbl">{t("Next in")}</div></div>
-        <div className="st-item"><div className="st-val">{avgCycle}</div><div className="st-lbl">{t("Avg Cycle")}</div></div>
-        <div className="st-item"><div className="st-val">{periods.length}</div><div className="st-lbl">{t("Logged")}</div></div>
-        <div className="st-item"><div className="st-val st-val-phase" style={{ color: ph.color, lineHeight: 1.2, fontFamily: "'Outfit','Noto Sans Devanagari',sans-serif" }}>{phText.name}</div><div className="st-lbl">{t("Phase")}</div></div>
-      </div>
 
       {/* BOTTOM DOCK */}
       <div className="dock">
         <button className="dk on" aria-current="page"><span className="di"><DockIcon name="journey" active size={24} /></span><span className="dl">{t("Journey")}</span></button>
-        <button className="dk" onClick={() => setOverlay("calendar")}><span className="di"><DockIcon name="calendar" size={24} /></span><span className="dl">{t("Calendar")}</span></button>
-        <button className="dk" onClick={() => openAi("analysis")}><span className="di"><DockIcon name="insights" size={24} /></span><span className="dl">{t("Insights")}</span></button>
-        <button className="dk" onClick={() => openAi("chat")}><span className="di"><DockIcon name="chat" size={24} /></span><span className="dl">{t("Chat")}</span></button>
-        <button className="dk" onClick={() => setOverlay("profile")}><span className="di"><DockIcon name="profile" size={24} /></span><span className="dl">{t("Profile")}</span></button>
+        <button className="dk" onClick={() => setOverlay("calendar")}><span className="di"><DockIcon name="calendar" size={24} /></span><span className="dl vh">{t("Calendar")}</span></button>
+        <button className="dk" onClick={() => openAi("analysis")}><span className="di"><DockIcon name="insights" size={24} /></span><span className="dl vh">{t("Insights")}</span></button>
+        <button className="dk" onClick={() => openAi("chat")}><span className="di"><DockIcon name="chat" size={24} /></span><span className="dl vh">{t("Chat")}</span></button>
+        <button className="dk" onClick={() => setOverlay("profile")}><span className="di"><DockIcon name="profile" size={24} /></span><span className="dl vh">{t("Profile")}</span></button>
       </div>
 
       {/* OVERLAYS */}
