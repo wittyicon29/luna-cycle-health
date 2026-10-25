@@ -126,10 +126,11 @@ test('quiet mode: panel has no animation styles; no inline filter/backdrop-filte
   });
 });
 
-test('a pending profile prompt is flagged on the chevron without changing its name', () => {
-  render(<TodayCard {...base} profilePrompt={{ onStart: jest.fn(), onLater: jest.fn() }} />);
+test('a pending profile prompt leaves the chevron unflagged (the avatar carries the dot)', () => {
+  const { container } = render(<TodayCard {...base} profilePrompt={{ onStart: jest.fn(), onLater: jest.fn() }} />);
   const c = screen.getByRole('button', { name: /Show today's details/ });
-  expect(c).toHaveAccessibleDescription('Profile incomplete');
+  expect(c).not.toHaveAttribute('aria-describedby');
+  expect(container.querySelector('.today-dot')).toBeNull();
 });
 
 test('NaN daysToNext and missing phaseName never print NaN or undefined', async () => {

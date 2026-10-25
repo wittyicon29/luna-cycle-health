@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 // One pass over every main screen in Hindi. The per-screen suites (i18n*Hindi.test.js) check behaviour in depth;
@@ -41,6 +41,7 @@ const RemindersPanel = require('./RemindersPanel').default;
 const CalendarScreen = require('./CalendarScreen').default;
 const DaySheet = require('./DaySheet').default;
 const SkyCheckIn = require('./playful/SkyCheckIn').default;
+const TodayCard = require('./home/TodayCard').default;
 const PlayfulSettings = require('./playful/PlayfulSettings').default;
 const MedicationManager = require('./MedicationManager').default;
 const { DEFAULT_PREFS } = require('./reminderPrefs');
@@ -138,6 +139,9 @@ describe('Hindi audit: no English left on the main screens', () => {
 
   test('JourneyApp shell', async () => {
     const { container } = render(<JourneyApp token="tok" email="u@gmail.com" onLogout={jest.fn()} />);
+    await waitFor(() => expect(container.querySelector('.today-card')).toBeTruthy());
+    noEnglish(container);
+    userEvent.click(container.querySelector('.today-chev'));
     await screen.findByText('चक्र का दिन');
     noEnglish(container);
   });
@@ -163,7 +167,7 @@ describe('Hindi audit: no English left on the main screens', () => {
 
   test('ProfileDrawer (main view)', async () => {
     render(<JourneyApp token="tok" email="u@gmail.com" onLogout={jest.fn()} />);
-    await screen.findByText('चक्र का दिन');
+    await waitFor(() => expect(document.querySelector('.today-card')).toBeTruthy());
     userEvent.click(screen.getByRole('button', { name: 'प्रोफ़ाइल खोलें' }));
     await screen.findByText('Luna Health सदस्य');
     noEnglish(document.querySelector('.drawer'));
@@ -173,6 +177,17 @@ describe('Hindi audit: no English left on the main screens', () => {
     const { container } = render(<SkyCheckIn token="tok" logs={{}} logsReady onSaved={jest.fn()} onAddDetails={jest.fn()} />);
     await flush();
     noEnglish(container);
+  });
+
+  test('TodayCard, collapsed and expanded with the profile prompt', async () => {
+    const { container } = render(<TodayCard token="tok" logs={{}} logsReady onSaved={jest.fn()} onAddDetails={jest.fn()} onShownChange={jest.fn()}
+      cycleDay={12} daysToNext={16} avgCycle={28} periodsCount={3} phaseName="ओव्यूलेशन" phaseColor="#aaa"
+      profilePrompt={{ onStart: jest.fn(), onLater: jest.fn() }} />);
+    await flush();
+    noEnglish(container);
+    userEvent.click(container.querySelector('.today-chev'));
+    noEnglish(container);
+    expect(container.querySelector('.today-panel')).not.toBeNull();
   });
 
   test('JourneyMap with fog and Luna', async () => {

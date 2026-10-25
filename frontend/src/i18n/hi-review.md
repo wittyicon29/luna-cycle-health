@@ -23,421 +23,421 @@ Edit the Hindi text in `src/i18n/catalogs/hi.json` (the English sentence is the 
 | 3 | Allow AI features? | एआई सुविधाओं की अनुमति दें? | AiConsentModal.js:27 |  |
 | 4 | This is optional. You can withdraw your consent any time in Profile → Privacy & data. Cycle tracking works without it. | यह वैकल्पिक है। आप प्रोफ़ाइल → गोपनीयता और डेटा में जाकर किसी भी समय अपनी सहमति वापस ले सकते हैं। इसके बिना भी चक्र ट्रैकिंग काम करती है। | AiConsentModal.js:32 |  |
 | 5 | Not now | अभी नहीं | AiConsentModal.js:36 |  |
-| 6 | Saving… | सहेजा जा रहा है… | AiConsentModal.js:37, App.js:1164, App.js:1960 +1 more |  |
+| 6 | Saving… | सहेजा जा रहा है… | AiConsentModal.js:37, App.js:1162, App.js:1958 +1 more |  |
 | 7 | Allow AI features | एआई सुविधाओं की अनुमति दें | AiConsentModal.js:37, PrivacyPanel.js:54 |  |
-| 8 | Menstrual | माहवारी | App.js:62 | phase names use माहवारी / फॉलिक्युलर / ओव्यूलेशन / ल्यूटियल (the transliterated medical terms are what Hindi health apps show); territory names (घाटी, चढ़ाई, शिखर, वापसी) are literal i18n-note: the tip says the body is "releasing and renewing"; kept close to literal and non-clinical |
-| 9 | The Valley | घाटी | App.js:62 | phase names use माहवारी / फॉलिक्युलर / ओव्यूलेशन / ल्यूटियल (the transliterated medical terms are what Hindi health apps show); territory names (घाटी, चढ़ाई, शिखर, वापसी) are literal i18n-note: the tip says the body is "releasing and renewing"; kept close to literal and non-clinical |
-| 10 | Days 1–5 | दिन 1–5 | App.js:62 | phase names use माहवारी / फॉलिक्युलर / ओव्यूलेशन / ल्यूटियल (the transliterated medical terms are what Hindi health apps show); territory names (घाटी, चढ़ाई, शिखर, वापसी) are literal i18n-note: the tip says the body is "releasing and renewing"; kept close to literal and non-clinical |
-| 11 | Rest, warmth & gentle movement. Your body is releasing and renewing. | आराम, गर्माहट और हल्की-फुल्की गतिविधि। आपका शरीर पुराना छोड़कर खुद को नया कर रहा है। | App.js:62 | phase names use माहवारी / फॉलिक्युलर / ओव्यूलेशन / ल्यूटियल (the transliterated medical terms are what Hindi health apps show); territory names (घाटी, चढ़ाई, शिखर, वापसी) are literal i18n-note: the tip says the body is "releasing and renewing"; kept close to literal and non-clinical |
-| 12 | Follicular | फॉलिक्युलर | App.js:63 |  |
-| 13 | The Ascent | चढ़ाई | App.js:63 |  |
-| 14 | Days 6–13 | दिन 6–13 | App.js:63 |  |
-| 15 | Energy rises. Perfect for new projects, social activities and bold decisions. | ऊर्जा बढ़ती है। नए काम शुरू करने, लोगों से मिलने-जुलने और साहसी फ़ैसले लेने के लिए अच्छा समय। | App.js:63 |  |
-| 16 | Ovulation | ओव्यूलेशन | App.js:64, App.js:1734 |  |
-| 17 | The Summit | शिखर | App.js:64 |  |
-| 18 | Day 14± | दिन 14± | App.js:64 |  |
-| 19 | Energy and confidence often peak around now. Notice how your body feels. | ऊर्जा और आत्मविश्वास अक्सर इसी समय के आसपास सबसे ज़्यादा होते हैं। ध्यान दें कि आपका शरीर कैसा महसूस कर रहा है। | App.js:64 |  |
-| 20 | Luteal | ल्यूटियल | App.js:65 |  |
-| 21 | The Return | वापसी | App.js:65 |  |
-| 22 | Days 15–28 | दिन 15–28 | App.js:65 |  |
-| 23 | Turn inward. Good for reflection, creative depth, and completing things. | भीतर की ओर ध्यान दें। चिंतन करने, रचनात्मक गहराई पाने और काम पूरे करने के लिए अच्छा समय। | App.js:65 |  |
-| 24 | Uncharted | अज्ञात | App.js:67, App.js:67 | "Uncharted" (a map not yet drawn) is अज्ञात (unknown); unsure whether "अनदेखा" or "अज्ञात" reads better |
-| 25 | Log a period to calibrate your journey map. | अपनी यात्रा का नक्शा बनाने के लिए एक माहवारी दर्ज करें। | App.js:67 | "Uncharted" (a map not yet drawn) is अज्ञात (unknown); unsure whether "अनदेखा" or "अज्ञात" reads better |
-| 26 | Close | बंद करें | App.js:520, App.js:1100, App.js:1354 +4 more |  |
-| 27 | Set up your health profile | अपनी स्वास्थ्य प्रोफ़ाइल बनाएँ | App.js:535 |  |
-| 28 | Optional: add your health profile from the banner or Profile → Health Profile so insights can feel more personal. It’s context, not a diagnosis. | वैकल्पिक: बैनर से या प्रोफ़ाइल → स्वास्थ्य प्रोफ़ाइल में जाकर अपनी स्वास्थ्य प्रोफ़ाइल जोड़ें, ताकि इनसाइट्स आपके लिए और व्यक्तिगत हों। यह संदर्भ है, निदान नहीं। | App.js:537 | "Profile → Health Profile" must match the Hindi names of the Profile screen and its Health Profile section (translated in a later task) |
-| 29 | Health Profile | स्वास्थ्य प्रोफ़ाइल | App.js:538, App.js:1872 |  |
-| 30 | Your cycle journey map | आपके मासिक चक्र की यात्रा का नक्शा | App.js:541 |  |
-| 31 | Scroll sideways to explore past and predicted cycles. Hover over coloured bands to see which phase you're in and what it means for energy, mood and focus. | पिछले और अनुमानित चक्र देखने के लिए दाएँ-बाएँ स्क्रोल करें। रंगीन पट्टियों पर कर्सर ले जाकर देखें कि आप किस चरण में हैं और इसका ऊर्जा, मूड और ध्यान पर क्या असर पड़ता है। | App.js:542 |  |
-| 32 | Journey Canvas | यात्रा कैनवस | App.js:543 |  |
-| 33 | Logging periods & symptoms | माहवारी और लक्षण दर्ज करना | App.js:546 |  |
-| 34 | Tap Log period on the map to log a new period. Add flow, pain and symptoms – Luna uses this to understand your pattern over time. | नई माहवारी दर्ज करने के लिए नक्शे पर "माहवारी दर्ज करें" पर टैप करें। रक्तस्राव की मात्रा, दर्द और लक्षण जोड़ें – इससे Luna को समय के साथ आपका पैटर्न समझने में मदद मिलती है। | App.js:547 |  |
-| 35 | Log Periods | माहवारी दर्ज करें | App.js:548 |  |
-| 36 | AI health insights | एआई स्वास्थ्य इनसाइट्स | App.js:551 |  |
-| 37 | In Insights, Luna analyses your last cycles to explain regularity, predicted dates and key patterns, with clear recommendations in everyday language. | इनसाइट्स में Luna आपके पिछले चक्रों का विश्लेषण करके नियमितता, अनुमानित तारीखें और मुख्य पैटर्न समझाती है, साथ ही सरल भाषा में स्पष्ट सुझाव देती है। | App.js:552 |  |
-| 38 | AI Analysis | एआई विश्लेषण | App.js:553, App.js:1677 |  |
-| 39 | Chat with Luna | Luna से चैट करें | App.js:556 |  |
-| 40 | Use Chat for questions about cramps, cycle changes or patterns you’re worried about. Luna will reference your data when available, but never diagnose. | ऐंठन, चक्र में बदलाव या ऐसे पैटर्न के बारे में जिनको लेकर आप चिंतित हैं, सवाल पूछने के लिए चैट का उपयोग करें। डेटा उपलब्ध होने पर Luna उसका संदर्भ लेगी, लेकिन कभी निदान नहीं करेगी। | App.js:558 | "never diagnose" is translated literally on purpose (health disclaimer); keep it unsoftened |
-| 41 | Chat | चैट | App.js:559, App.js:2187 |  |
-| 42 | Welcome tour | स्वागत टूर | App.js:579 |  |
-| 43 | Meet your Luna journey | अपनी Luna यात्रा को जानें | App.js:581 |  |
-| 44 | Skip | छोड़ें | App.js:583 |  |
-| 45 | Use your mouse wheel or trackpad to pan across the map. On touch devices, drag sideways with one finger. | नक्शे पर आगे-पीछे जाने के लिए माउस व्हील या ट्रैकपैड का उपयोग करें। टच डिवाइस पर एक उंगली से दाएँ-बाएँ खींचें। | App.js:591 |  |
-| 46 | drag | खींचें | App.js:592 |  |
-| 47 | Back | पीछे | App.js:603 |  |
-| 48 | Next | आगे | App.js:614 |  |
-| 49 | Done | हो गया | App.js:614 |  |
-| 50 | Thinking… | सोच रही हूँ… | App.js:642 |  |
-| 51 | Thought process | सोचने की प्रक्रिया | App.js:644 |  |
-| 52 | Something went wrong. Please try again. | कुछ गड़बड़ हो गई। कृपया दोबारा कोशिश करें। | App.js:677 |  |
-| 53 | Check your email. Open the link we sent to choose your password and finish signing up. | अपना ईमेल देखें। हमारे भेजे गए लिंक को खोलकर अपना पासवर्ड चुनें और पंजीकरण पूरा करें। | App.js:679 |  |
-| 54 | Failed to sign in with Google | Google से साइन इन नहीं हो सका | App.js:698 |  |
-| 55 | Failed to initiate Google Sign-In | Google साइन इन शुरू नहीं हो सका | App.js:709 |  |
-| 56 | Verification email sent! Please check your inbox. | सत्यापन ईमेल भेज दिया गया है! कृपया अपना इनबॉक्स देखें। | App.js:719 |  |
-| 57 | Resend Verification Email | सत्यापन ईमेल दोबारा भेजें | App.js:742 |  |
-| 58 | Send Reset Link | रीसेट लिंक भेजें | App.js:743 |  |
-| 59 | Log in | लॉग इन करें | App.js:744 |  |
-| 60 | Create Account | खाता बनाएँ | App.js:744 |  |
-| 61 | Resend Verification | सत्यापन दोबारा भेजें | App.js:752 |  |
-| 62 | Email | ईमेल | App.js:754, App.js:782, App.js:813 +1 more |  |
-| 63 | Sending… | भेजा जा रहा है… | App.js:758, App.js:786 |  |
-| 64 | Back to Login | लॉग इन पर वापस जाएँ | App.js:766, App.js:794, GoogleCallback.js:116 |  |
-| 65 | Reset Password | पासवर्ड रीसेट करें | App.js:780, PasswordReset.js:206 |  |
-| 66 | Your Cycle, Your Journey | आपका मासिक चक्र, आपकी यात्रा | App.js:807 |  |
-| 67 | Sign In | साइन इन करें | App.js:809 |  |
-| 68 | Register | रजिस्टर करें | App.js:810 |  |
-| 69 | Password | पासवर्ड | App.js:814 |  |
-| 70 | Hide password | पासवर्ड छिपाएँ | App.js:817, EmailVerification.js:193 |  |
-| 71 | Show password | पासवर्ड दिखाएँ | App.js:817, EmailVerification.js:193 |  |
-| 72 | Processing… | प्रक्रिया जारी है… | App.js:824 |  |
-| 73 | OR | या | App.js:831 |  |
-| 74 | Continue with Google | Google के साथ जारी रखें | App.js:848 |  |
-| 75 | Forgot password? | पासवर्ड भूल गए? | App.js:861 |  |
-| 76 | Resend verification | सत्यापन दोबारा भेजें | App.js:870 |  |
-| 77 | Only Gmail addresses are supported for registration. | पंजीकरण के लिए केवल Gmail पते स्वीकार किए जाते हैं। | App.js:876 |  |
-| 78 | Luna Health is for people aged 18 and over. | Luna Health 18 वर्ष और उससे अधिक आयु के लोगों के लिए है। | App.js:877 |  |
-| 79 | Your journey starts with your first period. | आपकी यात्रा आपकी पहली माहवारी से शुरू होती है। | App.js:970 |  |
-| 80 | Log a period | माहवारी दर्ज करें | App.js:971 |  |
-| 81 | Log period | माहवारी दर्ज करें | App.js:977 |  |
-| 82 | Predicted period | अनुमानित माहवारी | App.js:1041 |  |
-| 83 | Period: {date} | माहवारी: {date} | App.js:1041 |  |
-| 84 | NOW | अभी | App.js:1050 |  |
-| 85 | Luna, your companion. Tap to hear a tip. | Luna, आपकी साथी। टिप सुनने के लिए टैप करें। | App.js:1056 |  |
-| 86 | {icon} {phase} · {territory} | {icon} {phase} · {territory} | App.js:1084 |  |
-| 87 | Logged Period | दर्ज की गई माहवारी | App.js:1103 |  |
-| 88 | Ended: {date} | समाप्त: {date} | App.js:1105 |  |
-| 89 | Pain: {level}/10 | दर्द: {level}/10 | App.js:1107 |  |
-| 90 | Predicted period start | अनुमानित माहवारी की शुरुआत | App.js:1111 |  |
-| 91 | Unable to load recent pattern | हाल का पैटर्न लोड नहीं हो सका | App.js:1146 |  |
-| 92 | Start date required | आरंभ तिथि आवश्यक है | App.js:1154 |  |
-| 93 | The end date can't be before the start date. | समाप्ति तिथि आरंभ तिथि से पहले की नहीं हो सकती। | App.js:1156 |  |
-| 94 | Dates can't be in the future. | तारीखें भविष्य की नहीं हो सकतीं। | App.js:1157 |  |
-| 95 | Log New Period | नई माहवारी दर्ज करें | App.js:1163 |  |
-| 96 | Cancel | रद्द करें | App.js:1164, AppearancePanel.js:84, MedicationManager.js:120 +2 more |  |
-| 97 | Save to Journey | यात्रा में सहेजें | App.js:1164 |  |
-| 98 | Start Date * | आरंभ तिथि * | App.js:1166 |  |
-| 99 | End Date | समाप्ति तिथि | App.js:1167 |  |
-| 100 | Flow Intensity | रक्तस्राव की मात्रा | App.js:1169 |  |
-| 101 | Light | हल्का | App.js:1169, App.js:1941 |  |
-| 102 | Medium | मध्यम | App.js:1169 |  |
-| 103 | Heavy | भारी | App.js:1169, App.js:1941 |  |
-| 104 | Pain Level | दर्द का स्तर | App.js:1171 |  |
-| 105 | Symptoms | लक्षण | App.js:1174, DaySheet.js:305 |  |
-| 106 | Notes | नोट | App.js:1175, launcherAppearance.js:21 | shares the catalog entry "Notes" = नोट used elsewhere; unsure "नोट्स" would read better as an app name |
-| 107 | Any additional observations… | कोई और बात जो आपने देखी हो… | App.js:1175 |  |
-| 108 | How your cycles usually look | आपके चक्र आमतौर पर कैसे रहते हैं | App.js:1179 |  |
-| 109 | Reading your recent pattern… | आपका हाल का पैटर्न देखा जा रहा है… | App.js:1180 |  |
-| 110 | We couldn't load past data ({error}). You can still log this period. | पिछला डेटा लोड नहीं हो सका ({error})। यह माहवारी फिर भी दर्ज की जा सकती है। | App.js:1181 |  |
-| 111 | Once you've logged a few periods, we'll summarise your typical cycle length, bleed days and pain pattern here. | कुछ माहवारी दर्ज करने के बाद, यहाँ आपके सामान्य चक्र की अवधि, रक्तस्राव के दिन और दर्द का पैटर्न दिखाया जाएगा। | App.js:1184 |  |
-| 112 | Based on your {count} logged period. / Based on your last {count} logged periods. | आपकी दर्ज की गई {count} माहवारी के आधार पर। / आपकी पिछली {count} दर्ज की गई माहवारियों के आधार पर। | App.js:1190 |  |
-| 113 | Typical cycle length | आपके चक्र की आम अवधि | App.js:1195 |  |
-| 114 | {count} day / {count} days | {count} दिन / {count} दिन | App.js:1196, App.js:1212 |  |
-| 115 | Most cycles fall between {min}–{max} days. | ज़्यादातर चक्र {min}–{max} दिन के बीच होते हैं। | App.js:1203 |  |
-| 116 | Bleeding days | रक्तस्राव के दिन | App.js:1211 |  |
-| 117 | Usually between {min}–{max} days of bleeding. | आमतौर पर {min}–{max} दिन रक्तस्राव होता है। | App.js:1219 |  |
-| 118 | Average pain level | औसत दर्द का स्तर | App.js:1227 |  |
-| 119 | This is the most common flow pattern you log. | यह वह रक्तस्राव पैटर्न है जो सबसे ज़्यादा दर्ज हुआ है। | App.js:1238 |  |
-| 120 | What does my health score mean? | मेरे स्वास्थ्य स्कोर का क्या मतलब है? | App.js:1256 |  |
-| 121 | How can I track symptoms better? | मैं अपने लक्षण बेहतर ढंग से कैसे दर्ज करूँ? | App.js:1257 |  |
-| 122 | When will my next period arrive? | मेरी अगली माहवारी कब आएगी? | App.js:1258 |  |
-| 123 | Tips for managing cramps | ऐंठन से राहत के लिए सुझाव | App.js:1259 |  |
-| 124 | Is my cycle regular? | क्या मेरा चक्र नियमित है? | App.js:1260 |  |
-| 125 | Conversation history | बातचीत का इतिहास | App.js:1352 |  |
-| 126 | History | इतिहास | App.js:1352, App.js:1360, App.js:1710 |  |
-| 127 | AI companion | एआई साथी | App.js:1353 |  |
-| 128 | Back to chat | चैट पर वापस जाएँ | App.js:1361 |  |
-| 129 | New chat | नई चैट | App.js:1362 |  |
-| 130 | No messages yet. | अभी कोई संदेश नहीं। | App.js:1365 |  |
-| 131 | Start a conversation. | बातचीत शुरू करें। | App.js:1365 |  |
-| 132 | New Chat | नई चैट | App.js:1368 |  |
-| 133 | You | आप | App.js:1377 |  |
-| 134 | Hey there! 👋 I'm Luna. I can help you understand your cycle, your symptoms and how you're feeling. <br>  <br> What's on your mind today? 💜 | नमस्ते! 👋 मैं Luna हूँ। मैं आपके चक्र, आपके लक्षणों और आप कैसा महसूस कर रहे हैं, यह समझने में मदद कर सकती हूँ। <br>  <br> आज आपके मन में क्या है? 💜 | App.js:1379 |  |
-| 135 | ⚠ Error: {message} | ⚠ त्रुटि: {message} | App.js:1380 |  |
-| 136 | Ask Luna about your cycle… | Luna से अपने चक्र के बारे में पूछें… | App.js:1422 |  |
-| 137 | Send | भेजें | App.js:1427 |  |
-| 138 | Luna is an AI companion, not a doctor. For medical concerns, please see a clinician. | Luna एक एआई साथी है, डॉक्टर नहीं। चिकित्सा संबंधी चिंताओं के लिए कृपया किसी चिकित्सक से मिलें। | App.js:1431 |  |
-| 139 | high | उच्च | App.js:1444 |  |
-| 140 | medium | मध्यम | App.js:1445, symptoms.js:29 |  |
-| 141 | low | निम्न | App.js:1446 |  |
-| 142 | none | कोई नहीं | App.js:1447 |  |
-| 143 | excellent | उत्कृष्ट | App.js:1448 |  |
-| 144 | good | अच्छी | App.js:1449 |  |
-| 145 | fair | ठीक-ठाक | App.js:1450 |  |
-| 146 | limited | सीमित | App.js:1451 |  |
-| 147 | insufficient | अपर्याप्त | App.js:1452 |  |
-| 148 | Key Insights | मुख्य इनसाइट्स | App.js:1476 |  |
-| 149 | Why This Result | यह नतीजा क्यों | App.js:1489 |  |
-| 150 | Recommendations | सुझाव | App.js:1502 |  |
-| 151 | Prediction Notice | अनुमान संबंधी सूचना | App.js:1516 |  |
-| 152 | Medical Analysis (MedGemma) | चिकित्सीय विश्लेषण (MedGemma) | App.js:1528 |  |
-| 153 | Clinical Findings: | चिकित्सीय निष्कर्ष: | App.js:1532 |  |
-| 154 | Risk Factors: | जोखिम कारक: | App.js:1544 |  |
-| 155 | Medical Recommendations: | चिकित्सीय सुझाव: | App.js:1556 |  |
-| 156 | Urgency Level: {level} | ध्यान देने की ज़रूरत: {level} | App.js:1578 |  |
-| 157 | Consider consulting with a healthcare provider soon. | जल्द ही किसी डॉक्टर या स्वास्थ्य विशेषज्ञ से सलाह लेने पर विचार करें। | App.js:1580 |  |
-| 158 | Monitor symptoms and consult if they worsen. | लक्षणों पर नज़र रखें और बढ़ने पर डॉक्टर से सलाह लें। | App.js:1580 |  |
-| 159 | What to Expect | आगे क्या हो सकता है | App.js:1590 |  |
-| 160 | Next Steps | अगले कदम | App.js:1600 |  |
-| 161 | When to See a Doctor | डॉक्टर को कब दिखाएँ | App.js:1620 |  |
-| 162 | Analysing… | विश्लेषण हो रहा है… | App.js:1679 |  |
-| 163 | Run Analysis | विश्लेषण चलाएँ | App.js:1679, App.js:1758 |  |
-| 164 | Loading analyses… | विश्लेषण लोड हो रहे हैं… | App.js:1684 |  |
-| 165 | Running MedGemma… | MedGemma चल रहा है… | App.js:1686 |  |
-| 166 | 5–15 seconds | 5–15 सेकंड | App.js:1686 |  |
-| 167 | Overview | सारांश | App.js:1698 |  |
-| 168 | Needs 3+ cycles for a score | स्कोर के लिए 3+ चक्र ज़रूरी हैं | App.js:1719 |  |
-| 169 | Avg Cycle | औसत चक्र | App.js:1722, App.js:2177, TodayCard.js:43 |  |
-| 170 | {days}d | {days} दिन | App.js:1722, App.js:2176, TodayCard.js:31 +1 more |  |
-| 171 | Regularity | नियमितता | App.js:1723 |  |
-| 172 | Next Period | अगली माहवारी | App.js:1727 |  |
-| 173 | Range | संभावित तारीखें | App.js:1730 |  |
-| 174 | Confidence | विश्वसनीयता | App.js:1737 |  |
-| 175 | {level} ({percentage}%) | {level} ({percentage}%) | App.js:1739 |  |
-| 176 | Data Quality | डेटा की गुणवत्ता | App.js:1745 |  |
-| 177 | No insights yet. | अभी कोई इनसाइट नहीं। | App.js:1756 |  |
-| 178 | Log at least two periods (about a month apart), then tap {action}. | कम से कम दो माहवारी दर्ज करें (लगभग एक महीने के अंतर पर), फिर {action} पर टैप करें। | App.js:1757 |  |
-| 179 | Cycle health analysis | चक्र स्वास्थ्य विश्लेषण | App.js:1782 |  |
-| 180 | Analysis | विश्लेषण | App.js:1782 |  |
-| 181 | Score {score}/100 | स्कोर {score}/100 | App.js:1788 |  |
-| 182 | Next period: {date} | अगली माहवारी: {date} | App.js:1791 |  |
-| 183 | Risk flags: | जोखिम संकेत: | App.js:1794 |  |
-| 184 | No past analyses yet. | अभी तक कोई पिछला विश्लेषण नहीं। | App.js:1817 |  |
-| 185 | As you run analyses, they’ll appear here with scores and key dates. | जैसे-जैसे आप विश्लेषण चलाएँगे, वे स्कोर और अहम तारीखों के साथ यहाँ दिखाई देंगे। | App.js:1817 |  |
-| 186 | Last period date required | आखिरी माहवारी की तारीख आवश्यक है | App.js:1862 |  |
-| 187 | Please tick the consent box to save your health profile. | अपनी स्वास्थ्य प्रोफ़ाइल सहेजने के लिए कृपया सहमति वाले बॉक्स पर निशान लगाएँ। | App.js:1862 |  |
-| 188 | Profile | प्रोफ़ाइल | App.js:1872, App.js:2188 |  |
-| 189 | Health Profile → | स्वास्थ्य प्रोफ़ाइल → | App.js:1874 |  |
-| 190 | ← Back | ← वापस | App.js:1875 |  |
-| 191 | Luna Health member | Luna Health सदस्य | App.js:1884 |  |
-| 192 | Update Health Profile | स्वास्थ्य प्रोफ़ाइल अपडेट करें | App.js:1888 |  |
-| 193 | Sign Out | साइन आउट करें | App.js:1889 |  |
-| 194 | Language | भाषा | App.js:1895, LanguageSwitcher.js:41 |  |
-| 195 | Profile Saved | प्रोफ़ाइल सहेजी गई | App.js:1909 |  |
-| 196 | Your health profile has been updated. | आपकी स्वास्थ्य प्रोफ़ाइल अपडेट हो गई है। | App.js:1910 |  |
-| 197 | Initial Analysis | शुरुआती विश्लेषण | App.js:1914 |  |
-| 198 | Update Again | फिर से अपडेट करें | App.js:1924 |  |
-| 199 | This is your health questionnaire. It helps Luna understand your body and symptoms. You can always edit these answers later under {name}. | यह आपकी स्वास्थ्य प्रश्नावली है। इससे Luna को आपके शरीर और लक्षणों को समझने में मदद मिलती है। आप इन उत्तरों को बाद में {name} में कभी भी बदल सकते हैं। | App.js:1930 |  |
-| 200 | Profile → Health Profile | प्रोफ़ाइल → स्वास्थ्य प्रोफ़ाइल | App.js:1931 |  |
-| 201 | Basic Info | बुनियादी जानकारी | App.js:1934 |  |
-| 202 | Age | आयु | App.js:1935 |  |
-| 203 | Biological Sex | जैविक लिंग | App.js:1935 |  |
-| 204 | Female | महिला | App.js:1935 |  |
-| 205 | Male | पुरुष | App.js:1935 |  |
-| 206 | Other | अन्य | App.js:1935 |  |
-| 207 | Weight (kg) | वज़न (किग्रा) | App.js:1936 |  |
-| 208 | Height (cm) | लंबाई (सेमी) | App.js:1936 |  |
-| 209 | Cycle Pattern | मासिक चक्र का पैटर्न | App.js:1938 |  |
-| 210 | Last Menstrual Period * | आखिरी माहवारी की तारीख * | App.js:1939 |  |
-| 211 | Cycle Length (days) | चक्र की अवधि (दिन) | App.js:1940 |  |
-| 212 | Variability (days) | चक्र में उतार-चढ़ाव (दिन) | App.js:1940 |  |
-| 213 | Bleed Duration | रक्तस्राव की अवधि | App.js:1941 |  |
-| 214 | Bleed Volume | रक्तस्राव की मात्रा | App.js:1941 |  |
-| 215 | Moderate | मध्यम | App.js:1941 |  |
-| 216 | Passes large clots | बड़े थक्के निकलना | App.js:1942 |  |
-| 217 | Intermenstrual bleeding | दो माहवारियों के बीच रक्तस्राव | App.js:1942 |  |
-| 218 | Pain & Symptoms | दर्द और लक्षण | App.js:1944 |  |
-| 219 | Has cramping | ऐंठन होती है | App.js:1945 |  |
-| 220 | Pain Severity | दर्द की तीव्रता | App.js:1945 |  |
-| 221 | Pain Timing | दर्द कब होता है | App.js:1946 |  |
-| 222 | Before | माहवारी से पहले | App.js:1946 |  |
-| 223 | During | माहवारी के दौरान | App.js:1946 |  |
-| 224 | After | माहवारी के बाद | App.js:1946 |  |
-| 225 | Painkiller Effectiveness | दर्द निवारक दवा का असर | App.js:1947 |  |
-| 226 | None | कोई असर नहीं | App.js:1947 |  |
-| 227 | Partial | आंशिक | App.js:1947 |  |
-| 228 | Complete | पूरा | App.js:1947 |  |
-| 229 | Nausea | जी मिचलाना | App.js:1948 |  |
-| 230 | Vomiting | उल्टी | App.js:1948 |  |
-| 231 | PMS Symptoms (0–3) | पीएमएस के लक्षण (0–3) | App.js:1950 |  |
-| 232 | Mood Swings | मूड में बदलाव | App.js:1951 |  |
-| 233 | Anxiety | चिंता | App.js:1951 |  |
-| 234 | Bloating | पेट फूलना | App.js:1951 |  |
-| 235 | Headaches | सिरदर्द | App.js:1951 |  |
-| 236 | Interferes with daily life | रोज़मर्रा के कामों में बाधा आती है | App.js:1952 |  |
-| 237 | Interference Severity | रोज़ के कामों पर कितना असर | App.js:1953 |  |
-| 238 | Additional Notes | अतिरिक्त नोट | App.js:1956 |  |
-| 239 | Any other health information… | स्वास्थ्य से जुड़ी कोई और जानकारी… | App.js:1956 |  |
-| 240 | I consent to data analysis | डेटा विश्लेषण के लिए मेरी सहमति है | App.js:1957 |  |
-| 241 | Save Health Profile | स्वास्थ्य प्रोफ़ाइल सहेजें | App.js:1960 |  |
-| 242 | Retry | दोबारा कोशिश करें | App.js:2081, CalendarScreen.js:101, DaySheet.js:276 +1 more |  |
-| 243 | Sign out | साइन आउट करें | App.js:2082, RequiredConsentScreen.js:40 |  |
-| 244 | Loading your privacy settings… | आपकी गोपनीयता सेटिंग लोड हो रही हैं… | App.js:2088 |  |
-| 245 | Day {day} · {phase} | दिन {day} · {phase} | App.js:2140, TodayCard.js:30 |  |
-| 246 | Open profile | प्रोफ़ाइल खोलें | App.js:2141 |  |
-| 247 | Loading your journey… | आपकी यात्रा लोड हो रही है… | App.js:2148 |  |
-| 248 | Cycle Day | चक्र का दिन | App.js:2175, TodayCard.js:41 |  |
-| 249 | Next in | अगली माहवारी | App.js:2176, TodayCard.js:31, TodayCard.js:42 |  |
-| 250 | Logged | दर्ज | App.js:2178, CalendarScreen.js:130, TodayCard.js:44 |  |
-| 251 | Phase | चरण | App.js:2179, TodayCard.js:45 |  |
-| 252 | Journey | यात्रा | App.js:2184 |  |
-| 253 | Calendar | कैलेंडर | App.js:2185, CalendarScreen.js:87, CalendarScreen.js:89 |  |
-| 254 | Insights | इनसाइट्स | App.js:2186 |  |
-| 255 | App appearance on this phone | इस फ़ोन पर ऐप का रूप | AppearancePanel.js:57 |  |
-| 256 | App appearance | ऐप का रूप | AppearancePanel.js:58 |  |
-| 257 | Confirm app appearance | ऐप का रूप बदलने की पुष्टि | AppearancePanel.js:79 |  |
-| 258 | The app will appear as “{label}” in your app list; your old home-screen shortcut will disappear. It can take a moment to update, and some launchers need a restart. The app may close once when this changes. | यह ऐप आपकी ऐप सूची में अंग्रेज़ी नाम “{label}” से दिखेगा; आपका पुराना होम-स्क्रीन शॉर्टकट हट जाएगा। अपडेट होने में कुछ समय लग सकता है, और कुछ लॉन्चर को रीस्टार्ट करना पड़ सकता है। इस बदलाव के दौरान ऐप एक बार बंद हो सकता है। | AppearancePanel.js:81 |  |
-| 259 | Change | बदलें | AppearancePanel.js:83 |  |
-| 260 | Done. Look for “{label}” in your app list. You may need to add it to your home screen again. | हो गया। अपनी ऐप सूची में अंग्रेज़ी नाम “{label}” खोजें। हो सकता है आपको इसे दोबारा होम स्क्रीन पर जोड़ना पड़े। | AppearancePanel.js:89 |  |
-| 261 | Couldn't change the app appearance. Nothing was changed. | ऐप का रूप बदला नहीं जा सका। कुछ भी नहीं बदला गया। | AppearancePanel.js:90 |  |
-| 262 | Android still shows the real app name in Settings → Apps and in notifications. | Android अब भी सेटिंग → ऐप्स में और नोटिफ़िकेशन में ऐप का असली नाम दिखाता है। | AppearancePanel.js:92 |  |
-| 263 | {month} {day}, {year} | {day} {month} {year} | CalendarScreen.js:73 |  |
-| 264 | today | आज | CalendarScreen.js:75 | these state words are read aloud after the date by screen readers, e.g. "5 अक्टूबर 2026, आज, माहवारी का दिन"; unsure about the phrasing |
-| 265 | period day | माहवारी का दिन | CalendarScreen.js:76 |  |
-| 266 | expected period | अनुमानित माहवारी | CalendarScreen.js:77 |  |
-| 267 | logged | दर्ज किया गया | CalendarScreen.js:79 |  |
-| 268 | Previous month | पिछला महीना | CalendarScreen.js:94 |  |
-| 269 | Next month | अगला महीना | CalendarScreen.js:96 |  |
-| 270 | Couldn't load your logs. Tap Retry. | आपके रिकॉर्ड लोड नहीं हो सके। “दोबारा कोशिश करें” दबाएँ। | CalendarScreen.js:100 |  |
-| 271 | Period | माहवारी | CalendarScreen.js:128 |  |
-| 272 | Expected period | अनुमानित माहवारी | CalendarScreen.js:129 |  |
-| 273 | Flow | रक्तस्राव | CalendarScreen.js:131, DaySheet.js:314 |  |
-| 274 | Log today | आज दर्ज करें | CalendarScreen.js:133 |  |
-| 275 | I agree to the {terms} and {privacy}. | मैं {terms} और {privacy} से सहमत हूँ। | ConsentCheckboxes.js:20 |  |
-| 276 | Terms | शर्तें | ConsentCheckboxes.js:22, PrivacyPanel.js:104 |  |
-| 277 | Privacy Policy | गोपनीयता नीति | ConsentCheckboxes.js:23, PrivacyPanel.js:102 |  |
-| 278 | I am 18 years of age or older. | मेरी आयु 18 वर्ष या उससे अधिक है। | ConsentCheckboxes.js:29 |  |
-| 279 | Saved. | सहेज लिया गया। | DaySheet.js:19 |  |
-| 280 | That date can't be saved yet. Pick today or an earlier day. | इस तारीख का रिकॉर्ड अभी सहेजा नहीं जा सकता। आज या उससे पहले का दिन चुनें। | DaySheet.js:20 |  |
-| 281 | Couldn't clear this day. Your entries are still here — try again. | इस दिन का रिकॉर्ड मिटाया नहीं जा सका। आपकी प्रविष्टियाँ यहीं हैं — दोबारा कोशिश करें। | DaySheet.js:21 |  |
-| 282 | Couldn't save this day. Your entries are still here — try again. | इस दिन का रिकॉर्ड सहेजा नहीं जा सका। आपकी प्रविष्टियाँ यहीं हैं — दोबारा कोशिश करें। | DaySheet.js:22 |  |
-| 283 | Decrease {label} | {label} घटाएँ | DaySheet.js:84 |  |
-| 284 | {label} value | {label}: मान | DaySheet.js:86 |  |
-| 285 | Increase {label} | {label} बढ़ाएँ | DaySheet.js:87 |  |
-| 286 | Reset | रीसेट करें | DaySheet.js:89 |  |
-| 287 | That date is too far back to log. | इतनी पुरानी तारीख का रिकॉर्ड दर्ज नहीं किया जा सकता। | DaySheet.js:267 |  |
-| 288 | This day is too far ahead to log yet. You can log up to tomorrow. | यह दिन अभी दर्ज करने के लिए बहुत आगे है। आप आने वाले कल (अगले दिन) तक का रिकॉर्ड दर्ज कर सकते हैं। | DaySheet.js:269 |  |
-| 289 | Loading… | लोड हो रहा है… | DaySheet.js:271 |  |
-| 290 | Couldn't load this day. | इस दिन का रिकॉर्ड लोड नहीं हो सका। | DaySheet.js:275 |  |
-| 291 | Mood | मूड | DaySheet.js:285 |  |
-| 292 | Sleep | नींद | DaySheet.js:323 |  |
-| 293 | sleep hours | नींद के घंटे | DaySheet.js:324 |  |
-| 294 | Reset sleep | नींद रीसेट करें | DaySheet.js:324 |  |
-| 295 | 1 h | 1 घंटा | DaySheet.js:324 |  |
-| 296 | {hours} h | {hours} घंटे | DaySheet.js:324 |  |
-| 297 | Water | पानी | DaySheet.js:327 |  |
-| 298 | glasses of water | पानी के गिलास | DaySheet.js:328 |  |
-| 299 | Reset water | पानी रीसेट करें | DaySheet.js:328 |  |
-| 300 | Medications | दवाएँ | DaySheet.js:331 |  |
-| 301 | Couldn't load your medications. | आपकी दवाएँ लोड नहीं हो सकीं। | DaySheet.js:334 |  |
-| 302 | Loading medications… | दवाएँ लोड हो रही हैं… | DaySheet.js:338 |  |
-| 303 | No medications on your list yet. | आपकी सूची में अभी कोई दवा नहीं है। | DaySheet.js:341 |  |
-| 304 | (archived) | (संग्रहीत) | DaySheet.js:346 |  |
-| 305 | Manage my list | मेरी सूची प्रबंधित करें | DaySheet.js:349 |  |
-| 306 | Note | नोट | DaySheet.js:355 |  |
-| 307 | Log for {date} | {date} का रिकॉर्ड | DaySheet.js:370 |  |
-| 308 | Discard changes? | बदलाव छोड़ दें? | DaySheet.js:376, DaySheet.js:377 |  |
-| 309 | Keep editing | संपादन जारी रखें | DaySheet.js:378 |  |
-| 310 | Discard | छोड़ दें | DaySheet.js:379 |  |
-| 311 | Nothing to save yet. | सहेजने के लिए अभी कुछ नहीं है। | DaySheet.js:386 |  |
-| 312 | Clear everything logged for this day? | इस दिन के लिए दर्ज सब कुछ मिटा दें? | DaySheet.js:389 |  |
-| 313 | Yes, clear | हाँ, मिटाएँ | DaySheet.js:390 |  |
-| 314 | Keep | रहने दें | DaySheet.js:391, MedicationManager.js:126 |  |
-| 315 | Save | सहेजें | DaySheet.js:395 |  |
-| 316 | Clear day | दिन मिटाएँ | DaySheet.js:396 |  |
-| 317 | Email Verification | ईमेल सत्यापन | EmailVerification.js:92 |  |
-| 318 | Use at least 8 characters | कम से कम 8 अक्षर रखें | EmailVerification.js:142 |  |
-| 319 | Password must be at most 72 bytes | पासवर्ड 72 बाइट से लंबा नहीं होना चाहिए | EmailVerification.js:143, serverMessages.js:64 |  |
-| 320 | Passwords do not match | पासवर्ड मेल नहीं खाते | EmailVerification.js:144, PasswordReset.js:30 |  |
-| 321 | Please confirm you are 18 or older and agree to the Terms and Privacy Policy | कृपया पुष्टि करें कि आपकी आयु 18 वर्ष या उससे अधिक है और आप शर्तों व गोपनीयता नीति से सहमत हैं | EmailVerification.js:145 |  |
-| 322 | Checking your link... | आपका लिंक जाँचा जा रहा है... | EmailVerification.js:162 |  |
-| 323 | Link problem | लिंक में समस्या | EmailVerification.js:172 |  |
-| 324 | Invalid verification link | सत्यापन लिंक अमान्य है | EmailVerification.js:173 |  |
-| 325 | Back to sign in | साइन इन पर वापस जाएँ | EmailVerification.js:175 |  |
-| 326 | Choose your password | अपना पासवर्ड चुनें | EmailVerification.js:183 |  |
-| 327 | New password | नया पासवर्ड | EmailVerification.js:190 |  |
-| 328 | Confirm password | पासवर्ड की पुष्टि करें | EmailVerification.js:197 |  |
-| 329 | Creating… | बनाया जा रहा है… | EmailVerification.js:203 |  |
-| 330 | Create my account | मेरा खाता बनाएँ | EmailVerification.js:203 |  |
-| 331 | Google authentication was cancelled or failed | Google प्रमाणीकरण रद्द हो गया या विफल रहा | GoogleCallback.js:51 |  |
-| 332 | No authorization code received | कोई प्राधिकरण कोड प्राप्त नहीं हुआ | GoogleCallback.js:56 |  |
-| 333 | Sign-in could not be verified. Please try again. | साइन इन सत्यापित नहीं हो सका। कृपया दोबारा कोशिश करें। | GoogleCallback.js:64 |  |
-| 334 | Authentication failed | प्रमाणीकरण विफल रहा | GoogleCallback.js:79 |  |
-| 335 | Completing authentication... | प्रमाणीकरण पूरा किया जा रहा है... | GoogleCallback.js:89 |  |
-| 336 | Authentication Successful! | प्रमाणीकरण सफल रहा! | GoogleCallback.js:96 |  |
-| 337 | Redirecting to your dashboard... | आपको डैशबोर्ड पर ले जाया जा रहा है... | GoogleCallback.js:97 |  |
-| 338 | Create your account first | पहले अपना खाता बनाएँ | GoogleCallback.js:104 |  |
-| 339 | We couldn't find a Luna Health account for this Google email. To create one, go to Register, confirm that you are 18 or older and accept the Terms and Privacy Policy, then continue with Google. | इस Google ईमेल के लिए हमें कोई Luna Health खाता नहीं मिला। खाता बनाने के लिए रजिस्टर पर जाएँ, पुष्टि करें कि आपकी आयु 18 वर्ष या उससे अधिक है और शर्तें व गोपनीयता नीति स्वीकार करें, फिर Google से जारी रखें। | GoogleCallback.js:106 |  |
-| 340 | Go to Register | रजिस्टर पर जाएँ | GoogleCallback.js:108 |  |
-| 341 | Authentication Failed | प्रमाणीकरण विफल रहा | GoogleCallback.js:114 |  |
-| 342 | Enter a medication name. | दवा का नाम लिखें। | MedicationManager.js:21 |  |
-| 343 | Names can be up to {max} characters. | नाम अधिकतम {max} अक्षरों का हो सकता है। | MedicationManager.js:22 |  |
-| 344 | You can keep up to {max} medications. Archive or delete one to add another. | आप अधिकतम {max} दवाएँ रख सकते हैं। नई दवा जोड़ने के लिए किसी एक को संग्रहीत करें या हटाएँ। | MedicationManager.js:23 |  |
-| 345 | You can keep up to {max} medications. Remove or archive one first. | आप अधिकतम {max} दवाएँ रख सकते हैं। पहले किसी एक को हटाएँ या संग्रहीत करें। | MedicationManager.js:24 |  |
-| 346 | Couldn't update your medication list. Nothing was changed — try again. | आपकी दवाओं की सूची अपडेट नहीं हो सकी। कुछ भी नहीं बदला गया — दोबारा कोशिश करें। | MedicationManager.js:26 |  |
-| 347 | ← Back to day | ← दिन पर वापस जाएँ | MedicationManager.js:98 |  |
-| 348 | My medications | मेरी दवाएँ | MedicationManager.js:99 |  |
-| 349 | Add a medication | दवा जोड़ें | MedicationManager.js:102 |  |
-| 350 | Add | जोड़ें | MedicationManager.js:105 |  |
-| 351 | No medications yet. | अभी कोई दवा नहीं है। | MedicationManager.js:108 |  |
-| 352 | New name for {name} | {name} का नया नाम | MedicationManager.js:115 |  |
-| 353 | Save name | नाम सहेजें | MedicationManager.js:119 |  |
-| 354 | Delete {name}? Past days will no longer show it. | {name} को हटाएँ? पिछले दिनों के रिकॉर्ड में इसका नाम नहीं दिखेगा। | MedicationManager.js:124 |  |
-| 355 | Yes, delete | हाँ, हटाएँ | MedicationManager.js:125, PeriodDelete.js:39 |  |
-| 356 | Rename {name} | {name} का नाम बदलें | MedicationManager.js:131 |  |
-| 357 | Rename | नाम बदलें | MedicationManager.js:131 |  |
-| 358 | Archive {name} | {name} को संग्रहीत करें | MedicationManager.js:132 |  |
-| 359 | Archive | संग्रहीत करें | MedicationManager.js:132 |  |
-| 360 | Delete {name} | {name} को हटाएँ | MedicationManager.js:133 |  |
-| 361 | Delete | हटाएँ | MedicationManager.js:133 |  |
-| 362 | Archived ({count}) | संग्रहीत ({count}) | MedicationManager.js:141 |  |
-| 363 | Restore {name} | {name} को वापस लाएँ | MedicationManager.js:146 |  |
-| 364 | Restore | वापस लाएँ | MedicationManager.js:146 |  |
-| 365 | Password must be at least 8 characters long | पासवर्ड कम से कम 8 अक्षर का होना चाहिए | PasswordReset.js:36 |  |
-| 366 | Password reset failed | पासवर्ड रीसेट नहीं हो सका | PasswordReset.js:50 |  |
-| 367 | Password Reset Successful! | पासवर्ड सफलतापूर्वक रीसेट हो गया! | PasswordReset.js:75 |  |
-| 368 | Continue to Login | लॉग इन पर जाएँ | PasswordReset.js:88 |  |
-| 369 | Reset Your Password | अपना पासवर्ड रीसेट करें | PasswordReset.js:114 |  |
-| 370 | Enter your new password below | नीचे अपना नया पासवर्ड दर्ज करें | PasswordReset.js:116 |  |
-| 371 | New Password | नया पासवर्ड | PasswordReset.js:123 |  |
-| 372 | Enter new password | नया पासवर्ड दर्ज करें | PasswordReset.js:129 |  |
-| 373 | Confirm Password | पासवर्ड की पुष्टि करें | PasswordReset.js:145 |  |
-| 374 | Confirm new password | नए पासवर्ड की पुष्टि करें | PasswordReset.js:151 |  |
-| 375 | Resetting... | रीसेट हो रहा है... | PasswordReset.js:206 |  |
-| 376 | Could not delete this entry | यह रिकॉर्ड हटाया नहीं जा सका | PeriodDelete.js:18 |  |
-| 377 | Delete this entry | यह रिकॉर्ड हटाएँ | PeriodDelete.js:27 |  |
-| 378 | This entry will be removed from your journey. This can't be undone. | यह रिकॉर्ड आपकी यात्रा से हटा दिया जाएगा। इसे वापस नहीं लाया जा सकता। | PeriodDelete.js:35 |  |
-| 379 | Deleting… | हटाया जा रहा है… | PeriodDelete.js:39, PrivacyPanel.js:92 |  |
-| 380 | Privacy & data | गोपनीयता और डेटा | PrivacyPanel.js:51 |  |
-| 381 | Withdraw AI consent | एआई सहमति वापस लें | PrivacyPanel.js:54 |  |
-| 382 | Chat and insights currently send your data to third-party AI services. | चैट और इनसाइट्स अभी आपका डेटा तीसरे पक्ष की एआई सेवाओं को भेजते हैं। | PrivacyPanel.js:58 |  |
-| 383 | Chat and insights are off until you allow AI features. | जब तक आप एआई सुविधाओं की अनुमति नहीं देते, चैट और इनसाइट्स बंद रहेंगे। | PrivacyPanel.js:59 |  |
-| 384 | Preparing… | तैयार किया जा रहा है… | PrivacyPanel.js:63 |  |
-| 385 | Download my data | मेरा डेटा डाउनलोड करें | PrivacyPanel.js:63 |  |
-| 386 | Delete my account | मेरा खाता हटाएँ | PrivacyPanel.js:73 |  |
-| 387 | This permanently deletes your account and all your data. It cannot be undone. | इससे आपका खाता और आपका सारा डेटा हमेशा के लिए हट जाएगा। इसे पहले जैसा नहीं किया जा सकता। | PrivacyPanel.js:78 |  |
-| 388 | Type DELETE to confirm | पुष्टि के लिए अंग्रेज़ी अक्षरों में DELETE टाइप करें | PrivacyPanel.js:81 |  |
-| 389 | Delete forever | हमेशा के लिए हटाएँ | PrivacyPanel.js:92 |  |
-| 390 | Something went wrong | कुछ गड़बड़ हो गई | PrivacyPanel.js:98 |  |
-| 391 | Your data was downloaded. | आपका डेटा डाउनलोड हो गया। | PrivacyPanel.js:99 |  |
-| 392 | Health profile | स्वास्थ्य प्रोफ़ाइल | ProfileBanner.js:9 |  |
-| 393 | Complete your health profile for better insights. | बेहतर इनसाइट्स के लिए अपनी स्वास्थ्य प्रोफ़ाइल पूरी करें। | ProfileBanner.js:11 |  |
-| 394 | Start | शुरू करें | ProfileBanner.js:13 |  |
-| 395 | Later | बाद में | ProfileBanner.js:14 |  |
-| 396 | Reminders | रिमाइंडर | RemindersPanel.js:70 |  |
-| 397 | Period expected soon | माहवारी जल्द आने वाली है | RemindersPanel.js:74 |  |
-| 398 | Days before | कितने दिन पहले | RemindersPanel.js:79 |  |
-| 399 | {count} day before / {count} days before | {count} दिन पहले / {count} दिन पहले | RemindersPanel.js:85 |  |
-| 400 | Period expected reminder time | माहवारी रिमाइंडर का समय | RemindersPanel.js:90 |  |
-| 401 | Daily check-in nudge | रोज़ का चेक-इन रिमाइंडर | RemindersPanel.js:100 |  |
-| 402 | Daily check-in reminder time | रोज़ के चेक-इन रिमाइंडर का समय | RemindersPanel.js:105 |  |
-| 403 | Late period check-in | माहवारी में देरी पर चेक-इन | RemindersPanel.js:114 |  |
-| 404 | Show details in notifications | नोटिफ़िकेशन में विवरण दिखाएँ | RemindersPanel.js:125 |  |
-| 405 | Details are hidden on the lock screen where Android allows it; check Settings → Notifications → Lock screen. | जहाँ Android अनुमति देता है, वहाँ लॉक स्क्रीन पर विवरण छिपे रहते हैं; सेटिंग → नोटिफ़िकेशन → लॉक स्क्रीन देखें। | RemindersPanel.js:127 |  |
-| 406 | Notifications are turned off for Luna, so these reminders won't appear. Turn them on in Android Settings → Apps → Luna → Notifications. | Luna के लिए नोटिफ़िकेशन बंद हैं, इसलिए ये रिमाइंडर दिखाई नहीं देंगे। इन्हें Android सेटिंग → ऐप्स → Luna → नोटिफ़िकेशन में चालू करें। | RemindersPanel.js:130 |  |
-| 407 | Daily nudges are scheduled for the next two weeks each time you open the app. | ऐप खोलने पर हर बार अगले दो हफ़्तों के लिए रोज़ के रिमाइंडर तय किए जाते हैं। | RemindersPanel.js:132 |  |
-| 408 | Notifications are turned off for Luna. Turn them on in Android Settings → Apps → Luna → Notifications, then try again. | Luna के लिए नोटिफ़िकेशन बंद हैं। इन्हें Android सेटिंग → ऐप्स → Luna → नोटिफ़िकेशन में चालू करें, फिर दोबारा कोशिश करें। | RemindersPanel.js:133 |  |
-| 409 | Reminders arrive within a few minutes of the set time. | रिमाइंडर तय समय के कुछ मिनट के भीतर आते हैं। | RemindersPanel.js:134 |  |
-| 410 | Before you continue | आगे बढ़ने से पहले | RequiredConsentScreen.js:29 |  |
-| 411 | Please confirm the following to use Luna Health. | Luna Health का उपयोग करने के लिए कृपया नीचे दी गई बातों की पुष्टि करें। | RequiredConsentScreen.js:32 |  |
-| 412 | Continue | जारी रखें | RequiredConsentScreen.js:37 |  |
-| 413 | Could not save your data on this device. | आपका डेटा इस डिवाइस पर सहेजा नहीं जा सका। | download.js:52 |  |
-| 414 | Could not open the share sheet to save your data. | डेटा सहेजने के लिए शेयर मेन्यू नहीं खुल सका। | download.js:60 |  |
-| 415 | Today's sky: {label} | आज का आसमान: {label} | TodayCard.js:32, SkyCheckIn.js:99 |  |
-| 416 | Today's details | आज का ब्यौरा | TodayCard.js:37 |  |
-| 417 | Add details | विवरण जोड़ें | TodayCard.js:47, SkyCheckIn.js:103 |  |
-| 418 | Hide today's details | आज का ब्यौरा छिपाएँ | TodayCard.js:58 |  |
-| 419 | Show today's details | आज का ब्यौरा दिखाएँ | TodayCard.js:58 |  |
-| 420 | Profile incomplete | प्रोफ़ाइल अधूरी है | TodayCard.js:62 |  |
+| 8 | Menstrual | माहवारी | App.js:61 | phase names use माहवारी / फॉलिक्युलर / ओव्यूलेशन / ल्यूटियल (the transliterated medical terms are what Hindi health apps show); territory names (घाटी, चढ़ाई, शिखर, वापसी) are literal i18n-note: the tip says the body is "releasing and renewing"; kept close to literal and non-clinical |
+| 9 | The Valley | घाटी | App.js:61 | phase names use माहवारी / फॉलिक्युलर / ओव्यूलेशन / ल्यूटियल (the transliterated medical terms are what Hindi health apps show); territory names (घाटी, चढ़ाई, शिखर, वापसी) are literal i18n-note: the tip says the body is "releasing and renewing"; kept close to literal and non-clinical |
+| 10 | Days 1–5 | दिन 1–5 | App.js:61 | phase names use माहवारी / फॉलिक्युलर / ओव्यूलेशन / ल्यूटियल (the transliterated medical terms are what Hindi health apps show); territory names (घाटी, चढ़ाई, शिखर, वापसी) are literal i18n-note: the tip says the body is "releasing and renewing"; kept close to literal and non-clinical |
+| 11 | Rest, warmth & gentle movement. Your body is releasing and renewing. | आराम, गर्माहट और हल्की-फुल्की गतिविधि। आपका शरीर पुराना छोड़कर खुद को नया कर रहा है। | App.js:61 | phase names use माहवारी / फॉलिक्युलर / ओव्यूलेशन / ल्यूटियल (the transliterated medical terms are what Hindi health apps show); territory names (घाटी, चढ़ाई, शिखर, वापसी) are literal i18n-note: the tip says the body is "releasing and renewing"; kept close to literal and non-clinical |
+| 12 | Follicular | फॉलिक्युलर | App.js:62 |  |
+| 13 | The Ascent | चढ़ाई | App.js:62 |  |
+| 14 | Days 6–13 | दिन 6–13 | App.js:62 |  |
+| 15 | Energy rises. Perfect for new projects, social activities and bold decisions. | ऊर्जा बढ़ती है। नए काम शुरू करने, लोगों से मिलने-जुलने और साहसी फ़ैसले लेने के लिए अच्छा समय। | App.js:62 |  |
+| 16 | Ovulation | ओव्यूलेशन | App.js:63, App.js:1732 |  |
+| 17 | The Summit | शिखर | App.js:63 |  |
+| 18 | Day 14± | दिन 14± | App.js:63 |  |
+| 19 | Energy and confidence often peak around now. Notice how your body feels. | ऊर्जा और आत्मविश्वास अक्सर इसी समय के आसपास सबसे ज़्यादा होते हैं। ध्यान दें कि आपका शरीर कैसा महसूस कर रहा है। | App.js:63 |  |
+| 20 | Luteal | ल्यूटियल | App.js:64 |  |
+| 21 | The Return | वापसी | App.js:64 |  |
+| 22 | Days 15–28 | दिन 15–28 | App.js:64 |  |
+| 23 | Turn inward. Good for reflection, creative depth, and completing things. | भीतर की ओर ध्यान दें। चिंतन करने, रचनात्मक गहराई पाने और काम पूरे करने के लिए अच्छा समय। | App.js:64 |  |
+| 24 | Uncharted | अज्ञात | App.js:66, App.js:66 | "Uncharted" (a map not yet drawn) is अज्ञात (unknown); unsure whether "अनदेखा" or "अज्ञात" reads better |
+| 25 | Log a period to calibrate your journey map. | अपनी यात्रा का नक्शा बनाने के लिए एक माहवारी दर्ज करें। | App.js:66 | "Uncharted" (a map not yet drawn) is अज्ञात (unknown); unsure whether "अनदेखा" or "अज्ञात" reads better |
+| 26 | Close | बंद करें | App.js:518, App.js:1098, App.js:1352 +4 more |  |
+| 27 | Set up your health profile | अपनी स्वास्थ्य प्रोफ़ाइल बनाएँ | App.js:533 |  |
+| 28 | Optional: add your health profile from the banner or Profile → Health Profile so insights can feel more personal. It’s context, not a diagnosis. | वैकल्पिक: बैनर से या प्रोफ़ाइल → स्वास्थ्य प्रोफ़ाइल में जाकर अपनी स्वास्थ्य प्रोफ़ाइल जोड़ें, ताकि इनसाइट्स आपके लिए और व्यक्तिगत हों। यह संदर्भ है, निदान नहीं। | App.js:535 | "Profile → Health Profile" must match the Hindi names of the Profile screen and its Health Profile section (translated in a later task) |
+| 29 | Health Profile | स्वास्थ्य प्रोफ़ाइल | App.js:536, App.js:1870 |  |
+| 30 | Your cycle journey map | आपके मासिक चक्र की यात्रा का नक्शा | App.js:539 |  |
+| 31 | Scroll sideways to explore past and predicted cycles. Hover over coloured bands to see which phase you're in and what it means for energy, mood and focus. | पिछले और अनुमानित चक्र देखने के लिए दाएँ-बाएँ स्क्रोल करें। रंगीन पट्टियों पर कर्सर ले जाकर देखें कि आप किस चरण में हैं और इसका ऊर्जा, मूड और ध्यान पर क्या असर पड़ता है। | App.js:540 |  |
+| 32 | Journey Canvas | यात्रा कैनवस | App.js:541 |  |
+| 33 | Logging periods & symptoms | माहवारी और लक्षण दर्ज करना | App.js:544 |  |
+| 34 | Tap Log period on the map to log a new period. Add flow, pain and symptoms – Luna uses this to understand your pattern over time. | नई माहवारी दर्ज करने के लिए नक्शे पर "माहवारी दर्ज करें" पर टैप करें। रक्तस्राव की मात्रा, दर्द और लक्षण जोड़ें – इससे Luna को समय के साथ आपका पैटर्न समझने में मदद मिलती है। | App.js:545 |  |
+| 35 | Log Periods | माहवारी दर्ज करें | App.js:546 |  |
+| 36 | AI health insights | एआई स्वास्थ्य इनसाइट्स | App.js:549 |  |
+| 37 | In Insights, Luna analyses your last cycles to explain regularity, predicted dates and key patterns, with clear recommendations in everyday language. | इनसाइट्स में Luna आपके पिछले चक्रों का विश्लेषण करके नियमितता, अनुमानित तारीखें और मुख्य पैटर्न समझाती है, साथ ही सरल भाषा में स्पष्ट सुझाव देती है। | App.js:550 |  |
+| 38 | AI Analysis | एआई विश्लेषण | App.js:551, App.js:1675 |  |
+| 39 | Chat with Luna | Luna से चैट करें | App.js:554 |  |
+| 40 | Use Chat for questions about cramps, cycle changes or patterns you’re worried about. Luna will reference your data when available, but never diagnose. | ऐंठन, चक्र में बदलाव या ऐसे पैटर्न के बारे में जिनको लेकर आप चिंतित हैं, सवाल पूछने के लिए चैट का उपयोग करें। डेटा उपलब्ध होने पर Luna उसका संदर्भ लेगी, लेकिन कभी निदान नहीं करेगी। | App.js:556 | "never diagnose" is translated literally on purpose (health disclaimer); keep it unsoftened |
+| 41 | Chat | चैट | App.js:557, App.js:2175 |  |
+| 42 | Welcome tour | स्वागत टूर | App.js:577 |  |
+| 43 | Meet your Luna journey | अपनी Luna यात्रा को जानें | App.js:579 |  |
+| 44 | Skip | छोड़ें | App.js:581 |  |
+| 45 | Use your mouse wheel or trackpad to pan across the map. On touch devices, drag sideways with one finger. | नक्शे पर आगे-पीछे जाने के लिए माउस व्हील या ट्रैकपैड का उपयोग करें। टच डिवाइस पर एक उंगली से दाएँ-बाएँ खींचें। | App.js:589 |  |
+| 46 | drag | खींचें | App.js:590 |  |
+| 47 | Back | पीछे | App.js:601 |  |
+| 48 | Next | आगे | App.js:612 |  |
+| 49 | Done | हो गया | App.js:612 |  |
+| 50 | Thinking… | सोच रही हूँ… | App.js:640 |  |
+| 51 | Thought process | सोचने की प्रक्रिया | App.js:642 |  |
+| 52 | Something went wrong. Please try again. | कुछ गड़बड़ हो गई। कृपया दोबारा कोशिश करें। | App.js:675 |  |
+| 53 | Check your email. Open the link we sent to choose your password and finish signing up. | अपना ईमेल देखें। हमारे भेजे गए लिंक को खोलकर अपना पासवर्ड चुनें और पंजीकरण पूरा करें। | App.js:677 |  |
+| 54 | Failed to sign in with Google | Google से साइन इन नहीं हो सका | App.js:696 |  |
+| 55 | Failed to initiate Google Sign-In | Google साइन इन शुरू नहीं हो सका | App.js:707 |  |
+| 56 | Verification email sent! Please check your inbox. | सत्यापन ईमेल भेज दिया गया है! कृपया अपना इनबॉक्स देखें। | App.js:717 |  |
+| 57 | Resend Verification Email | सत्यापन ईमेल दोबारा भेजें | App.js:740 |  |
+| 58 | Send Reset Link | रीसेट लिंक भेजें | App.js:741 |  |
+| 59 | Log in | लॉग इन करें | App.js:742 |  |
+| 60 | Create Account | खाता बनाएँ | App.js:742 |  |
+| 61 | Resend Verification | सत्यापन दोबारा भेजें | App.js:750 |  |
+| 62 | Email | ईमेल | App.js:752, App.js:780, App.js:811 +1 more |  |
+| 63 | Sending… | भेजा जा रहा है… | App.js:756, App.js:784 |  |
+| 64 | Back to Login | लॉग इन पर वापस जाएँ | App.js:764, App.js:792, GoogleCallback.js:116 |  |
+| 65 | Reset Password | पासवर्ड रीसेट करें | App.js:778, PasswordReset.js:206 |  |
+| 66 | Your Cycle, Your Journey | आपका मासिक चक्र, आपकी यात्रा | App.js:805 |  |
+| 67 | Sign In | साइन इन करें | App.js:807 |  |
+| 68 | Register | रजिस्टर करें | App.js:808 |  |
+| 69 | Password | पासवर्ड | App.js:812 |  |
+| 70 | Hide password | पासवर्ड छिपाएँ | App.js:815, EmailVerification.js:193 |  |
+| 71 | Show password | पासवर्ड दिखाएँ | App.js:815, EmailVerification.js:193 |  |
+| 72 | Processing… | प्रक्रिया जारी है… | App.js:822 |  |
+| 73 | OR | या | App.js:829 |  |
+| 74 | Continue with Google | Google के साथ जारी रखें | App.js:846 |  |
+| 75 | Forgot password? | पासवर्ड भूल गए? | App.js:859 |  |
+| 76 | Resend verification | सत्यापन दोबारा भेजें | App.js:868 |  |
+| 77 | Only Gmail addresses are supported for registration. | पंजीकरण के लिए केवल Gmail पते स्वीकार किए जाते हैं। | App.js:874 |  |
+| 78 | Luna Health is for people aged 18 and over. | Luna Health 18 वर्ष और उससे अधिक आयु के लोगों के लिए है। | App.js:875 |  |
+| 79 | Your journey starts with your first period. | आपकी यात्रा आपकी पहली माहवारी से शुरू होती है। | App.js:968 |  |
+| 80 | Log a period | माहवारी दर्ज करें | App.js:969 |  |
+| 81 | Log period | माहवारी दर्ज करें | App.js:975 |  |
+| 82 | Predicted period | अनुमानित माहवारी | App.js:1039 |  |
+| 83 | Period: {date} | माहवारी: {date} | App.js:1039 |  |
+| 84 | NOW | अभी | App.js:1048 |  |
+| 85 | Luna, your companion. Tap to hear a tip. | Luna, आपकी साथी। टिप सुनने के लिए टैप करें। | App.js:1054 |  |
+| 86 | {icon} {phase} · {territory} | {icon} {phase} · {territory} | App.js:1082 |  |
+| 87 | Logged Period | दर्ज की गई माहवारी | App.js:1101 |  |
+| 88 | Ended: {date} | समाप्त: {date} | App.js:1103 |  |
+| 89 | Pain: {level}/10 | दर्द: {level}/10 | App.js:1105 |  |
+| 90 | Predicted period start | अनुमानित माहवारी की शुरुआत | App.js:1109 |  |
+| 91 | Unable to load recent pattern | हाल का पैटर्न लोड नहीं हो सका | App.js:1144 |  |
+| 92 | Start date required | आरंभ तिथि आवश्यक है | App.js:1152 |  |
+| 93 | The end date can't be before the start date. | समाप्ति तिथि आरंभ तिथि से पहले की नहीं हो सकती। | App.js:1154 |  |
+| 94 | Dates can't be in the future. | तारीखें भविष्य की नहीं हो सकतीं। | App.js:1155 |  |
+| 95 | Log New Period | नई माहवारी दर्ज करें | App.js:1161 |  |
+| 96 | Cancel | रद्द करें | App.js:1162, AppearancePanel.js:84, MedicationManager.js:120 +2 more |  |
+| 97 | Save to Journey | यात्रा में सहेजें | App.js:1162 |  |
+| 98 | Start Date * | आरंभ तिथि * | App.js:1164 |  |
+| 99 | End Date | समाप्ति तिथि | App.js:1165 |  |
+| 100 | Flow Intensity | रक्तस्राव की मात्रा | App.js:1167 |  |
+| 101 | Light | हल्का | App.js:1167, App.js:1939 |  |
+| 102 | Medium | मध्यम | App.js:1167 |  |
+| 103 | Heavy | भारी | App.js:1167, App.js:1939 |  |
+| 104 | Pain Level | दर्द का स्तर | App.js:1169 |  |
+| 105 | Symptoms | लक्षण | App.js:1172, DaySheet.js:305 |  |
+| 106 | Notes | नोट | App.js:1173, launcherAppearance.js:21 | shares the catalog entry "Notes" = नोट used elsewhere; unsure "नोट्स" would read better as an app name |
+| 107 | Any additional observations… | कोई और बात जो आपने देखी हो… | App.js:1173 |  |
+| 108 | How your cycles usually look | आपके चक्र आमतौर पर कैसे रहते हैं | App.js:1177 |  |
+| 109 | Reading your recent pattern… | आपका हाल का पैटर्न देखा जा रहा है… | App.js:1178 |  |
+| 110 | We couldn't load past data ({error}). You can still log this period. | पिछला डेटा लोड नहीं हो सका ({error})। यह माहवारी फिर भी दर्ज की जा सकती है। | App.js:1179 |  |
+| 111 | Once you've logged a few periods, we'll summarise your typical cycle length, bleed days and pain pattern here. | कुछ माहवारी दर्ज करने के बाद, यहाँ आपके सामान्य चक्र की अवधि, रक्तस्राव के दिन और दर्द का पैटर्न दिखाया जाएगा। | App.js:1182 |  |
+| 112 | Based on your {count} logged period. / Based on your last {count} logged periods. | आपकी दर्ज की गई {count} माहवारी के आधार पर। / आपकी पिछली {count} दर्ज की गई माहवारियों के आधार पर। | App.js:1188 |  |
+| 113 | Typical cycle length | आपके चक्र की आम अवधि | App.js:1193 |  |
+| 114 | {count} day / {count} days | {count} दिन / {count} दिन | App.js:1194, App.js:1210 |  |
+| 115 | Most cycles fall between {min}–{max} days. | ज़्यादातर चक्र {min}–{max} दिन के बीच होते हैं। | App.js:1201 |  |
+| 116 | Bleeding days | रक्तस्राव के दिन | App.js:1209 |  |
+| 117 | Usually between {min}–{max} days of bleeding. | आमतौर पर {min}–{max} दिन रक्तस्राव होता है। | App.js:1217 |  |
+| 118 | Average pain level | औसत दर्द का स्तर | App.js:1225 |  |
+| 119 | This is the most common flow pattern you log. | यह वह रक्तस्राव पैटर्न है जो सबसे ज़्यादा दर्ज हुआ है। | App.js:1236 |  |
+| 120 | What does my health score mean? | मेरे स्वास्थ्य स्कोर का क्या मतलब है? | App.js:1254 |  |
+| 121 | How can I track symptoms better? | मैं अपने लक्षण बेहतर ढंग से कैसे दर्ज करूँ? | App.js:1255 |  |
+| 122 | When will my next period arrive? | मेरी अगली माहवारी कब आएगी? | App.js:1256 |  |
+| 123 | Tips for managing cramps | ऐंठन से राहत के लिए सुझाव | App.js:1257 |  |
+| 124 | Is my cycle regular? | क्या मेरा चक्र नियमित है? | App.js:1258 |  |
+| 125 | Conversation history | बातचीत का इतिहास | App.js:1350 |  |
+| 126 | History | इतिहास | App.js:1350, App.js:1358, App.js:1708 |  |
+| 127 | AI companion | एआई साथी | App.js:1351 |  |
+| 128 | Back to chat | चैट पर वापस जाएँ | App.js:1359 |  |
+| 129 | New chat | नई चैट | App.js:1360 |  |
+| 130 | No messages yet. | अभी कोई संदेश नहीं। | App.js:1363 |  |
+| 131 | Start a conversation. | बातचीत शुरू करें। | App.js:1363 |  |
+| 132 | New Chat | नई चैट | App.js:1366 |  |
+| 133 | You | आप | App.js:1375 |  |
+| 134 | Hey there! 👋 I'm Luna. I can help you understand your cycle, your symptoms and how you're feeling. <br>  <br> What's on your mind today? 💜 | नमस्ते! 👋 मैं Luna हूँ। मैं आपके चक्र, आपके लक्षणों और आप कैसा महसूस कर रहे हैं, यह समझने में मदद कर सकती हूँ। <br>  <br> आज आपके मन में क्या है? 💜 | App.js:1377 |  |
+| 135 | ⚠ Error: {message} | ⚠ त्रुटि: {message} | App.js:1378 |  |
+| 136 | Ask Luna about your cycle… | Luna से अपने चक्र के बारे में पूछें… | App.js:1420 |  |
+| 137 | Send | भेजें | App.js:1425 |  |
+| 138 | Luna is an AI companion, not a doctor. For medical concerns, please see a clinician. | Luna एक एआई साथी है, डॉक्टर नहीं। चिकित्सा संबंधी चिंताओं के लिए कृपया किसी चिकित्सक से मिलें। | App.js:1429 |  |
+| 139 | high | उच्च | App.js:1442 |  |
+| 140 | medium | मध्यम | App.js:1443, symptoms.js:29 |  |
+| 141 | low | निम्न | App.js:1444 |  |
+| 142 | none | कोई नहीं | App.js:1445 |  |
+| 143 | excellent | उत्कृष्ट | App.js:1446 |  |
+| 144 | good | अच्छी | App.js:1447 |  |
+| 145 | fair | ठीक-ठाक | App.js:1448 |  |
+| 146 | limited | सीमित | App.js:1449 |  |
+| 147 | insufficient | अपर्याप्त | App.js:1450 |  |
+| 148 | Key Insights | मुख्य इनसाइट्स | App.js:1474 |  |
+| 149 | Why This Result | यह नतीजा क्यों | App.js:1487 |  |
+| 150 | Recommendations | सुझाव | App.js:1500 |  |
+| 151 | Prediction Notice | अनुमान संबंधी सूचना | App.js:1514 |  |
+| 152 | Medical Analysis (MedGemma) | चिकित्सीय विश्लेषण (MedGemma) | App.js:1526 |  |
+| 153 | Clinical Findings: | चिकित्सीय निष्कर्ष: | App.js:1530 |  |
+| 154 | Risk Factors: | जोखिम कारक: | App.js:1542 |  |
+| 155 | Medical Recommendations: | चिकित्सीय सुझाव: | App.js:1554 |  |
+| 156 | Urgency Level: {level} | ध्यान देने की ज़रूरत: {level} | App.js:1576 |  |
+| 157 | Consider consulting with a healthcare provider soon. | जल्द ही किसी डॉक्टर या स्वास्थ्य विशेषज्ञ से सलाह लेने पर विचार करें। | App.js:1578 |  |
+| 158 | Monitor symptoms and consult if they worsen. | लक्षणों पर नज़र रखें और बढ़ने पर डॉक्टर से सलाह लें। | App.js:1578 |  |
+| 159 | What to Expect | आगे क्या हो सकता है | App.js:1588 |  |
+| 160 | Next Steps | अगले कदम | App.js:1598 |  |
+| 161 | When to See a Doctor | डॉक्टर को कब दिखाएँ | App.js:1618 |  |
+| 162 | Analysing… | विश्लेषण हो रहा है… | App.js:1677 |  |
+| 163 | Run Analysis | विश्लेषण चलाएँ | App.js:1677, App.js:1756 |  |
+| 164 | Loading analyses… | विश्लेषण लोड हो रहे हैं… | App.js:1682 |  |
+| 165 | Running MedGemma… | MedGemma चल रहा है… | App.js:1684 |  |
+| 166 | 5–15 seconds | 5–15 सेकंड | App.js:1684 |  |
+| 167 | Overview | सारांश | App.js:1696 |  |
+| 168 | Needs 3+ cycles for a score | स्कोर के लिए 3+ चक्र ज़रूरी हैं | App.js:1717 |  |
+| 169 | Avg Cycle | औसत चक्र | App.js:1720, TodayCard.js:42 |  |
+| 170 | {days}d | {days} दिन | App.js:1720, TodayCard.js:30, TodayCard.js:41 |  |
+| 171 | Regularity | नियमितता | App.js:1721 |  |
+| 172 | Next Period | अगली माहवारी | App.js:1725 |  |
+| 173 | Range | संभावित तारीखें | App.js:1728 |  |
+| 174 | Confidence | विश्वसनीयता | App.js:1735 |  |
+| 175 | {level} ({percentage}%) | {level} ({percentage}%) | App.js:1737 |  |
+| 176 | Data Quality | डेटा की गुणवत्ता | App.js:1743 |  |
+| 177 | No insights yet. | अभी कोई इनसाइट नहीं। | App.js:1754 |  |
+| 178 | Log at least two periods (about a month apart), then tap {action}. | कम से कम दो माहवारी दर्ज करें (लगभग एक महीने के अंतर पर), फिर {action} पर टैप करें। | App.js:1755 |  |
+| 179 | Cycle health analysis | चक्र स्वास्थ्य विश्लेषण | App.js:1780 |  |
+| 180 | Analysis | विश्लेषण | App.js:1780 |  |
+| 181 | Score {score}/100 | स्कोर {score}/100 | App.js:1786 |  |
+| 182 | Next period: {date} | अगली माहवारी: {date} | App.js:1789 |  |
+| 183 | Risk flags: | जोखिम संकेत: | App.js:1792 |  |
+| 184 | No past analyses yet. | अभी तक कोई पिछला विश्लेषण नहीं। | App.js:1815 |  |
+| 185 | As you run analyses, they’ll appear here with scores and key dates. | जैसे-जैसे आप विश्लेषण चलाएँगे, वे स्कोर और अहम तारीखों के साथ यहाँ दिखाई देंगे। | App.js:1815 |  |
+| 186 | Last period date required | आखिरी माहवारी की तारीख आवश्यक है | App.js:1860 |  |
+| 187 | Please tick the consent box to save your health profile. | अपनी स्वास्थ्य प्रोफ़ाइल सहेजने के लिए कृपया सहमति वाले बॉक्स पर निशान लगाएँ। | App.js:1860 |  |
+| 188 | Profile | प्रोफ़ाइल | App.js:1870, App.js:2176 |  |
+| 189 | Health Profile → | स्वास्थ्य प्रोफ़ाइल → | App.js:1872 |  |
+| 190 | ← Back | ← वापस | App.js:1873 |  |
+| 191 | Luna Health member | Luna Health सदस्य | App.js:1882 |  |
+| 192 | Update Health Profile | स्वास्थ्य प्रोफ़ाइल अपडेट करें | App.js:1886 |  |
+| 193 | Sign Out | साइन आउट करें | App.js:1887 |  |
+| 194 | Language | भाषा | App.js:1893, LanguageSwitcher.js:41 |  |
+| 195 | Profile Saved | प्रोफ़ाइल सहेजी गई | App.js:1907 |  |
+| 196 | Your health profile has been updated. | आपकी स्वास्थ्य प्रोफ़ाइल अपडेट हो गई है। | App.js:1908 |  |
+| 197 | Initial Analysis | शुरुआती विश्लेषण | App.js:1912 |  |
+| 198 | Update Again | फिर से अपडेट करें | App.js:1922 |  |
+| 199 | This is your health questionnaire. It helps Luna understand your body and symptoms. You can always edit these answers later under {name}. | यह आपकी स्वास्थ्य प्रश्नावली है। इससे Luna को आपके शरीर और लक्षणों को समझने में मदद मिलती है। आप इन उत्तरों को बाद में {name} में कभी भी बदल सकते हैं। | App.js:1928 |  |
+| 200 | Profile → Health Profile | प्रोफ़ाइल → स्वास्थ्य प्रोफ़ाइल | App.js:1929 |  |
+| 201 | Basic Info | बुनियादी जानकारी | App.js:1932 |  |
+| 202 | Age | आयु | App.js:1933 |  |
+| 203 | Biological Sex | जैविक लिंग | App.js:1933 |  |
+| 204 | Female | महिला | App.js:1933 |  |
+| 205 | Male | पुरुष | App.js:1933 |  |
+| 206 | Other | अन्य | App.js:1933 |  |
+| 207 | Weight (kg) | वज़न (किग्रा) | App.js:1934 |  |
+| 208 | Height (cm) | लंबाई (सेमी) | App.js:1934 |  |
+| 209 | Cycle Pattern | मासिक चक्र का पैटर्न | App.js:1936 |  |
+| 210 | Last Menstrual Period * | आखिरी माहवारी की तारीख * | App.js:1937 |  |
+| 211 | Cycle Length (days) | चक्र की अवधि (दिन) | App.js:1938 |  |
+| 212 | Variability (days) | चक्र में उतार-चढ़ाव (दिन) | App.js:1938 |  |
+| 213 | Bleed Duration | रक्तस्राव की अवधि | App.js:1939 |  |
+| 214 | Bleed Volume | रक्तस्राव की मात्रा | App.js:1939 |  |
+| 215 | Moderate | मध्यम | App.js:1939 |  |
+| 216 | Passes large clots | बड़े थक्के निकलना | App.js:1940 |  |
+| 217 | Intermenstrual bleeding | दो माहवारियों के बीच रक्तस्राव | App.js:1940 |  |
+| 218 | Pain & Symptoms | दर्द और लक्षण | App.js:1942 |  |
+| 219 | Has cramping | ऐंठन होती है | App.js:1943 |  |
+| 220 | Pain Severity | दर्द की तीव्रता | App.js:1943 |  |
+| 221 | Pain Timing | दर्द कब होता है | App.js:1944 |  |
+| 222 | Before | माहवारी से पहले | App.js:1944 |  |
+| 223 | During | माहवारी के दौरान | App.js:1944 |  |
+| 224 | After | माहवारी के बाद | App.js:1944 |  |
+| 225 | Painkiller Effectiveness | दर्द निवारक दवा का असर | App.js:1945 |  |
+| 226 | None | कोई असर नहीं | App.js:1945 |  |
+| 227 | Partial | आंशिक | App.js:1945 |  |
+| 228 | Complete | पूरा | App.js:1945 |  |
+| 229 | Nausea | जी मिचलाना | App.js:1946 |  |
+| 230 | Vomiting | उल्टी | App.js:1946 |  |
+| 231 | PMS Symptoms (0–3) | पीएमएस के लक्षण (0–3) | App.js:1948 |  |
+| 232 | Mood Swings | मूड में बदलाव | App.js:1949 |  |
+| 233 | Anxiety | चिंता | App.js:1949 |  |
+| 234 | Bloating | पेट फूलना | App.js:1949 |  |
+| 235 | Headaches | सिरदर्द | App.js:1949 |  |
+| 236 | Interferes with daily life | रोज़मर्रा के कामों में बाधा आती है | App.js:1950 |  |
+| 237 | Interference Severity | रोज़ के कामों पर कितना असर | App.js:1951 |  |
+| 238 | Additional Notes | अतिरिक्त नोट | App.js:1954 |  |
+| 239 | Any other health information… | स्वास्थ्य से जुड़ी कोई और जानकारी… | App.js:1954 |  |
+| 240 | I consent to data analysis | डेटा विश्लेषण के लिए मेरी सहमति है | App.js:1955 |  |
+| 241 | Save Health Profile | स्वास्थ्य प्रोफ़ाइल सहेजें | App.js:1958 |  |
+| 242 | Retry | दोबारा कोशिश करें | App.js:2079, CalendarScreen.js:101, DaySheet.js:276 +1 more |  |
+| 243 | Sign out | साइन आउट करें | App.js:2080, RequiredConsentScreen.js:40 |  |
+| 244 | Loading your privacy settings… | आपकी गोपनीयता सेटिंग लोड हो रही हैं… | App.js:2086 |  |
+| 245 | Open profile | प्रोफ़ाइल खोलें | App.js:2139 |  |
+| 246 | Profile incomplete | प्रोफ़ाइल अधूरी है | App.js:2140 |  |
+| 247 | Loading your journey… | आपकी यात्रा लोड हो रही है… | App.js:2147 |  |
+| 248 | Journey | यात्रा | App.js:2172 |  |
+| 249 | Calendar | कैलेंडर | App.js:2173, CalendarScreen.js:87, CalendarScreen.js:89 |  |
+| 250 | Insights | इनसाइट्स | App.js:2174 |  |
+| 251 | App appearance on this phone | इस फ़ोन पर ऐप का रूप | AppearancePanel.js:57 |  |
+| 252 | App appearance | ऐप का रूप | AppearancePanel.js:58 |  |
+| 253 | Confirm app appearance | ऐप का रूप बदलने की पुष्टि | AppearancePanel.js:79 |  |
+| 254 | The app will appear as “{label}” in your app list; your old home-screen shortcut will disappear. It can take a moment to update, and some launchers need a restart. The app may close once when this changes. | यह ऐप आपकी ऐप सूची में अंग्रेज़ी नाम “{label}” से दिखेगा; आपका पुराना होम-स्क्रीन शॉर्टकट हट जाएगा। अपडेट होने में कुछ समय लग सकता है, और कुछ लॉन्चर को रीस्टार्ट करना पड़ सकता है। इस बदलाव के दौरान ऐप एक बार बंद हो सकता है। | AppearancePanel.js:81 |  |
+| 255 | Change | बदलें | AppearancePanel.js:83 |  |
+| 256 | Done. Look for “{label}” in your app list. You may need to add it to your home screen again. | हो गया। अपनी ऐप सूची में अंग्रेज़ी नाम “{label}” खोजें। हो सकता है आपको इसे दोबारा होम स्क्रीन पर जोड़ना पड़े। | AppearancePanel.js:89 |  |
+| 257 | Couldn't change the app appearance. Nothing was changed. | ऐप का रूप बदला नहीं जा सका। कुछ भी नहीं बदला गया। | AppearancePanel.js:90 |  |
+| 258 | Android still shows the real app name in Settings → Apps and in notifications. | Android अब भी सेटिंग → ऐप्स में और नोटिफ़िकेशन में ऐप का असली नाम दिखाता है। | AppearancePanel.js:92 |  |
+| 259 | {month} {day}, {year} | {day} {month} {year} | CalendarScreen.js:73 |  |
+| 260 | today | आज | CalendarScreen.js:75 | these state words are read aloud after the date by screen readers, e.g. "5 अक्टूबर 2026, आज, माहवारी का दिन"; unsure about the phrasing |
+| 261 | period day | माहवारी का दिन | CalendarScreen.js:76 |  |
+| 262 | expected period | अनुमानित माहवारी | CalendarScreen.js:77 |  |
+| 263 | logged | दर्ज किया गया | CalendarScreen.js:79 |  |
+| 264 | Previous month | पिछला महीना | CalendarScreen.js:94 |  |
+| 265 | Next month | अगला महीना | CalendarScreen.js:96 |  |
+| 266 | Couldn't load your logs. Tap Retry. | आपके रिकॉर्ड लोड नहीं हो सके। “दोबारा कोशिश करें” दबाएँ। | CalendarScreen.js:100 |  |
+| 267 | Period | माहवारी | CalendarScreen.js:128 |  |
+| 268 | Expected period | अनुमानित माहवारी | CalendarScreen.js:129 |  |
+| 269 | Logged | दर्ज | CalendarScreen.js:130, TodayCard.js:43 |  |
+| 270 | Flow | रक्तस्राव | CalendarScreen.js:131, DaySheet.js:314 |  |
+| 271 | Log today | आज दर्ज करें | CalendarScreen.js:133 |  |
+| 272 | I agree to the {terms} and {privacy}. | मैं {terms} और {privacy} से सहमत हूँ। | ConsentCheckboxes.js:20 |  |
+| 273 | Terms | शर्तें | ConsentCheckboxes.js:22, PrivacyPanel.js:104 |  |
+| 274 | Privacy Policy | गोपनीयता नीति | ConsentCheckboxes.js:23, PrivacyPanel.js:102 |  |
+| 275 | I am 18 years of age or older. | मेरी आयु 18 वर्ष या उससे अधिक है। | ConsentCheckboxes.js:29 |  |
+| 276 | Saved. | सहेज लिया गया। | DaySheet.js:19 |  |
+| 277 | That date can't be saved yet. Pick today or an earlier day. | इस तारीख का रिकॉर्ड अभी सहेजा नहीं जा सकता। आज या उससे पहले का दिन चुनें। | DaySheet.js:20 |  |
+| 278 | Couldn't clear this day. Your entries are still here — try again. | इस दिन का रिकॉर्ड मिटाया नहीं जा सका। आपकी प्रविष्टियाँ यहीं हैं — दोबारा कोशिश करें। | DaySheet.js:21 |  |
+| 279 | Couldn't save this day. Your entries are still here — try again. | इस दिन का रिकॉर्ड सहेजा नहीं जा सका। आपकी प्रविष्टियाँ यहीं हैं — दोबारा कोशिश करें। | DaySheet.js:22 |  |
+| 280 | Decrease {label} | {label} घटाएँ | DaySheet.js:84 |  |
+| 281 | {label} value | {label}: मान | DaySheet.js:86 |  |
+| 282 | Increase {label} | {label} बढ़ाएँ | DaySheet.js:87 |  |
+| 283 | Reset | रीसेट करें | DaySheet.js:89 |  |
+| 284 | That date is too far back to log. | इतनी पुरानी तारीख का रिकॉर्ड दर्ज नहीं किया जा सकता। | DaySheet.js:267 |  |
+| 285 | This day is too far ahead to log yet. You can log up to tomorrow. | यह दिन अभी दर्ज करने के लिए बहुत आगे है। आप आने वाले कल (अगले दिन) तक का रिकॉर्ड दर्ज कर सकते हैं। | DaySheet.js:269 |  |
+| 286 | Loading… | लोड हो रहा है… | DaySheet.js:271 |  |
+| 287 | Couldn't load this day. | इस दिन का रिकॉर्ड लोड नहीं हो सका। | DaySheet.js:275 |  |
+| 288 | Mood | मूड | DaySheet.js:285 |  |
+| 289 | Sleep | नींद | DaySheet.js:323 |  |
+| 290 | sleep hours | नींद के घंटे | DaySheet.js:324 |  |
+| 291 | Reset sleep | नींद रीसेट करें | DaySheet.js:324 |  |
+| 292 | 1 h | 1 घंटा | DaySheet.js:324 |  |
+| 293 | {hours} h | {hours} घंटे | DaySheet.js:324 |  |
+| 294 | Water | पानी | DaySheet.js:327 |  |
+| 295 | glasses of water | पानी के गिलास | DaySheet.js:328 |  |
+| 296 | Reset water | पानी रीसेट करें | DaySheet.js:328 |  |
+| 297 | Medications | दवाएँ | DaySheet.js:331 |  |
+| 298 | Couldn't load your medications. | आपकी दवाएँ लोड नहीं हो सकीं। | DaySheet.js:334 |  |
+| 299 | Loading medications… | दवाएँ लोड हो रही हैं… | DaySheet.js:338 |  |
+| 300 | No medications on your list yet. | आपकी सूची में अभी कोई दवा नहीं है। | DaySheet.js:341 |  |
+| 301 | (archived) | (संग्रहीत) | DaySheet.js:346 |  |
+| 302 | Manage my list | मेरी सूची प्रबंधित करें | DaySheet.js:349 |  |
+| 303 | Note | नोट | DaySheet.js:355 |  |
+| 304 | Log for {date} | {date} का रिकॉर्ड | DaySheet.js:370 |  |
+| 305 | Discard changes? | बदलाव छोड़ दें? | DaySheet.js:376, DaySheet.js:377 |  |
+| 306 | Keep editing | संपादन जारी रखें | DaySheet.js:378 |  |
+| 307 | Discard | छोड़ दें | DaySheet.js:379 |  |
+| 308 | Nothing to save yet. | सहेजने के लिए अभी कुछ नहीं है। | DaySheet.js:386 |  |
+| 309 | Clear everything logged for this day? | इस दिन के लिए दर्ज सब कुछ मिटा दें? | DaySheet.js:389 |  |
+| 310 | Yes, clear | हाँ, मिटाएँ | DaySheet.js:390 |  |
+| 311 | Keep | रहने दें | DaySheet.js:391, MedicationManager.js:126 |  |
+| 312 | Save | सहेजें | DaySheet.js:395 |  |
+| 313 | Clear day | दिन मिटाएँ | DaySheet.js:396 |  |
+| 314 | Email Verification | ईमेल सत्यापन | EmailVerification.js:92 |  |
+| 315 | Use at least 8 characters | कम से कम 8 अक्षर रखें | EmailVerification.js:142 |  |
+| 316 | Password must be at most 72 bytes | पासवर्ड 72 बाइट से लंबा नहीं होना चाहिए | EmailVerification.js:143, serverMessages.js:64 |  |
+| 317 | Passwords do not match | पासवर्ड मेल नहीं खाते | EmailVerification.js:144, PasswordReset.js:30 |  |
+| 318 | Please confirm you are 18 or older and agree to the Terms and Privacy Policy | कृपया पुष्टि करें कि आपकी आयु 18 वर्ष या उससे अधिक है और आप शर्तों व गोपनीयता नीति से सहमत हैं | EmailVerification.js:145 |  |
+| 319 | Checking your link... | आपका लिंक जाँचा जा रहा है... | EmailVerification.js:162 |  |
+| 320 | Link problem | लिंक में समस्या | EmailVerification.js:172 |  |
+| 321 | Invalid verification link | सत्यापन लिंक अमान्य है | EmailVerification.js:173 |  |
+| 322 | Back to sign in | साइन इन पर वापस जाएँ | EmailVerification.js:175 |  |
+| 323 | Choose your password | अपना पासवर्ड चुनें | EmailVerification.js:183 |  |
+| 324 | New password | नया पासवर्ड | EmailVerification.js:190 |  |
+| 325 | Confirm password | पासवर्ड की पुष्टि करें | EmailVerification.js:197 |  |
+| 326 | Creating… | बनाया जा रहा है… | EmailVerification.js:203 |  |
+| 327 | Create my account | मेरा खाता बनाएँ | EmailVerification.js:203 |  |
+| 328 | Google authentication was cancelled or failed | Google प्रमाणीकरण रद्द हो गया या विफल रहा | GoogleCallback.js:51 |  |
+| 329 | No authorization code received | कोई प्राधिकरण कोड प्राप्त नहीं हुआ | GoogleCallback.js:56 |  |
+| 330 | Sign-in could not be verified. Please try again. | साइन इन सत्यापित नहीं हो सका। कृपया दोबारा कोशिश करें। | GoogleCallback.js:64 |  |
+| 331 | Authentication failed | प्रमाणीकरण विफल रहा | GoogleCallback.js:79 |  |
+| 332 | Completing authentication... | प्रमाणीकरण पूरा किया जा रहा है... | GoogleCallback.js:89 |  |
+| 333 | Authentication Successful! | प्रमाणीकरण सफल रहा! | GoogleCallback.js:96 |  |
+| 334 | Redirecting to your dashboard... | आपको डैशबोर्ड पर ले जाया जा रहा है... | GoogleCallback.js:97 |  |
+| 335 | Create your account first | पहले अपना खाता बनाएँ | GoogleCallback.js:104 |  |
+| 336 | We couldn't find a Luna Health account for this Google email. To create one, go to Register, confirm that you are 18 or older and accept the Terms and Privacy Policy, then continue with Google. | इस Google ईमेल के लिए हमें कोई Luna Health खाता नहीं मिला। खाता बनाने के लिए रजिस्टर पर जाएँ, पुष्टि करें कि आपकी आयु 18 वर्ष या उससे अधिक है और शर्तें व गोपनीयता नीति स्वीकार करें, फिर Google से जारी रखें। | GoogleCallback.js:106 |  |
+| 337 | Go to Register | रजिस्टर पर जाएँ | GoogleCallback.js:108 |  |
+| 338 | Authentication Failed | प्रमाणीकरण विफल रहा | GoogleCallback.js:114 |  |
+| 339 | Enter a medication name. | दवा का नाम लिखें। | MedicationManager.js:21 |  |
+| 340 | Names can be up to {max} characters. | नाम अधिकतम {max} अक्षरों का हो सकता है। | MedicationManager.js:22 |  |
+| 341 | You can keep up to {max} medications. Archive or delete one to add another. | आप अधिकतम {max} दवाएँ रख सकते हैं। नई दवा जोड़ने के लिए किसी एक को संग्रहीत करें या हटाएँ। | MedicationManager.js:23 |  |
+| 342 | You can keep up to {max} medications. Remove or archive one first. | आप अधिकतम {max} दवाएँ रख सकते हैं। पहले किसी एक को हटाएँ या संग्रहीत करें। | MedicationManager.js:24 |  |
+| 343 | Couldn't update your medication list. Nothing was changed — try again. | आपकी दवाओं की सूची अपडेट नहीं हो सकी। कुछ भी नहीं बदला गया — दोबारा कोशिश करें। | MedicationManager.js:26 |  |
+| 344 | ← Back to day | ← दिन पर वापस जाएँ | MedicationManager.js:98 |  |
+| 345 | My medications | मेरी दवाएँ | MedicationManager.js:99 |  |
+| 346 | Add a medication | दवा जोड़ें | MedicationManager.js:102 |  |
+| 347 | Add | जोड़ें | MedicationManager.js:105 |  |
+| 348 | No medications yet. | अभी कोई दवा नहीं है। | MedicationManager.js:108 |  |
+| 349 | New name for {name} | {name} का नया नाम | MedicationManager.js:115 |  |
+| 350 | Save name | नाम सहेजें | MedicationManager.js:119 |  |
+| 351 | Delete {name}? Past days will no longer show it. | {name} को हटाएँ? पिछले दिनों के रिकॉर्ड में इसका नाम नहीं दिखेगा। | MedicationManager.js:124 |  |
+| 352 | Yes, delete | हाँ, हटाएँ | MedicationManager.js:125, PeriodDelete.js:39 |  |
+| 353 | Rename {name} | {name} का नाम बदलें | MedicationManager.js:131 |  |
+| 354 | Rename | नाम बदलें | MedicationManager.js:131 |  |
+| 355 | Archive {name} | {name} को संग्रहीत करें | MedicationManager.js:132 |  |
+| 356 | Archive | संग्रहीत करें | MedicationManager.js:132 |  |
+| 357 | Delete {name} | {name} को हटाएँ | MedicationManager.js:133 |  |
+| 358 | Delete | हटाएँ | MedicationManager.js:133 |  |
+| 359 | Archived ({count}) | संग्रहीत ({count}) | MedicationManager.js:141 |  |
+| 360 | Restore {name} | {name} को वापस लाएँ | MedicationManager.js:146 |  |
+| 361 | Restore | वापस लाएँ | MedicationManager.js:146 |  |
+| 362 | Password must be at least 8 characters long | पासवर्ड कम से कम 8 अक्षर का होना चाहिए | PasswordReset.js:36 |  |
+| 363 | Password reset failed | पासवर्ड रीसेट नहीं हो सका | PasswordReset.js:50 |  |
+| 364 | Password Reset Successful! | पासवर्ड सफलतापूर्वक रीसेट हो गया! | PasswordReset.js:75 |  |
+| 365 | Continue to Login | लॉग इन पर जाएँ | PasswordReset.js:88 |  |
+| 366 | Reset Your Password | अपना पासवर्ड रीसेट करें | PasswordReset.js:114 |  |
+| 367 | Enter your new password below | नीचे अपना नया पासवर्ड दर्ज करें | PasswordReset.js:116 |  |
+| 368 | New Password | नया पासवर्ड | PasswordReset.js:123 |  |
+| 369 | Enter new password | नया पासवर्ड दर्ज करें | PasswordReset.js:129 |  |
+| 370 | Confirm Password | पासवर्ड की पुष्टि करें | PasswordReset.js:145 |  |
+| 371 | Confirm new password | नए पासवर्ड की पुष्टि करें | PasswordReset.js:151 |  |
+| 372 | Resetting... | रीसेट हो रहा है... | PasswordReset.js:206 |  |
+| 373 | Could not delete this entry | यह रिकॉर्ड हटाया नहीं जा सका | PeriodDelete.js:18 |  |
+| 374 | Delete this entry | यह रिकॉर्ड हटाएँ | PeriodDelete.js:27 |  |
+| 375 | This entry will be removed from your journey. This can't be undone. | यह रिकॉर्ड आपकी यात्रा से हटा दिया जाएगा। इसे वापस नहीं लाया जा सकता। | PeriodDelete.js:35 |  |
+| 376 | Deleting… | हटाया जा रहा है… | PeriodDelete.js:39, PrivacyPanel.js:92 |  |
+| 377 | Privacy & data | गोपनीयता और डेटा | PrivacyPanel.js:51 |  |
+| 378 | Withdraw AI consent | एआई सहमति वापस लें | PrivacyPanel.js:54 |  |
+| 379 | Chat and insights currently send your data to third-party AI services. | चैट और इनसाइट्स अभी आपका डेटा तीसरे पक्ष की एआई सेवाओं को भेजते हैं। | PrivacyPanel.js:58 |  |
+| 380 | Chat and insights are off until you allow AI features. | जब तक आप एआई सुविधाओं की अनुमति नहीं देते, चैट और इनसाइट्स बंद रहेंगे। | PrivacyPanel.js:59 |  |
+| 381 | Preparing… | तैयार किया जा रहा है… | PrivacyPanel.js:63 |  |
+| 382 | Download my data | मेरा डेटा डाउनलोड करें | PrivacyPanel.js:63 |  |
+| 383 | Delete my account | मेरा खाता हटाएँ | PrivacyPanel.js:73 |  |
+| 384 | This permanently deletes your account and all your data. It cannot be undone. | इससे आपका खाता और आपका सारा डेटा हमेशा के लिए हट जाएगा। इसे पहले जैसा नहीं किया जा सकता। | PrivacyPanel.js:78 |  |
+| 385 | Type DELETE to confirm | पुष्टि के लिए अंग्रेज़ी अक्षरों में DELETE टाइप करें | PrivacyPanel.js:81 |  |
+| 386 | Delete forever | हमेशा के लिए हटाएँ | PrivacyPanel.js:92 |  |
+| 387 | Something went wrong | कुछ गड़बड़ हो गई | PrivacyPanel.js:98 |  |
+| 388 | Your data was downloaded. | आपका डेटा डाउनलोड हो गया। | PrivacyPanel.js:99 |  |
+| 389 | Health profile | स्वास्थ्य प्रोफ़ाइल | ProfileBanner.js:9 |  |
+| 390 | Complete your health profile for better insights. | बेहतर इनसाइट्स के लिए अपनी स्वास्थ्य प्रोफ़ाइल पूरी करें। | ProfileBanner.js:11 |  |
+| 391 | Start | शुरू करें | ProfileBanner.js:13 |  |
+| 392 | Later | बाद में | ProfileBanner.js:14 |  |
+| 393 | Reminders | रिमाइंडर | RemindersPanel.js:70 |  |
+| 394 | Period expected soon | माहवारी जल्द आने वाली है | RemindersPanel.js:74 |  |
+| 395 | Days before | कितने दिन पहले | RemindersPanel.js:79 |  |
+| 396 | {count} day before / {count} days before | {count} दिन पहले / {count} दिन पहले | RemindersPanel.js:85 |  |
+| 397 | Period expected reminder time | माहवारी रिमाइंडर का समय | RemindersPanel.js:90 |  |
+| 398 | Daily check-in nudge | रोज़ का चेक-इन रिमाइंडर | RemindersPanel.js:100 |  |
+| 399 | Daily check-in reminder time | रोज़ के चेक-इन रिमाइंडर का समय | RemindersPanel.js:105 |  |
+| 400 | Late period check-in | माहवारी में देरी पर चेक-इन | RemindersPanel.js:114 |  |
+| 401 | Show details in notifications | नोटिफ़िकेशन में विवरण दिखाएँ | RemindersPanel.js:125 |  |
+| 402 | Details are hidden on the lock screen where Android allows it; check Settings → Notifications → Lock screen. | जहाँ Android अनुमति देता है, वहाँ लॉक स्क्रीन पर विवरण छिपे रहते हैं; सेटिंग → नोटिफ़िकेशन → लॉक स्क्रीन देखें। | RemindersPanel.js:127 |  |
+| 403 | Notifications are turned off for Luna, so these reminders won't appear. Turn them on in Android Settings → Apps → Luna → Notifications. | Luna के लिए नोटिफ़िकेशन बंद हैं, इसलिए ये रिमाइंडर दिखाई नहीं देंगे। इन्हें Android सेटिंग → ऐप्स → Luna → नोटिफ़िकेशन में चालू करें। | RemindersPanel.js:130 |  |
+| 404 | Daily nudges are scheduled for the next two weeks each time you open the app. | ऐप खोलने पर हर बार अगले दो हफ़्तों के लिए रोज़ के रिमाइंडर तय किए जाते हैं। | RemindersPanel.js:132 |  |
+| 405 | Notifications are turned off for Luna. Turn them on in Android Settings → Apps → Luna → Notifications, then try again. | Luna के लिए नोटिफ़िकेशन बंद हैं। इन्हें Android सेटिंग → ऐप्स → Luna → नोटिफ़िकेशन में चालू करें, फिर दोबारा कोशिश करें। | RemindersPanel.js:133 |  |
+| 406 | Reminders arrive within a few minutes of the set time. | रिमाइंडर तय समय के कुछ मिनट के भीतर आते हैं। | RemindersPanel.js:134 |  |
+| 407 | Before you continue | आगे बढ़ने से पहले | RequiredConsentScreen.js:29 |  |
+| 408 | Please confirm the following to use Luna Health. | Luna Health का उपयोग करने के लिए कृपया नीचे दी गई बातों की पुष्टि करें। | RequiredConsentScreen.js:32 |  |
+| 409 | Continue | जारी रखें | RequiredConsentScreen.js:37 |  |
+| 410 | Could not save your data on this device. | आपका डेटा इस डिवाइस पर सहेजा नहीं जा सका। | download.js:52 |  |
+| 411 | Could not open the share sheet to save your data. | डेटा सहेजने के लिए शेयर मेन्यू नहीं खुल सका। | download.js:60 |  |
+| 412 | Day {day} · {phase} | दिन {day} · {phase} | TodayCard.js:29 |  |
+| 413 | Next in | अगली माहवारी | TodayCard.js:30, TodayCard.js:41 |  |
+| 414 | Today's sky: {label} | आज का आसमान: {label} | TodayCard.js:31, SkyCheckIn.js:99 |  |
+| 415 | Today's details | आज का ब्यौरा | TodayCard.js:36 |  |
+| 416 | Cycle Day | चक्र का दिन | TodayCard.js:40 |  |
+| 417 | Phase | चरण | TodayCard.js:44 |  |
+| 418 | Add details | विवरण जोड़ें | TodayCard.js:46, SkyCheckIn.js:103 |  |
+| 419 | Hide today's details | आज का ब्यौरा छिपाएँ | TodayCard.js:56 |  |
+| 420 | Show today's details | आज का ब्यौरा दिखाएँ | TodayCard.js:56 |  |
 | 421 | Luna Health | Luna Health | launcherAppearance.js:19 | the product name stays in Latin script, so the translation equals the English text |
 | 422 | Daily Planner | दैनिक प्लानर | launcherAppearance.js:22 |  |
 | 423 | Journal | जर्नल | launcherAppearance.js:23 |  |
@@ -544,16 +544,16 @@ Edit the Hindi text in `src/i18n/catalogs/hi.json` (the English sentence is the 
 | # | English | Hindi | Where (file:line) | Note |
 | --- | --- | --- | --- | --- |
 | 2 | To answer your questions and generate insights, Luna sends your messages, a summary of your recent cycle data and your health profile to third-party AI services (Groq and Hugging Face). They may process this data on servers outside India. | आपके सवालों के जवाब देने और इनसाइट्स तैयार करने के लिए Luna आपके संदेश, आपके हाल के चक्र के डेटा का सारांश और आपकी स्वास्थ्य प्रोफ़ाइल तीसरे पक्ष की एआई सेवाओं (Groq और Hugging Face) को भेजती है। ये सेवाएँ इस डेटा को भारत के बाहर के सर्वरों पर प्रोसेस कर सकती हैं। | AiConsentModal.js:22 | consent text, translated literally; "Luna ... sends" uses feminine verb forms; reviewer to confirm "तीसरे पक्ष की एआई सेवाओं" |
-| 8 | Menstrual | माहवारी | App.js:62 | phase names use माहवारी / फॉलिक्युलर / ओव्यूलेशन / ल्यूटियल (the transliterated medical terms are what Hindi health apps show); territory names (घाटी, चढ़ाई, शिखर, वापसी) are literal i18n-note: the tip says the body is "releasing and renewing"; kept close to literal and non-clinical |
-| 9 | The Valley | घाटी | App.js:62 | phase names use माहवारी / फॉलिक्युलर / ओव्यूलेशन / ल्यूटियल (the transliterated medical terms are what Hindi health apps show); territory names (घाटी, चढ़ाई, शिखर, वापसी) are literal i18n-note: the tip says the body is "releasing and renewing"; kept close to literal and non-clinical |
-| 10 | Days 1–5 | दिन 1–5 | App.js:62 | phase names use माहवारी / फॉलिक्युलर / ओव्यूलेशन / ल्यूटियल (the transliterated medical terms are what Hindi health apps show); territory names (घाटी, चढ़ाई, शिखर, वापसी) are literal i18n-note: the tip says the body is "releasing and renewing"; kept close to literal and non-clinical |
-| 11 | Rest, warmth & gentle movement. Your body is releasing and renewing. | आराम, गर्माहट और हल्की-फुल्की गतिविधि। आपका शरीर पुराना छोड़कर खुद को नया कर रहा है। | App.js:62 | phase names use माहवारी / फॉलिक्युलर / ओव्यूलेशन / ल्यूटियल (the transliterated medical terms are what Hindi health apps show); territory names (घाटी, चढ़ाई, शिखर, वापसी) are literal i18n-note: the tip says the body is "releasing and renewing"; kept close to literal and non-clinical |
-| 24 | Uncharted | अज्ञात | App.js:67, App.js:67 | "Uncharted" (a map not yet drawn) is अज्ञात (unknown); unsure whether "अनदेखा" or "अज्ञात" reads better |
-| 25 | Log a period to calibrate your journey map. | अपनी यात्रा का नक्शा बनाने के लिए एक माहवारी दर्ज करें। | App.js:67 | "Uncharted" (a map not yet drawn) is अज्ञात (unknown); unsure whether "अनदेखा" or "अज्ञात" reads better |
-| 28 | Optional: add your health profile from the banner or Profile → Health Profile so insights can feel more personal. It’s context, not a diagnosis. | वैकल्पिक: बैनर से या प्रोफ़ाइल → स्वास्थ्य प्रोफ़ाइल में जाकर अपनी स्वास्थ्य प्रोफ़ाइल जोड़ें, ताकि इनसाइट्स आपके लिए और व्यक्तिगत हों। यह संदर्भ है, निदान नहीं। | App.js:537 | "Profile → Health Profile" must match the Hindi names of the Profile screen and its Health Profile section (translated in a later task) |
-| 40 | Use Chat for questions about cramps, cycle changes or patterns you’re worried about. Luna will reference your data when available, but never diagnose. | ऐंठन, चक्र में बदलाव या ऐसे पैटर्न के बारे में जिनको लेकर आप चिंतित हैं, सवाल पूछने के लिए चैट का उपयोग करें। डेटा उपलब्ध होने पर Luna उसका संदर्भ लेगी, लेकिन कभी निदान नहीं करेगी। | App.js:558 | "never diagnose" is translated literally on purpose (health disclaimer); keep it unsoftened |
-| 106 | Notes | नोट | App.js:1175, launcherAppearance.js:21 | shares the catalog entry "Notes" = नोट used elsewhere; unsure "नोट्स" would read better as an app name |
-| 264 | today | आज | CalendarScreen.js:75 | these state words are read aloud after the date by screen readers, e.g. "5 अक्टूबर 2026, आज, माहवारी का दिन"; unsure about the phrasing |
+| 8 | Menstrual | माहवारी | App.js:61 | phase names use माहवारी / फॉलिक्युलर / ओव्यूलेशन / ल्यूटियल (the transliterated medical terms are what Hindi health apps show); territory names (घाटी, चढ़ाई, शिखर, वापसी) are literal i18n-note: the tip says the body is "releasing and renewing"; kept close to literal and non-clinical |
+| 9 | The Valley | घाटी | App.js:61 | phase names use माहवारी / फॉलिक्युलर / ओव्यूलेशन / ल्यूटियल (the transliterated medical terms are what Hindi health apps show); territory names (घाटी, चढ़ाई, शिखर, वापसी) are literal i18n-note: the tip says the body is "releasing and renewing"; kept close to literal and non-clinical |
+| 10 | Days 1–5 | दिन 1–5 | App.js:61 | phase names use माहवारी / फॉलिक्युलर / ओव्यूलेशन / ल्यूटियल (the transliterated medical terms are what Hindi health apps show); territory names (घाटी, चढ़ाई, शिखर, वापसी) are literal i18n-note: the tip says the body is "releasing and renewing"; kept close to literal and non-clinical |
+| 11 | Rest, warmth & gentle movement. Your body is releasing and renewing. | आराम, गर्माहट और हल्की-फुल्की गतिविधि। आपका शरीर पुराना छोड़कर खुद को नया कर रहा है। | App.js:61 | phase names use माहवारी / फॉलिक्युलर / ओव्यूलेशन / ल्यूटियल (the transliterated medical terms are what Hindi health apps show); territory names (घाटी, चढ़ाई, शिखर, वापसी) are literal i18n-note: the tip says the body is "releasing and renewing"; kept close to literal and non-clinical |
+| 24 | Uncharted | अज्ञात | App.js:66, App.js:66 | "Uncharted" (a map not yet drawn) is अज्ञात (unknown); unsure whether "अनदेखा" or "अज्ञात" reads better |
+| 25 | Log a period to calibrate your journey map. | अपनी यात्रा का नक्शा बनाने के लिए एक माहवारी दर्ज करें। | App.js:66 | "Uncharted" (a map not yet drawn) is अज्ञात (unknown); unsure whether "अनदेखा" or "अज्ञात" reads better |
+| 28 | Optional: add your health profile from the banner or Profile → Health Profile so insights can feel more personal. It’s context, not a diagnosis. | वैकल्पिक: बैनर से या प्रोफ़ाइल → स्वास्थ्य प्रोफ़ाइल में जाकर अपनी स्वास्थ्य प्रोफ़ाइल जोड़ें, ताकि इनसाइट्स आपके लिए और व्यक्तिगत हों। यह संदर्भ है, निदान नहीं। | App.js:535 | "Profile → Health Profile" must match the Hindi names of the Profile screen and its Health Profile section (translated in a later task) |
+| 40 | Use Chat for questions about cramps, cycle changes or patterns you’re worried about. Luna will reference your data when available, but never diagnose. | ऐंठन, चक्र में बदलाव या ऐसे पैटर्न के बारे में जिनको लेकर आप चिंतित हैं, सवाल पूछने के लिए चैट का उपयोग करें। डेटा उपलब्ध होने पर Luna उसका संदर्भ लेगी, लेकिन कभी निदान नहीं करेगी। | App.js:556 | "never diagnose" is translated literally on purpose (health disclaimer); keep it unsoftened |
+| 106 | Notes | नोट | App.js:1173, launcherAppearance.js:21 | shares the catalog entry "Notes" = नोट used elsewhere; unsure "नोट्स" would read better as an app name |
+| 260 | today | आज | CalendarScreen.js:75 | these state words are read aloud after the date by screen readers, e.g. "5 अक्टूबर 2026, आज, माहवारी का दिन"; unsure about the phrasing |
 | 421 | Luna Health | Luna Health | launcherAppearance.js:19 | the product name stays in Latin script, so the translation equals the English text |
 | 432 | Mist hasn't lifted here yet. Tap to add a day. / Mist hasn't lifted on these {count} days yet. Tap to add one. | यहाँ की धुंध अभी छँटी नहीं है। कोई दिन जोड़ने के लिए टैप करें। / इन {count} दिनों की धुंध अभी छँटी नहीं है। कोई दिन जोड़ने के लिए टैप करें। | FogLayer.js:69 | "mist" is the fog-of-war metaphor for days not yet logged; the Hindi uses धुंध (mist) and छँटना (to lift/clear), kept gentle and non-judgemental |
 | 439 | Very low | बहुत उदास | weather.js:8 | the five mood words (बहुत उदास / थोड़ा उदास / ठीक / अच्छा / बहुत बढ़िया) are a plain scale |

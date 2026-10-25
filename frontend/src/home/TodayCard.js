@@ -14,7 +14,6 @@ export default function TodayCard({ token, logs, logsReady, onSaved, onAddDetail
   const root = useRef(null);
   const chev = useRef(null);
   const panelId = useId();
-  const hintId = useId();
   const close = (focus) => { setOpen(false); if (focus && chev.current) chev.current.focus(); };
 
   useEffect(() => {
@@ -54,12 +53,9 @@ export default function TodayCard({ token, logs, logsReady, onSaved, onAddDetail
           <SkyCheckIn compact token={token} logs={logs} logsReady={logsReady} onSaved={onSaved} onAddDetails={onAddDetails} onShownChange={setMood} />
         </div>
         <button ref={chev} type="button" className="today-chev" aria-expanded={open} aria-controls={open ? panelId : undefined}
-          aria-describedby={profilePrompt ? hintId : undefined}
           aria-label={open ? t("Hide today's details") : t("Show today's details")} onClick={() => setOpen(o => !o)}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"
             style={{ transform: open ? "rotate(180deg)" : "none", transition: animated ? "transform .2s" : undefined }}><path d="M6 15l6-6 6 6" /></svg>
-          {profilePrompt && <span className="today-dot" aria-hidden="true" />}
-          {profilePrompt && <span id={hintId} className="vh">{t("Profile incomplete")}</span>}
         </button>
       </div>
     </div>

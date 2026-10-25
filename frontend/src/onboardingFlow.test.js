@@ -40,10 +40,14 @@ const renderJourney = () => render(<JourneyApp token="tok" email="u@gmail.com" o
 
 beforeEach(() => { sessionStorage.clear(); });
 
+// The profile prompt now lives inside the collapsed Today card; open it first.
+const openTodayCard = async () => userEvent.click(await screen.findByRole('button', { name: /Show today's details/ }));
+
 test('an incomplete profile shows a banner instead of forcing the questionnaire open', async () => {
   API.auth.status.mockResolvedValue({ has_completed_questionnaire: false });
   renderJourney();
 
+  await openTodayCard();
   expect(await screen.findByText(/Complete your health profile/i)).toBeInTheDocument();
   expect(screen.queryByText('Basic Info')).not.toBeInTheDocument();
 });
@@ -52,6 +56,7 @@ test('Start opens the questionnaire', async () => {
   API.auth.status.mockResolvedValue({ has_completed_questionnaire: false });
   renderJourney();
 
+  await openTodayCard();
   userEvent.click(await screen.findByRole('button', { name: 'Start' }));
 
   expect(await screen.findByText('Basic Info')).toBeInTheDocument();
@@ -61,6 +66,7 @@ test('Later hides the banner for the session', async () => {
   API.auth.status.mockResolvedValue({ has_completed_questionnaire: false });
   renderJourney();
 
+  await openTodayCard();
   userEvent.click(await screen.findByRole('button', { name: 'Later' }));
 
   expect(screen.queryByText(/Complete your health profile/i)).not.toBeInTheDocument();
@@ -74,6 +80,7 @@ test('a completed profile shows no banner', async () => {
   await waitFor(() => expect(API.auth.status).toHaveBeenCalled());
   await screen.findByRole('button', { name: /chat/i });
   await act(async () => {});
+  await openTodayCard();
   expect(screen.queryByText(/Complete your health profile/i)).not.toBeInTheDocument();
 });
 
