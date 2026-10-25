@@ -92,19 +92,43 @@ let generation = 0;
 
 export function teardownReminders() {
   generation += 1;
+  lastArgs = null;
   clearPrefs();
   return enqueue(doCancelAll);
 }
 
+// Arguments of the last successful rebuild, so the notification wording can be redone for a
+// different appearance without the caller recomputing the plan. Cleared on teardown.
+let lastArgs = null;
+
 export function rebuildReminders(args = {}) {
   const gen = generation;
-  return enqueue(() => (gen === generation ? doRebuild(args) : { skipped: 'cancelled' }));
+  return enqueue(async () => {
+    if (gen !== generation) return { skipped: 'cancelled' };
+    const result = await doRebuild(args);
+    if (gen === generation && (result.scheduled !== undefined || result.skipped === 'disabled' || result.skipped === 'no-permission')) lastArgs = args || {};
+    return result;
+  });
+}
+
+// Re-runs the last plan with the given appearance (used right before the launcher alias switches).
+// Never throws; does nothing when no rebuild has run yet.
+export function rebuildRemindersForAppearance(appearance) {
+  const gen = generation;
+  return enqueue(async () => {
+    if (gen !== generation || !lastArgs) return { skipped: 'nothing-remembered' };
+    try {
+      return await doRebuild({ ...lastArgs, now: new Date(), appearance });
+    } catch (e) {
+      return { skipped: 'error' };
+    }
+  });
 }
 
 async function doRebuild(args) {
   if (!isNative()) return { skipped: 'web' };
   try {
-    const { prefs, prediction = null, lastPeriodStart = null, lastLoggedOn = null, now = new Date() } = args || {};
+    const { prefs, prediction = null, lastPeriodStart = null, lastLoggedOn = null, now = new Date(), appearance: override } = args || {};
     const ln = await plugin();
     await cancelPending(ln);
     if (!anyEnabled(prefs)) return { skipped: 'disabled' };
@@ -112,8 +136,11 @@ async function doRebuild(args) {
     if (display !== 'granted') return { skipped: 'no-permission' };
     const channelId = prefs.explicit === true ? CHANNEL_DETAILS : CHANNEL_NEUTRAL;
     await ln.createChannel(CHANNELS[channelId]);
-    let appearance = 'default';
-    try { appearance = await getAppearance(); } catch (e) { /* default */ }
+    let appearance = override;
+    if (typeof override !== 'string') {
+      appearance = 'default';
+      try { appearance = await getAppearance(); } catch (e) { /* default */ }
+    }
     const plan = planReminders({ prefs, prediction, lastPeriodStart, lastLoggedOn, now });
     if (plan.length === 0) return { scheduled: 0 };
     await ln.schedule({
@@ -121,6 +148,7 @@ async function doRebuild(args) {
         id: item.id,
         ...reminderText(item.kind, prefs, appearance),
         channelId,
+        smallIcon: isDiscreet(appearance) ? 'ic_stat_neutral' : 'ic_stat_luna',
         schedule: { at: item.at, allowWhileIdle: true },
       })),
     });

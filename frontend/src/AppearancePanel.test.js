@@ -3,8 +3,10 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import AppearancePanel from './AppearancePanel';
 import { isNative } from './platform';
 import { setAppearance } from './launcherAppearance';
+import { rebuildRemindersForAppearance } from './reminderScheduler';
 
 jest.mock('./platform', () => ({ isNative: jest.fn() }));
+jest.mock('./reminderScheduler', () => ({ rebuildRemindersForAppearance: jest.fn() }));
 jest.mock('./launcherAppearance', () => ({
   ...jest.requireActual('./launcherAppearance'),
   setAppearance: jest.fn(),
@@ -13,6 +15,7 @@ jest.mock('./launcherAppearance', () => ({
 beforeEach(() => {
   isNative.mockReturnValue(true);
   setAppearance.mockResolvedValue('notes');
+  rebuildRemindersForAppearance.mockResolvedValue({});
 });
 
 const LABELS = ['Luna Health', 'Notes', 'Daily Planner', 'Journal', 'Checklist', 'Organizer'];
@@ -57,7 +60,7 @@ test('Change applies once (double click ignored), confirms and notifies', async 
   const change = screen.getByText('Change');
   fireEvent.click(change);
   fireEvent.click(change);
-  await screen.findByText('Done. Look for “Notes” on your home screen.');
+  await screen.findByText('Done. Look for “Notes” in your app list. You may need to add it to your home screen again.');
   expect(setAppearance).toHaveBeenCalledTimes(1);
   expect(setAppearance).toHaveBeenCalledWith('notes');
   expect(onChange).toHaveBeenCalledWith('notes');
@@ -110,6 +113,7 @@ test('radios are disabled and clicks ignored while a switch is in flight', async
   expect(other).toBeDisabled();
   fireEvent.click(other);
   expect(screen.getByText(/appear as “Notes”/)).toBeInTheDocument();
+  await waitFor(() => expect(setAppearance).toHaveBeenCalled());
   resolve('notes');
   await screen.findByText(/Done\./);
   expect(screen.getByRole('radio', { name: /Journal/ })).not.toBeDisabled();
@@ -121,4 +125,24 @@ test('pending is cleared when the appearance prop catches up', () => {
   expect(screen.getByText('Change')).toBeInTheDocument();
   rerender(<AppearancePanel appearance="notes" onChange={jest.fn()} />);
   expect(screen.queryByText('Change')).toBeNull();
+});
+
+test('reminders are rebuilt for the target BEFORE the switch', async () => {
+  render(<AppearancePanel appearance="default" onChange={jest.fn()} />);
+  fireEvent.click(screen.getByRole('radio', { name: /Notes/ }));
+  expect(screen.getByText(/The app may close once when this changes\./)).toBeInTheDocument();
+  fireEvent.click(screen.getByText('Change'));
+  await screen.findByText(/Done\./);
+  expect(rebuildRemindersForAppearance).toHaveBeenCalledWith('notes');
+  expect(rebuildRemindersForAppearance.mock.invocationCallOrder[0]).toBeLessThan(setAppearance.mock.invocationCallOrder[0]);
+});
+
+test('a failed switch restores the reminders for the current appearance', async () => {
+  setAppearance.mockRejectedValue(new Error('x'));
+  render(<AppearancePanel appearance="journal" onChange={jest.fn()} />);
+  fireEvent.click(screen.getByRole('radio', { name: /Notes/ }));
+  fireEvent.click(screen.getByText('Change'));
+  await screen.findByText(/Nothing was changed/);
+  expect(rebuildRemindersForAppearance).toHaveBeenNthCalledWith(1, 'notes');
+  expect(rebuildRemindersForAppearance).toHaveBeenNthCalledWith(2, 'journal');
 });

@@ -46,10 +46,23 @@ public class LauncherAppearancePlugin extends Plugin {
         return out;
     }
 
+    // Self-heal: if zero or several aliases are enabled, keep the lowest enabled one (default when
+    // none) and disable the rest.
+    private int normalise() {
+        int keep = currentIndex();
+        int enabled = 0;
+        for (int i = 0; i < KEYS.length; i++) if (isEnabled(i)) enabled++;
+        if (enabled != 1) {
+            setState(keep, true);
+            for (int i = 0; i < KEYS.length; i++) if (i != keep) setState(i, false);
+        }
+        return keep;
+    }
+
     @PluginMethod
     public void getAppearance(PluginCall call) {
         try {
-            call.resolve(result(currentIndex()));
+            call.resolve(result(normalise()));
         } catch (Exception e) {
             call.resolve(result(0));
         }

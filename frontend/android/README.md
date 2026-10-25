@@ -50,10 +50,12 @@ emulator -avd luna_test -no-window -no-audio -no-snapshot -gpu swiftshader_indir
 adb wait-for-device
 adb reverse tcp:8000 tcp:8000   # lets the app reach the host API at http://localhost:8000
 adb install -r android/app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n <app-id>/.MainActivity
+adb shell monkey -p <app-id> --pct-syskeys 0 -c android.intent.category.LAUNCHER 1
 ```
 
-Use the real application id in the last command (see `capacitor.config.json`).
+Use the real application id in the last command (see `capacitor.config.json`). `MainActivity` is
+not exported, so `am start -n <app-id>/.MainActivity` fails from the shell; start the enabled
+launcher alias instead (`.LauncherDefault`, or the active `.Launcher<Key>`).
 
 ## Release keystore
 
@@ -205,12 +207,18 @@ time.
 
 **How it works.** `MainActivity` is not exported; only the aliases are. The plugin enables the
 chosen alias first and then disables the others (enable-then-disable), so the app always keeps
-at least one launcher entry. Some launchers take a few seconds to refresh, and some may restart
-the app when the component state changes.
+at least one launcher entry. Disabling the alias the app was started from sends it to the home
+screen (and some devices close it), so the app updates the reminder wording before the switch.
+The old home-screen shortcut disappears and the new entry normally shows in the app list only.
+`getAppearance` self-heals an inconsistent state (several aliases enabled, or none): it keeps the
+lowest enabled one (the default when none) and disables the rest.
 
 **Limits.** The real app name still appears in Settings > Apps, in the notification header, in
 the Play listing, and possibly on the system or brief splash icon. Reminder notifications use a
-neutral title, but the header still shows the app name.
+neutral title and, when disguised, a neutral status-bar icon (`ic_stat_neutral`, instead of the
+moon `ic_stat_luna`), but the header still shows the app name. The data export file is named
+`luna-health-export-<date>.json` and shows that name in the share sheet. Notifications delivered
+before a switch may open nothing, because their intent targets the old alias.
 
 **Play policy.** Icons and names must not imitate other apps or misrepresent what the app does.
 Review the current Google Play metadata and deceptive-behaviour policies before release.
@@ -222,9 +230,10 @@ adb shell pm query-activities --brief -a android.intent.action.MAIN -c android.i
 adb shell dumpsys package app.placeholder.luna | grep -A2 Launcher
 bash scripts/android/test-release-guards.sh     # rename script moves the plugin and keeps the aliases
 ```
-`adb shell am start -n <id>/.MainActivity` should still work for shell users even though the
-activity is not exported (the shell may start any activity); this has not been confirmed on a
-device yet, so verify before relying on it.
+`MainActivity` is not exported, so `adb shell am start -n <id>/.MainActivity` fails with a
+SecurityException. Start the enabled alias, e.g. `adb shell am start -n <id>/.LauncherDefault` (or
+the active `.Launcher<Key>`), or `adb shell monkey -p <id> --pct-syskeys 0 -c android.intent.category.LAUNCHER 1`.
+`test-launcher-aliases.sh` checks a built APK, so rebuild before relying on it.
 
 ## Known behaviours
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { isNative } from './platform';
+import { rebuildRemindersForAppearance } from './reminderScheduler';
 import { APPEARANCES, APPEARANCE_ICONS, setAppearance } from './launcherAppearance';
 
 const noteStyle = { fontSize: '.72rem', color: 'var(--muted)', lineHeight: 1.5 };
@@ -33,11 +34,14 @@ export default function AppearancePanel({ appearance, onChange }) {
     setMessage('');
     const key = pending;
     try {
+      // Reminder wording first: the switch can send the app to the background or close it.
+      await rebuildRemindersForAppearance(key);
       await setAppearance(key);
-      setMessage(`Done. Look for “${labelOf(key)}” on your home screen.`);
+      setMessage(`Done. Look for “${labelOf(key)}” in your app list. You may need to add it to your home screen again.`);
       setPending(null);
       onChange(key);
     } catch (e) {
+      await rebuildRemindersForAppearance(appearance);
       setMessage("Couldn't change the app appearance. Nothing was changed.");
       setPending(null);
     } finally {
@@ -70,7 +74,7 @@ export default function AppearancePanel({ appearance, onChange }) {
       </div>
       {pending && (
         <div role="group" aria-label="Confirm app appearance" style={{ ...noteStyle, color: 'var(--cream)' }}>
-          <div>The app will appear as “{labelOf(pending)}” on your home screen and app list. It may take a few seconds to update — look for the new icon after you close the app.</div>
+          <div>The app will appear as “{labelOf(pending)}” in your app list; your old home-screen shortcut will disappear. It can take a moment to update, and some launchers need a restart. The app may close once when this changes.</div>
           <div style={{ display: 'flex', gap: '.5rem', marginTop: '.5rem' }}>
             <button type="button" className="btn btn-p" style={{ minHeight: 44 }} disabled={busy} onClick={confirm}>Change</button>
             <button type="button" className="btn btn-g" style={{ minHeight: 44 }} disabled={busy} onClick={() => setPending(null)}>Cancel</button>

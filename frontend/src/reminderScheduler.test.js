@@ -244,3 +244,46 @@ describe('appearance-aware titles', () => {
     expect(new Set(await titles())).toEqual(new Set(['Luna']));
   });
 });
+
+describe('neutral small icon, override and remembered args', () => {
+  const { getAppearance } = require('./launcherAppearance');
+  const icons = () => mockLN.schedule.mock.calls.at(-1)[0].notifications.map(n => n.smallIcon);
+
+  test('discreet appearance uses the neutral small icon; default keeps the moon', async () => {
+    getAppearance.mockResolvedValue('notes');
+    await sched.rebuildReminders({ prefs: prefs(), now: NOW });
+    expect(new Set(icons())).toEqual(new Set(['ic_stat_neutral']));
+    getAppearance.mockResolvedValue('default');
+    await sched.rebuildReminders({ prefs: prefs(), now: NOW });
+    expect(new Set(icons())).toEqual(new Set(['ic_stat_luna']));
+  });
+
+  test('rebuildReminders honours an appearance override without reading the plugin', async () => {
+    getAppearance.mockResolvedValue('default');
+    await sched.rebuildReminders({ prefs: prefs(), now: NOW, appearance: 'journal' });
+    expect(getAppearance).not.toHaveBeenCalled();
+    expect(mockLN.schedule.mock.calls[0][0].notifications[0].title).toBe('Reminder');
+  });
+
+  test('rebuildRemindersForAppearance replays the remembered args; no-op when none', async () => {
+    await sched.teardownReminders();
+    mockLN.schedule.mockClear();
+    expect(await sched.rebuildRemindersForAppearance('notes')).toEqual({ skipped: 'nothing-remembered' });
+    expect(mockLN.schedule).not.toHaveBeenCalled();
+    await sched.rebuildReminders({ prefs: prefs(), now: NOW });
+    mockLN.schedule.mockClear();
+    const r = await sched.rebuildRemindersForAppearance('notes');
+    expect(r.scheduled).toBeGreaterThan(0);
+    const n = mockLN.schedule.mock.calls[0][0].notifications;
+    expect(new Set(n.map(x => x.title))).toEqual(new Set(['Reminder']));
+    expect(new Set(n.map(x => x.smallIcon))).toEqual(new Set(['ic_stat_neutral']));
+  });
+
+  test('teardown clears the remembered args', async () => {
+    await sched.rebuildReminders({ prefs: prefs(), now: NOW });
+    await sched.teardownReminders();
+    mockLN.schedule.mockClear();
+    expect(await sched.rebuildRemindersForAppearance('notes')).toEqual({ skipped: 'nothing-remembered' });
+    expect(mockLN.schedule).not.toHaveBeenCalled();
+  });
+});
