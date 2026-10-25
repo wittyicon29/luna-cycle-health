@@ -308,6 +308,7 @@ describe('compact mode', () => {
       expect(r.style.minWidth).toBe('0');
     });
     expect(screen.getByRole('radiogroup').style.flexWrap).not.toBe('wrap');
+    expect(screen.getByRole('radiogroup').style.margin).toBe('0px');
   });
 
   test('default mode keeps the visible title, labels and wrap', () => {

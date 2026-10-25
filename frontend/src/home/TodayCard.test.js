@@ -43,6 +43,8 @@ test('expanding shows the five stats; Escape closes and returns focus to the che
   expect(within(panel).getByText('28')).toBeInTheDocument();
   expect(within(panel).getByText('3')).toBeInTheDocument();
   expect(within(panel).getByText('Luteal')).toBeInTheDocument();
+  within(panel).getByRole('button', { name: 'Add details' }).focus();
+  expect(chev).not.toHaveFocus();
   await userEvent.keyboard('{Escape}');
   expect(panelQ()).toBeNull();
   expect(chev).toHaveFocus();
@@ -118,6 +120,7 @@ test('quiet mode: panel has no animation styles; no inline filter/backdrop-filte
   [panel, ...panel.querySelectorAll('*')].forEach(el => {
     expect(el.getAttribute('style') || '').not.toMatch(/animation|transition/);
   });
+  expect(chevron().querySelector('svg').getAttribute('style') || '').not.toMatch(/transition/);
   container.querySelectorAll('*').forEach(el => {
     expect(el.getAttribute('style') || '').not.toMatch(/filter/);
   });
@@ -127,4 +130,11 @@ test('a pending profile prompt is flagged on the chevron without changing its na
   render(<TodayCard {...base} profilePrompt={{ onStart: jest.fn(), onLater: jest.fn() }} />);
   const c = screen.getByRole('button', { name: /Show today's details/ });
   expect(c).toHaveAccessibleDescription('Profile incomplete');
+});
+
+test('NaN daysToNext and missing phaseName never print NaN or undefined', async () => {
+  const { container } = render(<TodayCard {...base} daysToNext={NaN} phaseName={undefined} />);
+  expect(container.querySelector('.today-sum').textContent).toBe('');
+  await userEvent.click(chevron());
+  expect(container.textContent).not.toMatch(/NaN|undefined/);
 });

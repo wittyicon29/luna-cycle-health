@@ -105,7 +105,7 @@ export default function SkyCheckIn({ token, logs, logsReady, onSaved, onAddDetai
         )}
       </div>
       <div className="sky-row" role="radiogroup" aria-labelledby="sky-title" onKeyDown={onKey}
-        style={{ flexWrap: compact ? "nowrap" : "wrap", margin: ".2rem 0 0", gap: ".3rem", minWidth: 0 }}>
+        style={{ flexWrap: compact ? "nowrap" : "wrap", margin: compact ? 0 : ".2rem 0 0", gap: ".3rem", minWidth: 0 }}>
         {WEATHER.map((w, i) => {
           const on = shown === w.value;
           const stop = shown == null ? i === 0 : on;

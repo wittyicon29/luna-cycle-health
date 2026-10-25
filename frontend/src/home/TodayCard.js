@@ -27,8 +27,8 @@ export default function TodayCard({ token, logs, logsReady, onSaved, onAddDetail
   }, [open]);
 
   const parts = [];
-  if (cycleDay) parts.push(t("Day {day} · {phase}", { day: cycleDay, phase: phaseName }));
-  if (daysToNext != null) parts.push(`${t("Next in")} ${t("{days}d", { days: daysToNext })}`);
+  if (cycleDay && typeof phaseName === "string" && phaseName) parts.push(t("Day {day} · {phase}", { day: cycleDay, phase: phaseName }));
+  if (Number.isFinite(daysToNext)) parts.push(`${t("Next in")} ${t("{days}d", { days: daysToNext })}`);
   if (mood != null) parts.push(t("Today's sky: {label}", { label: moodLabel(mood - 1) }));
 
   return (
@@ -39,7 +39,7 @@ export default function TodayCard({ token, logs, logsReady, onSaved, onAddDetail
           {/* i18n-note: "आज का ब्यौरा" (today's details) and "प्रोफ़ाइल अधूरी है" (profile incomplete) are new wording for the native reviewer */}
           <div className="today-stats">
             <div className="st-item"><div className="st-val" style={{ color: phaseColor, fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", fontSize: "1.2rem" }}>{cycleDay ?? "—"}</div><div className="st-lbl">{t("Cycle Day")}</div></div>
-            <div className="st-item"><div className="st-val">{daysToNext != null ? t("{days}d", { days: daysToNext }) : "—"}</div><div className="st-lbl">{t("Next in")}</div></div>
+            <div className="st-item"><div className="st-val">{Number.isFinite(daysToNext) ? t("{days}d", { days: daysToNext }) : "—"}</div><div className="st-lbl">{t("Next in")}</div></div>
             <div className="st-item"><div className="st-val">{avgCycle}</div><div className="st-lbl">{t("Avg Cycle")}</div></div>
             <div className="st-item"><div className="st-val">{periodsCount}</div><div className="st-lbl">{t("Logged")}</div></div>
             <div className="st-item"><div className="st-val st-val-phase" style={{ color: phaseColor, lineHeight: 1.2, fontFamily: "'Outfit','Noto Sans Devanagari',sans-serif" }}>{phaseName}</div><div className="st-lbl">{t("Phase")}</div></div>
