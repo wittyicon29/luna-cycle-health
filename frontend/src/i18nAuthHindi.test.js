@@ -67,7 +67,7 @@ describe('AuthScreen in Hindi', () => {
     expect(screen.getByRole('button', { name: 'साइन इन करें' })).toBeInTheDocument();
     expect(screen.getByText('पासवर्ड भूल गए?')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'पासवर्ड दिखाएँ' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Google से जारी रखें/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Google के साथ जारी रखें/ })).toBeInTheDocument();
   });
 
   test('register tab', () => {
@@ -155,7 +155,7 @@ describe('Onboarding tour in Hindi', () => {
     API.analysis.latest.mockResolvedValue(null);
     render(<JourneyApp token="tok" email="u@gmail.com" onLogout={jest.fn()} />);
 
-    const title = await screen.findByText('अपनी Luna यात्रा से मिलें');
+    const title = await screen.findByText('अपनी Luna यात्रा को जानें');
     const overlay = title.closest('.modal-ov');
     expect(screen.getByRole('heading', { name: 'अपनी स्वास्थ्य प्रोफ़ाइल बनाएँ' })).toBeInTheDocument();
     for (let i = 0; i < 4; i++) {
@@ -243,7 +243,7 @@ describe('GoogleCallback in Hindi', () => {
     noEnglish(container);
   });
 
-  test('loading and no-account states', async () => {
+  test('loading, success and no-account states', async () => {
     const state = newGoogleState();
     window.history.pushState({}, '', `/auth/google/callback?code=abc&state=${state}`);
     API.auth.googleCallback.mockRejectedValue(new ApiError('x', { status: 403, detail: { code: 'consent_required', purpose: 'terms_privacy' } }));
@@ -319,8 +319,16 @@ describe('messageFromDetail in Hindi', () => {
   test('an unknown dynamic message stays English', () => {
     expect(messageFromDetail('Google authentication failed: boom', 400)).toBe('Google authentication failed: boom');
   });
-  test('validation arrays: known text translates, values fall back to English', () => {
-    expect(messageFromDetail([{ msg: 'Value error, String should have at least 8 characters' }], 422)).toBe('String should have at least 8 characters');
+  test('validation arrays: a known message translates after the "Value error, " prefix is stripped', () => {
+    expect(messageFromDetail([{ msg: 'Value error, Invalid Gmail address format' }], 422)).toBe('Gmail पते का प्रारूप अमान्य है');
+    expect(messageFromDetail([{ msg: 'Value error, Only Gmail addresses are supported for registration' }], 422)).toBe('पंजीकरण के लिए केवल Gmail पते स्वीकार किए जाते हैं');
+  });
+  test('validation arrays: an unknown message falls back to English', () => {
+    expect(messageFromDetail([{ msg: 'String should have at least 8 characters' }], 422)).toBe('String should have at least 8 characters');
+    expect(messageFromDetail([{ msg: 'Value error, something new' }], 422)).toBe('something new');
+  });
+  test('string details with the pydantic prefix are translated too', () => {
+    expect(messageFromDetail('Value error, Nothing to update', 422)).toBe('अपडेट करने के लिए कुछ नहीं है');
   });
   test('the consent_required object is translated', () => {
     expect(messageFromDetail({ code: 'consent_required', purpose: 'x' }, 403)).toBe('जारी रखने के लिए कृपया आवश्यक सहमति देखें और स्वीकार करें।');
@@ -333,5 +341,77 @@ describe('messageFromDetail in Hindi', () => {
     expect(messageFromDetail('Email already registered', 400)).toBe('Email already registered');
     expect(messageFromDetail(undefined, 500)).toBe('Error 500');
     expect(messageFromDetail({ code: 'consent_required' }, 403)).toBe('Please review and accept the required consent to continue.');
+  });
+});
+
+describe('busy labels and the Google success state in Hindi', () => {
+  const never = () => new Promise(() => {});
+
+  test('Processing… on the sign-in button', () => {
+    API.auth.login.mockReturnValue(never());
+    const { container } = render(<AuthScreen onLogin={jest.fn()} />);
+    userEvent.type(screen.getByPlaceholderText('your@gmail.com'), 'a@gmail.com');
+    userEvent.type(screen.getByPlaceholderText('•••••••'), 'pw');
+    userEvent.click(screen.getByRole('button', { name: 'लॉग इन करें' }));
+    expect(screen.getByRole('button', { name: /प्रक्रिया जारी है…/ })).toBeDisabled();
+    noEnglish(container);
+  });
+
+  test('Sending… on the password-reset request', () => {
+    API.auth.requestPasswordReset.mockReturnValue(never());
+    const { container } = render(<AuthScreen onLogin={jest.fn()} />);
+    userEvent.click(screen.getByText('पासवर्ड भूल गए?'));
+    userEvent.type(screen.getByPlaceholderText('your@gmail.com'), 'a@gmail.com');
+    userEvent.click(screen.getByRole('button', { name: 'रीसेट लिंक भेजें' }));
+    expect(screen.getByRole('button', { name: /भेजा जा रहा है…/ })).toBeDisabled();
+    noEnglish(container);
+  });
+
+  test('Creating… on the verification form', async () => {
+    API.verify.check.mockResolvedValue({ email: 'u@gmail.com' });
+    API.verify.complete.mockReturnValue(never());
+    const { container } = render(
+      <MemoryRouter initialEntries={['/verify-email?token=t1']}>
+        <Routes><Route path="/verify-email" element={<EmailVerification />} /></Routes>
+      </MemoryRouter>
+    );
+    await screen.findByRole('heading', { name: 'अपना पासवर्ड चुनें' });
+    userEvent.type(screen.getByLabelText('नया पासवर्ड'), 'password1');
+    userEvent.type(screen.getByLabelText('पासवर्ड की पुष्टि करें'), 'password1');
+    userEvent.click(screen.getByLabelText('मेरी आयु 18 वर्ष या उससे अधिक है।'));
+    userEvent.click(screen.getByLabelText(/से सहमत हूँ/));
+    userEvent.click(screen.getByRole('button', { name: 'मेरा खाता बनाएँ' }));
+    expect(await screen.findByRole('button', { name: 'बनाया जा रहा है…' })).toBeDisabled();
+    noEnglish(container);
+  });
+
+  test('Resetting... on the reset page', () => {
+    window.history.pushState({}, '', '/reset-password?token=abc');
+    API.auth.resetPassword.mockReturnValue(never());
+    const { container } = render(<PasswordReset />);
+    userEvent.type(screen.getByPlaceholderText('नया पासवर्ड दर्ज करें'), 'password1');
+    userEvent.type(screen.getByPlaceholderText('नए पासवर्ड की पुष्टि करें'), 'password1');
+    userEvent.click(screen.getByRole('button', { name: 'पासवर्ड रीसेट करें' }));
+    expect(screen.getByRole('button', { name: 'रीसेट हो रहा है...' })).toBeDisabled();
+    noEnglish(container);
+  });
+
+  test('Saving… on the required-consent screen', () => {
+    const { container } = render(<RequiredConsentScreen onSubmit={never} onLogout={jest.fn()} />);
+    userEvent.click(screen.getByLabelText('मेरी आयु 18 वर्ष या उससे अधिक है।'));
+    userEvent.click(screen.getByLabelText(/से सहमत हूँ/));
+    userEvent.click(screen.getByRole('button', { name: 'जारी रखें' }));
+    expect(screen.getByRole('button', { name: 'सहेजा जा रहा है…' })).toBeDisabled();
+    noEnglish(container);
+  });
+
+  test('Google callback success', async () => {
+    const state = newGoogleState();
+    window.history.pushState({}, '', `/auth/google/callback?code=abc&state=${state}`);
+    API.auth.googleCallback.mockResolvedValue({ access_token: 'a', refresh_token: 'r', user: { email: 'u@gmail.com' } });
+    const { container } = render(<MemoryRouter><GoogleCallback /></MemoryRouter>);
+    expect(await screen.findByRole('heading', { name: 'प्रमाणीकरण सफल रहा!' })).toBeInTheDocument();
+    expect(screen.getByText('आपको डैशबोर्ड पर ले जाया जा रहा है...')).toBeInTheDocument();
+    noEnglish(container);
   });
 });

@@ -3,7 +3,8 @@ import { t } from './i18n';
 
 // Server text arrives as plain English. Known fixed messages are in the Hindi catalog; anything else
 // (validation text with values, dynamic details) is returned unchanged.
-export const translateServer = text => i18n.t(text);
+// Pydantic prefixes validator errors with "Value error, "; the catalog key is the bare message.
+export const translateServer = text => i18n.t(typeof text === 'string' ? text.replace(/^Value error, /, '') : text);
 
 export const errorStatusMessage = status => t('Error {status}', { status });
 export const connectionProblemMessage = () => t('Connection problem. Please try again.');
@@ -55,5 +56,26 @@ export function serverMessageCatalog() {
     // i18n-note: consent wording, translated literally
     t('Data consent is required to submit questionnaire'),
     t('No questionnaire found'),
+    // validation (backend/app/schemas) and Google sign-in (backend/app/services)
+    t('Only Gmail addresses are supported for registration'),
+    t('Invalid Gmail address format'),
+    t('You must accept the Privacy Policy and Terms to create an account'),
+    t('Luna Health is for users aged 18 and over'),
+    t('Password must be at most 72 bytes'),
+    t('end_date cannot be before start_date'),
+    t('start_date cannot be in the future'),
+    t('Nothing to update'),
+    t('Sleep must be in half-hour steps'),
+    t('Note must be at most 1000 characters'),
+    // i18n-note: consent wording, translated literally
+    t('Data consent is required to proceed'),
+    t('Failed to exchange authorization code'),
+    t('Failed to get user information from Google'),
+    t('Your Google email is not verified'),
+    t('Could not get email from Google'),
+    t('Google sign-in could not be verified'),
+    t('Only Gmail addresses are supported'),
+    t('Google sign-in is temporarily unavailable'),
+    t('Google sign-in is not configured'),
   ];
 }

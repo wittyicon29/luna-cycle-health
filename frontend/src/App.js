@@ -499,7 +499,6 @@ function Onboarding({ onClose, email }) {
     },
     {
       title: t("Logging periods & symptoms"),
-      // i18n-note: "Luna" is written with feminine verb forms in Hindi (as a woman's name); confirm the reviewer is happy with that
       body: t("Tap the glowing + button in the dock to log a new period. Add flow, pain and symptoms – Luna uses this to understand your pattern over time."),
       badge: t("Log Periods"),
     },

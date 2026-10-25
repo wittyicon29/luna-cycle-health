@@ -27,7 +27,7 @@ export class ApiError extends Error {
 export function messageFromDetail(detail, status) {
   if (typeof detail === 'string' && detail) return translateServer(detail);
   if (Array.isArray(detail) && detail[0] && detail[0].msg) {
-    return translateServer(String(detail[0].msg).replace(/^Value error, /, ''));
+    return translateServer(String(detail[0].msg));
   }
   if (detail && typeof detail === 'object' && !Array.isArray(detail)) {
     if (detail.code === 'consent_required') return consentRequiredMessage();

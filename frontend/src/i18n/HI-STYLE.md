@@ -9,6 +9,11 @@
 - Button labels are imperative ("दर्ज करें"). Full sentences end with the danda `।`; short labels and headings do not.
 - "Not a doctor" and similar disclaimers are translated literally, with no softening.
 
+## Gender decision (reviewer to confirm)
+- Verbs addressed to the user use the standard generic masculine with आप (भूल गए, चुन चुके हैं, कर सकते हैं), except where a gender-neutral construction is equally natural; prefer those (for example passives or noun forms such as "पुष्टि करें").
+- Luna's own verbs are feminine (Luna ... समझाती है, भेजती है), as Luna is a feminine name.
+- This is a reviewer decision: change it everywhere at once if the reviewer prefers another convention.
+
 ## Glossary (proposed; reviewer to confirm)
 | English | Hindi |
 | --- | --- |
