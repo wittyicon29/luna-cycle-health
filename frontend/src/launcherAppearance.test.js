@@ -81,3 +81,23 @@ test('a thenable plugin proxy is never resolved from async code', async () => {
   const fresh = require('./launcherAppearance');
   expect(await fresh.getAppearance()).toBe('notes');
 });
+
+describe('APPEARANCE_ICONS parity with the Android launcher resources', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const { APPEARANCE_ICONS } = require('./launcherAppearance');
+  const res = path.join(__dirname, '..', 'android', 'app', 'src', 'main', 'res');
+  const colors = fs.readFileSync(path.join(res, 'values', 'launcher_colors.xml'), 'utf8');
+
+  test.each(['notes', 'planner', 'journal', 'checklist', 'organizer'])('%s matches its vector and background', key => {
+    const xml = fs.readFileSync(path.join(res, 'drawable', `ic_launcher_fg_${key}.xml`), 'utf8');
+    const shapes = [...xml.matchAll(/android:fillColor="(#[0-9A-Fa-f]{6})"\s+android:pathData="([^"]+)"/g)].map(m => ({ fill: m[1], d: m[2] }));
+    const bg = colors.match(new RegExp(`name="launcher_bg_${key}">(#[0-9A-Fa-f]{6})<`))[1];
+    expect(shapes.length).toBeGreaterThan(0);
+    expect(APPEARANCE_ICONS[key]).toEqual({ background: bg, shapes });
+  });
+
+  test('every appearance has a preview', () => {
+    expect(Object.keys(APPEARANCE_ICONS).sort()).toEqual(la.APPEARANCES.map(a => a.key).sort());
+  });
+});

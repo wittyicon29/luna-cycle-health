@@ -1,13 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { isNative } from './platform';
-import { APPEARANCES, setAppearance } from './launcherAppearance';
+import { APPEARANCES, APPEARANCE_ICONS, setAppearance } from './launcherAppearance';
 
 const noteStyle = { fontSize: '.72rem', color: 'var(--muted)', lineHeight: 1.5 };
+
+function IconPreview({ iconKey }) {
+  const icon = APPEARANCE_ICONS[iconKey];
+  if (!icon) return null;
+  return (
+    <svg viewBox="0 0 108 108" width="40" height="40" aria-hidden="true" focusable="false" style={{ flexShrink: 0 }}>
+      <rect width="108" height="108" rx="22" fill={icon.background} />
+      {icon.shapes.map((s, i) => <path key={i} d={s.d} fill={s.fill} />)}
+    </svg>
+  );
+}
 
 export default function AppearancePanel({ appearance, onChange }) {
   const [pending, setPending] = useState(null);   // key awaiting confirmation
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+
+  // Once the applied appearance catches up with the pending choice, there is nothing left to confirm.
+  useEffect(() => { if (pending && pending === appearance) setPending(null); }, [appearance, pending]);
 
   if (!isNative()) return null;
 
@@ -41,12 +55,16 @@ export default function AppearancePanel({ appearance, onChange }) {
             type="button"
             role="radio"
             aria-checked={a.key === appearance}
+            disabled={busy}
             className="btn btn-g"
-            style={{ minHeight: 44, flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left', borderColor: a.key === appearance ? 'var(--cta, #FF6B8A)' : undefined }}
+            style={{ minHeight: 44, gap: '.35rem', alignItems: 'flex-start', textAlign: 'left', borderColor: a.key === appearance ? 'var(--cta, #FF6B8A)' : undefined }}
             onClick={() => { setMessage(''); if (a.key !== appearance) setPending(a.key); else setPending(null); }}
           >
-            <span>{a.label}{a.key === appearance ? ' ✓' : ''}</span>
-            <span style={noteStyle}>{a.hint}</span>
+            <IconPreview iconKey={a.key} />
+            <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+              <span>{a.label}{a.key === appearance ? ' ✓' : ''}</span>
+              <span style={noteStyle}>{a.hint}</span>
+            </span>
           </button>
         ))}
       </div>
@@ -59,7 +77,7 @@ export default function AppearancePanel({ appearance, onChange }) {
           </div>
         </div>
       )}
-      {message && <div role="status" style={noteStyle}>{message}</div>}
+      <div role="status" aria-live="polite" style={noteStyle}>{message}</div>
       <div style={noteStyle}>Android still shows the real app name in Settings → Apps and in notifications.</div>
     </div>
   );

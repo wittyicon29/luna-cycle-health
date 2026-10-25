@@ -81,3 +81,44 @@ test('limits note is always shown and copy avoids sensitive words', async () => 
   fireEvent.click(screen.getByRole('radio', { name: /Notes/ }));
   expect(container.textContent).not.toMatch(/ovulat|fertil|pregnan|period|cycle/i);
 });
+
+test('each tile has an aria-hidden svg preview and the accessible name is still the label', () => {
+  render(<AppearancePanel appearance="default" onChange={jest.fn()} />);
+  screen.getAllByRole('radio').forEach((r, i) => {
+    const svg = r.querySelector('svg');
+    expect(svg).not.toBeNull();
+    expect(svg).toHaveAttribute('aria-hidden', 'true');
+    expect(svg).toHaveAttribute('viewBox', '0 0 108 108');
+    expect(r).toHaveAccessibleName(new RegExp(`^${LABELS[i]}`));
+  });
+});
+
+test('the status live region exists before any message', () => {
+  render(<AppearancePanel appearance="default" onChange={jest.fn()} />);
+  const region = screen.getByRole('status');
+  expect(region).toHaveAttribute('aria-live', 'polite');
+  expect(region).toHaveTextContent('');
+});
+
+test('radios are disabled and clicks ignored while a switch is in flight', async () => {
+  let resolve;
+  setAppearance.mockImplementation(() => new Promise(r => { resolve = r; }));
+  render(<AppearancePanel appearance="default" onChange={jest.fn()} />);
+  fireEvent.click(screen.getByRole('radio', { name: /Notes/ }));
+  fireEvent.click(screen.getByText('Change'));
+  const other = screen.getByRole('radio', { name: /Journal/ });
+  expect(other).toBeDisabled();
+  fireEvent.click(other);
+  expect(screen.getByText(/appear as “Notes”/)).toBeInTheDocument();
+  resolve('notes');
+  await screen.findByText(/Done\./);
+  expect(screen.getByRole('radio', { name: /Journal/ })).not.toBeDisabled();
+});
+
+test('pending is cleared when the appearance prop catches up', () => {
+  const { rerender } = render(<AppearancePanel appearance="default" onChange={jest.fn()} />);
+  fireEvent.click(screen.getByRole('radio', { name: /Notes/ }));
+  expect(screen.getByText('Change')).toBeInTheDocument();
+  rerender(<AppearancePanel appearance="notes" onChange={jest.fn()} />);
+  expect(screen.queryByText('Change')).toBeNull();
+});

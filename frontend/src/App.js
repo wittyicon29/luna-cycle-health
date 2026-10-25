@@ -1709,7 +1709,7 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
               </div>
               <div className="divider" />
               <AppearancePanel appearance={appearance} onChange={onAppearanceChange} />
-              <div className="divider" />
+              {isNative() && <div className="divider" />}
               <RemindersPanel prefs={reminderPrefs} onChange={onReminderPrefsChange} />
               <div className="divider" />
               <PrivacyPanel token={token} consents={consents} onSetConsent={onSetConsent} onAccountDeleted={onLogout} />
