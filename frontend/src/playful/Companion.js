@@ -105,6 +105,14 @@ function Face({ mood }) {
   }
 }
 
+// Happy right after a log, then sleepy at night, then cozy while bleeding.
+export function companionMood({ phase, hour, justLogged } = {}) {
+  if (justLogged) return "happy";
+  if (hour >= 22 || hour < 5) return "sleepy";
+  if (phase === "menstrual") return "cozy";
+  return "neutral";
+}
+
 export default function Companion({
   mood = "neutral",
   size = 64,

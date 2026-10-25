@@ -1,6 +1,6 @@
 import React from "react";
 import { render } from "@testing-library/react";
-import Companion from "./Companion";
+import Companion, { companionMood } from "./Companion";
 
 const MOODS = ["neutral", "happy", "sleepy", "cozy", "curious"];
 
@@ -63,5 +63,23 @@ describe("Companion", () => {
   test("unknown mood falls back to neutral", () => {
     const { container } = render(<Companion mood="nope" />);
     expect(container.querySelector("[data-face]").getAttribute("data-face")).toBe("neutral");
+  });
+});
+
+describe("companionMood", () => {
+  test("happy wins over everything", () => {
+    expect(companionMood({ phase: "menstrual", hour: 23, justLogged: true })).toBe("happy");
+  });
+  test("sleepy at night beats cozy", () => {
+    expect(companionMood({ phase: "menstrual", hour: 22, justLogged: false })).toBe("sleepy");
+    expect(companionMood({ phase: "luteal", hour: 4, justLogged: false })).toBe("sleepy");
+  });
+  test("cozy in menstrual by day", () => {
+    expect(companionMood({ phase: "menstrual", hour: 12, justLogged: false })).toBe("cozy");
+  });
+  test("neutral otherwise, with the day boundaries", () => {
+    expect(companionMood({ phase: "follicular", hour: 5, justLogged: false })).toBe("neutral");
+    expect(companionMood({ phase: "luteal", hour: 21, justLogged: false })).toBe("neutral");
+    expect(companionMood({})).toBe("neutral");
   });
 });

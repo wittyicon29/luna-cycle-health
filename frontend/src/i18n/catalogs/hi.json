@@ -514,5 +514,10 @@
   "Last period date required": "आखिरी माहवारी की तारीख आवश्यक है",
   "Please tick the consent box to save your health profile.": "अपनी स्वास्थ्य प्रोफ़ाइल सहेजने के लिए कृपया सहमति वाले बॉक्स पर निशान लगाएँ।",
   "flow spotting": "रक्तस्राव: हल्के धब्बे",
-  "1 h": "1 घंटा"
+  "1 h": "1 घंटा",
+  "Mist hasn't lifted here yet. Tap to add a day.": {
+    "one": "यहाँ की धुंध अभी छँटी नहीं है। कोई दिन जोड़ने के लिए टैप करें।",
+    "other": "इन {count} दिनों की धुंध अभी छँटी नहीं है। कोई दिन जोड़ने के लिए टैप करें।"
+  },
+  "Luna, your companion. Tap to hear a tip.": "Luna, आपकी साथी। टिप सुनने के लिए टैप करें।"
 }
