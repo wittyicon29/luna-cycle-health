@@ -122,3 +122,57 @@ test('teardown cancels everything and deletes the stored prefs', async () => {
   expect(mockLN.removeAllDeliveredNotifications).toHaveBeenCalled();
   expect(localStorage.getItem('luna_reminders')).toBeNull();
 });
+
+function fakePlugin() {
+  const scheduled = new Set();
+  const calls = [];
+  mockLN.getPending.mockImplementation(async () => ({ notifications: [...scheduled].map(id => ({ id })) }));
+  mockLN.cancel.mockImplementation(async ({ notifications }) => {
+    calls.push('cancel');
+    notifications.forEach(n => scheduled.delete(n.id));
+  });
+  return { scheduled, calls };
+}
+
+test('teardown during an in-flight rebuild cancels last, leaving nothing scheduled', async () => {
+  const { scheduled, calls } = fakePlugin();
+  let release;
+  mockLN.schedule.mockImplementation(({ notifications }) => new Promise(resolve => {
+    release = () => { calls.push('schedule'); notifications.forEach(n => scheduled.add(n.id)); resolve(); };
+  }));
+  const rebuild = sched.rebuildReminders({ prefs: prefs(), now: NOW });
+  await new Promise(r => setTimeout(r, 0));
+  expect(release).toBeDefined();
+  localStorage.setItem('luna_reminders', '{}');
+  const teardown = sched.teardownReminders();
+  expect(localStorage.getItem('luna_reminders')).toBeNull();
+  release();
+  await Promise.all([rebuild, teardown]);
+  expect(calls[calls.length - 1]).toBe('cancel');
+  expect(calls).toContain('schedule');
+  expect(scheduled.size).toBe(0);
+});
+
+test('cancelAllReminders queued behind a rebuild runs after it', async () => {
+  const order = [];
+  mockLN.schedule.mockImplementation(async () => { order.push('schedule'); });
+  mockLN.removeAllDeliveredNotifications.mockImplementation(async () => { order.push('cancelAll'); });
+  await Promise.all([sched.rebuildReminders({ prefs: prefs(), now: NOW }), sched.cancelAllReminders()]);
+  expect(order).toEqual(['schedule', 'cancelAll']);
+});
+
+test('a rejecting plugin call inside the queue does not block later tasks', async () => {
+  mockLN.getPending.mockRejectedValueOnce(new Error('boom'));
+  const first = sched.cancelAllReminders();
+  const second = sched.rebuildReminders({ prefs: prefs(), now: NOW });
+  await expect(first).resolves.toBeUndefined();
+  await expect(second).resolves.toMatchObject({ scheduled: expect.any(Number) });
+});
+
+test('rebuildReminders with no argument resolves instead of rejecting', async () => {
+  // prefs is undefined, anyEnabled(undefined) is false, so the result is "disabled"
+  // (or "error" if anyEnabled throws on undefined); either way it never rejects.
+  const result = await sched.rebuildReminders();
+  expect(['disabled', 'error']).toContain(Object.values(result)[0]);
+  expect(result).toHaveProperty('skipped');
+});

@@ -154,8 +154,11 @@ unmodified; keep its licence notices when redistributing the app. Other Capacito
 Optional check-in reminders are scheduled on the device with `@capacitor/local-notifications`
 (pinned 7.0.7). Preferences are stored locally and nothing about them leaves the device.
 
-- Delivery is inexact on purpose: no exact-alarm permission is requested, so a reminder can arrive a
-  few minutes late.
+- We request no exact-alarm permission (no SCHEDULE_EXACT_ALARM / USE_EXACT_ALARM). Delivery is
+  inexact on Android 12+ (API 31+) and may be exact on Android 11 and below, where the plugin uses
+  `setExactAndAllowWhileIdle`, which needs no permission. Expect a few minutes of slack.
+- Plugin-declared permissions: WAKE_LOCK, RECEIVE_BOOT_COMPLETED (restore alarms after reboot) and
+  POST_NOTIFICATIONS.
 - Phone-maker battery optimisation can delay or drop alarms further; users may need to exempt the app.
 - Wording is neutral ("Time for your check-in.") unless the user opts in to explicit text.
 - Android 13+ shows a notification permission prompt; it is only requested when the user turns a reminder on.

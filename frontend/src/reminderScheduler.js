@@ -55,7 +55,17 @@ async function cancelPending(ln) {
   if (notifications && notifications.length) await ln.cancel({ notifications: notifications.map(n => ({ id: n.id })) });
 }
 
-export async function cancelAllReminders() {
+// Rebuilds, cancels and teardowns run one at a time so a cancel/schedule pair is never interleaved
+// and a rebuild in flight can never re-arm reminders after a teardown. Tasks never reject.
+let queue = Promise.resolve();
+
+function enqueue(task) {
+  const next = queue.then(task, task);
+  queue = next.then(() => {}, () => {});
+  return next;
+}
+
+async function doCancelAll() {
   if (!isNative()) return;
   try {
     const ln = await plugin();
@@ -64,24 +74,23 @@ export async function cancelAllReminders() {
   } catch (e) { /* nothing more to do */ }
 }
 
-export async function teardownReminders() {
+export function cancelAllReminders() {
+  return enqueue(doCancelAll);
+}
+
+export function teardownReminders() {
   clearPrefs();
-  await cancelAllReminders();
+  return enqueue(doCancelAll);
 }
 
-// Rebuilds run one at a time so a cancel/schedule pair is never interleaved with another.
-let queue = Promise.resolve();
-
-export function rebuildReminders(args) {
-  const run = () => doRebuild(args);
-  const next = queue.then(run, run);
-  queue = next.catch(() => {});
-  return next;
+export function rebuildReminders(args = {}) {
+  return enqueue(() => doRebuild(args));
 }
 
-async function doRebuild({ prefs, prediction = null, lastPeriodStart = null, lastLoggedOn = null, now = new Date() }) {
+async function doRebuild(args) {
   if (!isNative()) return { skipped: 'web' };
   try {
+    const { prefs, prediction = null, lastPeriodStart = null, lastLoggedOn = null, now = new Date() } = args || {};
     const ln = await plugin();
     await cancelPending(ln);
     if (!anyEnabled(prefs)) return { skipped: 'disabled' };
