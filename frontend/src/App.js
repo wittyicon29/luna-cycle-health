@@ -328,15 +328,15 @@ body{font-family:'Outfit','Noto Sans Devanagari',sans-serif;background:var(--bg)
 .today-sky .sky-btn.on{border-color:#FFC84A}
 
 /* DOCK */
-.dock{height:64px;flex-shrink:0;background:var(--s1);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-around;padding:0 .25rem;z-index:20}
-.dk{flex:1;min-width:0;font-family:'Outfit','Noto Sans Devanagari',sans-serif;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:.4rem .25rem;border-radius:8px;transition:all .2s;user-select:none;min-height:44px;background:transparent;border:none;color:var(--muted)}
+.dock{height:56px;flex-shrink:0;background:var(--s1);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-around;padding:0 .25rem;z-index:20}
+.dk{flex:1;min-width:0;font-family:'Outfit','Noto Sans Devanagari',sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;padding:.25rem .25rem;border-radius:8px;transition:color .2s,background-color .2s;user-select:none;min-height:44px;background:transparent;border:none;color:var(--muted)}
 .dk:hover{color:var(--muted-h);background:var(--s2)}
 .dk.on{color:var(--cream)}
-.dk .di{position:relative;display:flex;margin-bottom:3px;transition:transform .2s}
-.dk.on .di::after{content:"";position:absolute;left:50%;bottom:-6px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:#FF6B8A}
+.dk .di{position:relative;display:flex;transition:transform .2s}
+.dk.on .di::after{content:"";position:absolute;left:50%;bottom:-5px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:#FF6B8A}
 .dk:hover .di{transform:translateY(-2px)}
 .dk .dl{font-size:.58rem;font-weight:500;letter-spacing:.05em;text-transform:uppercase}
-@media(max-width:340px){.dk .dl{font-size:.54rem;letter-spacing:.02em}.dk{padding:.4rem .15rem}}
+@media(max-width:340px){.dk .dl{font-size:.54rem;letter-spacing:.02em}.dk{padding:.25rem .15rem}}
 .log-fab{position:absolute;right:14px;bottom:14px;z-index:20;display:flex;align-items:center;gap:.4rem;min-height:44px;padding:0 1.1rem 0 .9rem;border:none;border-radius:999px;background:#FF6B8A;color:#fff;font-family:'Outfit','Noto Sans Devanagari',sans-serif;font-size:.85rem;font-weight:600;cursor:pointer;user-select:none;transition:transform .2s}
 .log-fab:hover{transform:scale(1.05)}
 .log-fab:active{transform:scale(.96)}
@@ -2172,10 +2172,10 @@ function JourneyApp({ token, email, onLogout }) {
       {/* BOTTOM DOCK */}
       <div className="dock">
         <button className="dk on" aria-current="page"><span className="di"><DockIcon name="journey" active size={24} /></span><span className="dl">{t("Journey")}</span></button>
-        <button className="dk" onClick={() => setOverlay("calendar")}><span className="di"><DockIcon name="calendar" size={24} /></span><span className="dl">{t("Calendar")}</span></button>
-        <button className="dk" onClick={() => openAi("analysis")}><span className="di"><DockIcon name="insights" size={24} /></span><span className="dl">{t("Insights")}</span></button>
-        <button className="dk" onClick={() => openAi("chat")}><span className="di"><DockIcon name="chat" size={24} /></span><span className="dl">{t("Chat")}</span></button>
-        <button className="dk" onClick={() => setOverlay("profile")}><span className="di"><DockIcon name="profile" size={24} /></span><span className="dl">{t("Profile")}</span></button>
+        <button className="dk" onClick={() => setOverlay("calendar")}><span className="di"><DockIcon name="calendar" size={24} /></span><span className="dl vh">{t("Calendar")}</span></button>
+        <button className="dk" onClick={() => openAi("analysis")}><span className="di"><DockIcon name="insights" size={24} /></span><span className="dl vh">{t("Insights")}</span></button>
+        <button className="dk" onClick={() => openAi("chat")}><span className="di"><DockIcon name="chat" size={24} /></span><span className="dl vh">{t("Chat")}</span></button>
+        <button className="dk" onClick={() => setOverlay("profile")}><span className="di"><DockIcon name="profile" size={24} /></span><span className="dl vh">{t("Profile")}</span></button>
       </div>
 
       {/* OVERLAYS */}
