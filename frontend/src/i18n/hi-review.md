@@ -120,7 +120,7 @@ Edit the Hindi text in `src/i18n/catalogs/hi.json` (the English sentence is the 
 | 100 | Medium | मध्यम | App.js:1081 |  |
 | 101 | Heavy | भारी | App.js:1081, App.js:1851 |  |
 | 102 | Pain Level | दर्द का स्तर | App.js:1083 |  |
-| 103 | Symptoms | लक्षण | App.js:1086, DaySheet.js:311 |  |
+| 103 | Symptoms | लक्षण | App.js:1086, DaySheet.js:301 |  |
 | 104 | Notes | नोट | App.js:1087, launcherAppearance.js:21 | shares the catalog entry "Notes" = नोट used elsewhere; unsure "नोट्स" would read better as an app name |
 | 105 | Any additional observations… | कोई और बात जो आपने देखी हो… | App.js:1087 |  |
 | 106 | How your cycles usually look | आपके चक्र आमतौर पर कैसे रहते हैं | App.js:1091 |  |
@@ -257,7 +257,7 @@ Edit the Hindi text in `src/i18n/catalogs/hi.json` (the English sentence is the 
 | 237 | Any other health information… | स्वास्थ्य से जुड़ी कोई और जानकारी… | App.js:1866 |  |
 | 238 | I consent to data analysis | डेटा विश्लेषण के लिए मेरी सहमति है | App.js:1867 |  |
 | 239 | Save Health Profile | स्वास्थ्य प्रोफ़ाइल सहेजें | App.js:1870 |  |
-| 240 | Retry | दोबारा कोशिश करें | App.js:1952, CalendarScreen.js:101, DaySheet.js:286 +1 more |  |
+| 240 | Retry | दोबारा कोशिश करें | App.js:1952, CalendarScreen.js:101, DaySheet.js:276 +1 more |  |
 | 241 | Sign out | साइन आउट करें | App.js:1953, RequiredConsentScreen.js:40 |  |
 | 242 | Loading your privacy settings… | आपकी गोपनीयता सेटिंग लोड हो रही हैं… | App.js:1959 |  |
 | 243 | Day {day} · {phase} | दिन {day} · {phase} | App.js:2011 |  |
@@ -289,164 +289,164 @@ Edit the Hindi text in `src/i18n/catalogs/hi.json` (the English sentence is the 
 | 269 | Couldn't load your logs. Tap Retry. | आपके रिकॉर्ड लोड नहीं हो सके। “दोबारा कोशिश करें” दबाएँ। | CalendarScreen.js:100 |  |
 | 270 | Period | माहवारी | CalendarScreen.js:128 |  |
 | 271 | Expected period | अनुमानित माहवारी | CalendarScreen.js:129 |  |
-| 272 | Flow | रक्तस्राव | CalendarScreen.js:131, DaySheet.js:320 |  |
+| 272 | Flow | रक्तस्राव | CalendarScreen.js:131, DaySheet.js:310 |  |
 | 273 | Log today | आज दर्ज करें | CalendarScreen.js:133 |  |
 | 274 | I agree to the {terms} and {privacy}. | मैं {terms} और {privacy} से सहमत हूँ। | ConsentCheckboxes.js:20 |  |
 | 275 | Terms | शर्तें | ConsentCheckboxes.js:22, PrivacyPanel.js:104 |  |
 | 276 | Privacy Policy | गोपनीयता नीति | ConsentCheckboxes.js:23, PrivacyPanel.js:102 |  |
 | 277 | I am 18 years of age or older. | मेरी आयु 18 वर्ष या उससे अधिक है। | ConsentCheckboxes.js:29 |  |
-| 278 | Very low | बहुत उदास | DaySheet.js:14 | the five mood words (बहुत उदास / थोड़ा उदास / ठीक / अच्छा / बहुत बढ़िया) are a plain scale |
-| 279 | Low | थोड़ा उदास | DaySheet.js:15 |  |
-| 280 | Okay | ठीक | DaySheet.js:16 |  |
-| 281 | Good | अच्छा | DaySheet.js:17 |  |
-| 282 | Great | बहुत बढ़िया | DaySheet.js:18 |  |
-| 283 | Saved. | सहेज लिया गया। | DaySheet.js:29 |  |
-| 284 | That date can't be saved yet. Pick today or an earlier day. | इस तारीख का रिकॉर्ड अभी सहेजा नहीं जा सकता। आज या उससे पहले का दिन चुनें। | DaySheet.js:30 |  |
-| 285 | Couldn't clear this day. Your entries are still here — try again. | इस दिन का रिकॉर्ड मिटाया नहीं जा सका। आपकी प्रविष्टियाँ यहीं हैं — दोबारा कोशिश करें। | DaySheet.js:31 |  |
-| 286 | Couldn't save this day. Your entries are still here — try again. | इस दिन का रिकॉर्ड सहेजा नहीं जा सका। आपकी प्रविष्टियाँ यहीं हैं — दोबारा कोशिश करें। | DaySheet.js:32 |  |
-| 287 | Decrease {label} | {label} घटाएँ | DaySheet.js:94 |  |
-| 288 | {label} value | {label}: मान | DaySheet.js:96 |  |
-| 289 | Increase {label} | {label} बढ़ाएँ | DaySheet.js:97 |  |
-| 290 | Reset | रीसेट करें | DaySheet.js:99 |  |
-| 291 | That date is too far back to log. | इतनी पुरानी तारीख का रिकॉर्ड दर्ज नहीं किया जा सकता। | DaySheet.js:277 |  |
-| 292 | This day is too far ahead to log yet. You can log up to tomorrow. | यह दिन अभी दर्ज करने के लिए बहुत आगे है। आप आने वाले कल (अगले दिन) तक का रिकॉर्ड दर्ज कर सकते हैं। | DaySheet.js:279 |  |
-| 293 | Loading… | लोड हो रहा है… | DaySheet.js:281 |  |
-| 294 | Couldn't load this day. | इस दिन का रिकॉर्ड लोड नहीं हो सका। | DaySheet.js:285 |  |
-| 295 | Mood | मूड | DaySheet.js:295 |  |
-| 296 | Sleep | नींद | DaySheet.js:329 |  |
-| 297 | sleep hours | नींद के घंटे | DaySheet.js:330 |  |
-| 298 | Reset sleep | नींद रीसेट करें | DaySheet.js:330 |  |
-| 299 | 1 h | 1 घंटा | DaySheet.js:330 |  |
-| 300 | {hours} h | {hours} घंटे | DaySheet.js:330 |  |
-| 301 | Water | पानी | DaySheet.js:333 |  |
-| 302 | glasses of water | पानी के गिलास | DaySheet.js:334 |  |
-| 303 | Reset water | पानी रीसेट करें | DaySheet.js:334 |  |
-| 304 | Medications | दवाएँ | DaySheet.js:337 |  |
-| 305 | Couldn't load your medications. | आपकी दवाएँ लोड नहीं हो सकीं। | DaySheet.js:340 |  |
-| 306 | Loading medications… | दवाएँ लोड हो रही हैं… | DaySheet.js:344 |  |
-| 307 | No medications on your list yet. | आपकी सूची में अभी कोई दवा नहीं है। | DaySheet.js:347 |  |
-| 308 | (archived) | (संग्रहीत) | DaySheet.js:352 |  |
-| 309 | Manage my list | मेरी सूची प्रबंधित करें | DaySheet.js:355 |  |
-| 310 | Note | नोट | DaySheet.js:361 |  |
-| 311 | Log for {date} | {date} का रिकॉर्ड | DaySheet.js:376 |  |
-| 312 | Discard changes? | बदलाव छोड़ दें? | DaySheet.js:382, DaySheet.js:383 |  |
-| 313 | Keep editing | संपादन जारी रखें | DaySheet.js:384 |  |
-| 314 | Discard | छोड़ दें | DaySheet.js:385 |  |
-| 315 | Nothing to save yet. | सहेजने के लिए अभी कुछ नहीं है। | DaySheet.js:392 |  |
-| 316 | Clear everything logged for this day? | इस दिन के लिए दर्ज सब कुछ मिटा दें? | DaySheet.js:395 |  |
-| 317 | Yes, clear | हाँ, मिटाएँ | DaySheet.js:396 |  |
-| 318 | Keep | रहने दें | DaySheet.js:397, MedicationManager.js:126 |  |
-| 319 | Save | सहेजें | DaySheet.js:401 |  |
-| 320 | Clear day | दिन मिटाएँ | DaySheet.js:402 |  |
-| 321 | Email Verification | ईमेल सत्यापन | EmailVerification.js:92 |  |
-| 322 | Use at least 8 characters | कम से कम 8 अक्षर रखें | EmailVerification.js:142 |  |
-| 323 | Password must be at most 72 bytes | पासवर्ड 72 बाइट से लंबा नहीं होना चाहिए | EmailVerification.js:143, serverMessages.js:64 |  |
-| 324 | Passwords do not match | पासवर्ड मेल नहीं खाते | EmailVerification.js:144, PasswordReset.js:30 |  |
-| 325 | Please confirm you are 18 or older and agree to the Terms and Privacy Policy | कृपया पुष्टि करें कि आपकी आयु 18 वर्ष या उससे अधिक है और आप शर्तों व गोपनीयता नीति से सहमत हैं | EmailVerification.js:145 |  |
-| 326 | Checking your link... | आपका लिंक जाँचा जा रहा है... | EmailVerification.js:162 |  |
-| 327 | Link problem | लिंक में समस्या | EmailVerification.js:172 |  |
-| 328 | Invalid verification link | सत्यापन लिंक अमान्य है | EmailVerification.js:173 |  |
-| 329 | Back to sign in | साइन इन पर वापस जाएँ | EmailVerification.js:175 |  |
-| 330 | Choose your password | अपना पासवर्ड चुनें | EmailVerification.js:183 |  |
-| 331 | New password | नया पासवर्ड | EmailVerification.js:190 |  |
-| 332 | Confirm password | पासवर्ड की पुष्टि करें | EmailVerification.js:197 |  |
-| 333 | Creating… | बनाया जा रहा है… | EmailVerification.js:203 |  |
-| 334 | Create my account | मेरा खाता बनाएँ | EmailVerification.js:203 |  |
-| 335 | Google authentication was cancelled or failed | Google प्रमाणीकरण रद्द हो गया या विफल रहा | GoogleCallback.js:51 |  |
-| 336 | No authorization code received | कोई प्राधिकरण कोड प्राप्त नहीं हुआ | GoogleCallback.js:56 |  |
-| 337 | Sign-in could not be verified. Please try again. | साइन इन सत्यापित नहीं हो सका। कृपया दोबारा कोशिश करें। | GoogleCallback.js:64 |  |
-| 338 | Authentication failed | प्रमाणीकरण विफल रहा | GoogleCallback.js:79 |  |
-| 339 | Completing authentication... | प्रमाणीकरण पूरा किया जा रहा है... | GoogleCallback.js:89 |  |
-| 340 | Authentication Successful! | प्रमाणीकरण सफल रहा! | GoogleCallback.js:96 |  |
-| 341 | Redirecting to your dashboard... | आपको डैशबोर्ड पर ले जाया जा रहा है... | GoogleCallback.js:97 |  |
-| 342 | Create your account first | पहले अपना खाता बनाएँ | GoogleCallback.js:104 |  |
-| 343 | We couldn't find a Luna Health account for this Google email. To create one, go to Register, confirm that you are 18 or older and accept the Terms and Privacy Policy, then continue with Google. | इस Google ईमेल के लिए हमें कोई Luna Health खाता नहीं मिला। खाता बनाने के लिए रजिस्टर पर जाएँ, पुष्टि करें कि आपकी आयु 18 वर्ष या उससे अधिक है और शर्तें व गोपनीयता नीति स्वीकार करें, फिर Google से जारी रखें। | GoogleCallback.js:106 |  |
-| 344 | Go to Register | रजिस्टर पर जाएँ | GoogleCallback.js:108 |  |
-| 345 | Authentication Failed | प्रमाणीकरण विफल रहा | GoogleCallback.js:114 |  |
-| 346 | Enter a medication name. | दवा का नाम लिखें। | MedicationManager.js:21 |  |
-| 347 | Names can be up to {max} characters. | नाम अधिकतम {max} अक्षरों का हो सकता है। | MedicationManager.js:22 |  |
-| 348 | You can keep up to {max} medications. Archive or delete one to add another. | आप अधिकतम {max} दवाएँ रख सकते हैं। नई दवा जोड़ने के लिए किसी एक को संग्रहीत करें या हटाएँ। | MedicationManager.js:23 |  |
-| 349 | You can keep up to {max} medications. Remove or archive one first. | आप अधिकतम {max} दवाएँ रख सकते हैं। पहले किसी एक को हटाएँ या संग्रहीत करें। | MedicationManager.js:24 |  |
-| 350 | Couldn't update your medication list. Nothing was changed — try again. | आपकी दवाओं की सूची अपडेट नहीं हो सकी। कुछ भी नहीं बदला गया — दोबारा कोशिश करें। | MedicationManager.js:26 |  |
-| 351 | ← Back to day | ← दिन पर वापस जाएँ | MedicationManager.js:98 |  |
-| 352 | My medications | मेरी दवाएँ | MedicationManager.js:99 |  |
-| 353 | Add a medication | दवा जोड़ें | MedicationManager.js:102 |  |
-| 354 | Add | जोड़ें | MedicationManager.js:105 |  |
-| 355 | No medications yet. | अभी कोई दवा नहीं है। | MedicationManager.js:108 |  |
-| 356 | New name for {name} | {name} का नया नाम | MedicationManager.js:115 |  |
-| 357 | Save name | नाम सहेजें | MedicationManager.js:119 |  |
-| 358 | Delete {name}? Past days will no longer show it. | {name} को हटाएँ? पिछले दिनों के रिकॉर्ड में इसका नाम नहीं दिखेगा। | MedicationManager.js:124 |  |
-| 359 | Yes, delete | हाँ, हटाएँ | MedicationManager.js:125, PeriodDelete.js:39 |  |
-| 360 | Rename {name} | {name} का नाम बदलें | MedicationManager.js:131 |  |
-| 361 | Rename | नाम बदलें | MedicationManager.js:131 |  |
-| 362 | Archive {name} | {name} को संग्रहीत करें | MedicationManager.js:132 |  |
-| 363 | Archive | संग्रहीत करें | MedicationManager.js:132 |  |
-| 364 | Delete {name} | {name} को हटाएँ | MedicationManager.js:133 |  |
-| 365 | Delete | हटाएँ | MedicationManager.js:133 |  |
-| 366 | Archived ({count}) | संग्रहीत ({count}) | MedicationManager.js:141 |  |
-| 367 | Restore {name} | {name} को वापस लाएँ | MedicationManager.js:146 |  |
-| 368 | Restore | वापस लाएँ | MedicationManager.js:146 |  |
-| 369 | Password must be at least 8 characters long | पासवर्ड कम से कम 8 अक्षर का होना चाहिए | PasswordReset.js:36 |  |
-| 370 | Password reset failed | पासवर्ड रीसेट नहीं हो सका | PasswordReset.js:50 |  |
-| 371 | Password Reset Successful! | पासवर्ड सफलतापूर्वक रीसेट हो गया! | PasswordReset.js:75 |  |
-| 372 | Continue to Login | लॉग इन पर जाएँ | PasswordReset.js:88 |  |
-| 373 | Reset Your Password | अपना पासवर्ड रीसेट करें | PasswordReset.js:114 |  |
-| 374 | Enter your new password below | नीचे अपना नया पासवर्ड दर्ज करें | PasswordReset.js:116 |  |
-| 375 | New Password | नया पासवर्ड | PasswordReset.js:123 |  |
-| 376 | Enter new password | नया पासवर्ड दर्ज करें | PasswordReset.js:129 |  |
-| 377 | Confirm Password | पासवर्ड की पुष्टि करें | PasswordReset.js:145 |  |
-| 378 | Confirm new password | नए पासवर्ड की पुष्टि करें | PasswordReset.js:151 |  |
-| 379 | Resetting... | रीसेट हो रहा है... | PasswordReset.js:206 |  |
-| 380 | Could not delete this entry | यह रिकॉर्ड हटाया नहीं जा सका | PeriodDelete.js:18 |  |
-| 381 | Delete this entry | यह रिकॉर्ड हटाएँ | PeriodDelete.js:27 |  |
-| 382 | This entry will be removed from your journey. This can't be undone. | यह रिकॉर्ड आपकी यात्रा से हटा दिया जाएगा। इसे वापस नहीं लाया जा सकता। | PeriodDelete.js:35 |  |
-| 383 | Deleting… | हटाया जा रहा है… | PeriodDelete.js:39, PrivacyPanel.js:92 |  |
-| 384 | Privacy & data | गोपनीयता और डेटा | PrivacyPanel.js:51 |  |
-| 385 | Withdraw AI consent | एआई सहमति वापस लें | PrivacyPanel.js:54 |  |
-| 386 | Chat and insights currently send your data to third-party AI services. | चैट और इनसाइट्स अभी आपका डेटा तीसरे पक्ष की एआई सेवाओं को भेजते हैं। | PrivacyPanel.js:58 |  |
-| 387 | Chat and insights are off until you allow AI features. | जब तक आप एआई सुविधाओं की अनुमति नहीं देते, चैट और इनसाइट्स बंद रहेंगे। | PrivacyPanel.js:59 |  |
-| 388 | Preparing… | तैयार किया जा रहा है… | PrivacyPanel.js:63 |  |
-| 389 | Download my data | मेरा डेटा डाउनलोड करें | PrivacyPanel.js:63 |  |
-| 390 | Delete my account | मेरा खाता हटाएँ | PrivacyPanel.js:73 |  |
-| 391 | This permanently deletes your account and all your data. It cannot be undone. | इससे आपका खाता और आपका सारा डेटा हमेशा के लिए हट जाएगा। इसे पहले जैसा नहीं किया जा सकता। | PrivacyPanel.js:78 |  |
-| 392 | Type DELETE to confirm | पुष्टि के लिए अंग्रेज़ी अक्षरों में DELETE टाइप करें | PrivacyPanel.js:81 |  |
-| 393 | Delete forever | हमेशा के लिए हटाएँ | PrivacyPanel.js:92 |  |
-| 394 | Something went wrong | कुछ गड़बड़ हो गई | PrivacyPanel.js:98 |  |
-| 395 | Your data was downloaded. | आपका डेटा डाउनलोड हो गया। | PrivacyPanel.js:99 |  |
-| 396 | Health profile | स्वास्थ्य प्रोफ़ाइल | ProfileBanner.js:9 |  |
-| 397 | Complete your health profile for better insights. | बेहतर इनसाइट्स के लिए अपनी स्वास्थ्य प्रोफ़ाइल पूरी करें। | ProfileBanner.js:11 |  |
-| 398 | Start | शुरू करें | ProfileBanner.js:13 |  |
-| 399 | Later | बाद में | ProfileBanner.js:14 |  |
-| 400 | Reminders | रिमाइंडर | RemindersPanel.js:70 |  |
-| 401 | Period expected soon | माहवारी जल्द आने वाली है | RemindersPanel.js:74 |  |
-| 402 | Days before | कितने दिन पहले | RemindersPanel.js:79 |  |
-| 403 | {count} day before / {count} days before | {count} दिन पहले / {count} दिन पहले | RemindersPanel.js:85 |  |
-| 404 | Period expected reminder time | माहवारी रिमाइंडर का समय | RemindersPanel.js:90 |  |
-| 405 | Daily check-in nudge | रोज़ का चेक-इन रिमाइंडर | RemindersPanel.js:100 |  |
-| 406 | Daily check-in reminder time | रोज़ के चेक-इन रिमाइंडर का समय | RemindersPanel.js:105 |  |
-| 407 | Late period check-in | माहवारी में देरी पर चेक-इन | RemindersPanel.js:114 |  |
-| 408 | Show details in notifications | नोटिफ़िकेशन में विवरण दिखाएँ | RemindersPanel.js:125 |  |
-| 409 | Details are hidden on the lock screen where Android allows it; check Settings → Notifications → Lock screen. | जहाँ Android अनुमति देता है, वहाँ लॉक स्क्रीन पर विवरण छिपे रहते हैं; सेटिंग → नोटिफ़िकेशन → लॉक स्क्रीन देखें। | RemindersPanel.js:127 |  |
-| 410 | Notifications are turned off for Luna, so these reminders won't appear. Turn them on in Android Settings → Apps → Luna → Notifications. | Luna के लिए नोटिफ़िकेशन बंद हैं, इसलिए ये रिमाइंडर दिखाई नहीं देंगे। इन्हें Android सेटिंग → ऐप्स → Luna → नोटिफ़िकेशन में चालू करें। | RemindersPanel.js:130 |  |
-| 411 | Daily nudges are scheduled for the next two weeks each time you open the app. | ऐप खोलने पर हर बार अगले दो हफ़्तों के लिए रोज़ के रिमाइंडर तय किए जाते हैं। | RemindersPanel.js:132 |  |
-| 412 | Notifications are turned off for Luna. Turn them on in Android Settings → Apps → Luna → Notifications, then try again. | Luna के लिए नोटिफ़िकेशन बंद हैं। इन्हें Android सेटिंग → ऐप्स → Luna → नोटिफ़िकेशन में चालू करें, फिर दोबारा कोशिश करें। | RemindersPanel.js:133 |  |
-| 413 | Reminders arrive within a few minutes of the set time. | रिमाइंडर तय समय के कुछ मिनट के भीतर आते हैं। | RemindersPanel.js:134 |  |
-| 414 | Before you continue | आगे बढ़ने से पहले | RequiredConsentScreen.js:29 |  |
-| 415 | Please confirm the following to use Luna Health. | Luna Health का उपयोग करने के लिए कृपया नीचे दी गई बातों की पुष्टि करें। | RequiredConsentScreen.js:32 |  |
-| 416 | Continue | जारी रखें | RequiredConsentScreen.js:37 |  |
-| 417 | Could not save your data on this device. | आपका डेटा इस डिवाइस पर सहेजा नहीं जा सका। | download.js:52 |  |
-| 418 | Could not open the share sheet to save your data. | डेटा सहेजने के लिए शेयर मेन्यू नहीं खुल सका। | download.js:60 |  |
-| 419 | Luna Health | Luna Health | launcherAppearance.js:19 | the product name stays in Latin script, so the translation equals the English text |
-| 420 | Daily Planner | दैनिक प्लानर | launcherAppearance.js:22 |  |
-| 421 | Journal | जर्नल | launcherAppearance.js:23 |  |
-| 422 | Checklist | चेकलिस्ट | launcherAppearance.js:24 |  |
-| 423 | Organizer | ऑर्गनाइज़र | launcherAppearance.js:25 |  |
-| 424 | The standard Luna moon icon | Luna का सामान्य चाँद वाला आइकन | launcherAppearance.js:32 |  |
-| 425 | Plain notepad icon | सादा नोटपैड आइकन | launcherAppearance.js:33 |  |
-| 426 | Plain calendar-page icon | सादा कैलेंडर-पन्ने का आइकन | launcherAppearance.js:34 |  |
-| 427 | Plain closed-book icon | बंद किताब का सादा आइकन | launcherAppearance.js:35 |  |
-| 428 | Plain ticked-list icon | टिक लगी सूची का सादा आइकन | launcherAppearance.js:36 |  |
-| 429 | Plain folder icon | सादा फ़ोल्डर आइकन | launcherAppearance.js:37 |  |
+| 278 | Saved. | सहेज लिया गया। | DaySheet.js:19 |  |
+| 279 | That date can't be saved yet. Pick today or an earlier day. | इस तारीख का रिकॉर्ड अभी सहेजा नहीं जा सकता। आज या उससे पहले का दिन चुनें। | DaySheet.js:20 |  |
+| 280 | Couldn't clear this day. Your entries are still here — try again. | इस दिन का रिकॉर्ड मिटाया नहीं जा सका। आपकी प्रविष्टियाँ यहीं हैं — दोबारा कोशिश करें। | DaySheet.js:21 |  |
+| 281 | Couldn't save this day. Your entries are still here — try again. | इस दिन का रिकॉर्ड सहेजा नहीं जा सका। आपकी प्रविष्टियाँ यहीं हैं — दोबारा कोशिश करें। | DaySheet.js:22 |  |
+| 282 | Decrease {label} | {label} घटाएँ | DaySheet.js:84 |  |
+| 283 | {label} value | {label}: मान | DaySheet.js:86 |  |
+| 284 | Increase {label} | {label} बढ़ाएँ | DaySheet.js:87 |  |
+| 285 | Reset | रीसेट करें | DaySheet.js:89 |  |
+| 286 | That date is too far back to log. | इतनी पुरानी तारीख का रिकॉर्ड दर्ज नहीं किया जा सकता। | DaySheet.js:267 |  |
+| 287 | This day is too far ahead to log yet. You can log up to tomorrow. | यह दिन अभी दर्ज करने के लिए बहुत आगे है। आप आने वाले कल (अगले दिन) तक का रिकॉर्ड दर्ज कर सकते हैं। | DaySheet.js:269 |  |
+| 288 | Loading… | लोड हो रहा है… | DaySheet.js:271 |  |
+| 289 | Couldn't load this day. | इस दिन का रिकॉर्ड लोड नहीं हो सका। | DaySheet.js:275 |  |
+| 290 | Mood | मूड | DaySheet.js:285 |  |
+| 291 | Sleep | नींद | DaySheet.js:319 |  |
+| 292 | sleep hours | नींद के घंटे | DaySheet.js:320 |  |
+| 293 | Reset sleep | नींद रीसेट करें | DaySheet.js:320 |  |
+| 294 | 1 h | 1 घंटा | DaySheet.js:320 |  |
+| 295 | {hours} h | {hours} घंटे | DaySheet.js:320 |  |
+| 296 | Water | पानी | DaySheet.js:323 |  |
+| 297 | glasses of water | पानी के गिलास | DaySheet.js:324 |  |
+| 298 | Reset water | पानी रीसेट करें | DaySheet.js:324 |  |
+| 299 | Medications | दवाएँ | DaySheet.js:327 |  |
+| 300 | Couldn't load your medications. | आपकी दवाएँ लोड नहीं हो सकीं। | DaySheet.js:330 |  |
+| 301 | Loading medications… | दवाएँ लोड हो रही हैं… | DaySheet.js:334 |  |
+| 302 | No medications on your list yet. | आपकी सूची में अभी कोई दवा नहीं है। | DaySheet.js:337 |  |
+| 303 | (archived) | (संग्रहीत) | DaySheet.js:342 |  |
+| 304 | Manage my list | मेरी सूची प्रबंधित करें | DaySheet.js:345 |  |
+| 305 | Note | नोट | DaySheet.js:351 |  |
+| 306 | Log for {date} | {date} का रिकॉर्ड | DaySheet.js:366 |  |
+| 307 | Discard changes? | बदलाव छोड़ दें? | DaySheet.js:372, DaySheet.js:373 |  |
+| 308 | Keep editing | संपादन जारी रखें | DaySheet.js:374 |  |
+| 309 | Discard | छोड़ दें | DaySheet.js:375 |  |
+| 310 | Nothing to save yet. | सहेजने के लिए अभी कुछ नहीं है। | DaySheet.js:382 |  |
+| 311 | Clear everything logged for this day? | इस दिन के लिए दर्ज सब कुछ मिटा दें? | DaySheet.js:385 |  |
+| 312 | Yes, clear | हाँ, मिटाएँ | DaySheet.js:386 |  |
+| 313 | Keep | रहने दें | DaySheet.js:387, MedicationManager.js:126 |  |
+| 314 | Save | सहेजें | DaySheet.js:391 |  |
+| 315 | Clear day | दिन मिटाएँ | DaySheet.js:392 |  |
+| 316 | Email Verification | ईमेल सत्यापन | EmailVerification.js:92 |  |
+| 317 | Use at least 8 characters | कम से कम 8 अक्षर रखें | EmailVerification.js:142 |  |
+| 318 | Password must be at most 72 bytes | पासवर्ड 72 बाइट से लंबा नहीं होना चाहिए | EmailVerification.js:143, serverMessages.js:64 |  |
+| 319 | Passwords do not match | पासवर्ड मेल नहीं खाते | EmailVerification.js:144, PasswordReset.js:30 |  |
+| 320 | Please confirm you are 18 or older and agree to the Terms and Privacy Policy | कृपया पुष्टि करें कि आपकी आयु 18 वर्ष या उससे अधिक है और आप शर्तों व गोपनीयता नीति से सहमत हैं | EmailVerification.js:145 |  |
+| 321 | Checking your link... | आपका लिंक जाँचा जा रहा है... | EmailVerification.js:162 |  |
+| 322 | Link problem | लिंक में समस्या | EmailVerification.js:172 |  |
+| 323 | Invalid verification link | सत्यापन लिंक अमान्य है | EmailVerification.js:173 |  |
+| 324 | Back to sign in | साइन इन पर वापस जाएँ | EmailVerification.js:175 |  |
+| 325 | Choose your password | अपना पासवर्ड चुनें | EmailVerification.js:183 |  |
+| 326 | New password | नया पासवर्ड | EmailVerification.js:190 |  |
+| 327 | Confirm password | पासवर्ड की पुष्टि करें | EmailVerification.js:197 |  |
+| 328 | Creating… | बनाया जा रहा है… | EmailVerification.js:203 |  |
+| 329 | Create my account | मेरा खाता बनाएँ | EmailVerification.js:203 |  |
+| 330 | Google authentication was cancelled or failed | Google प्रमाणीकरण रद्द हो गया या विफल रहा | GoogleCallback.js:51 |  |
+| 331 | No authorization code received | कोई प्राधिकरण कोड प्राप्त नहीं हुआ | GoogleCallback.js:56 |  |
+| 332 | Sign-in could not be verified. Please try again. | साइन इन सत्यापित नहीं हो सका। कृपया दोबारा कोशिश करें। | GoogleCallback.js:64 |  |
+| 333 | Authentication failed | प्रमाणीकरण विफल रहा | GoogleCallback.js:79 |  |
+| 334 | Completing authentication... | प्रमाणीकरण पूरा किया जा रहा है... | GoogleCallback.js:89 |  |
+| 335 | Authentication Successful! | प्रमाणीकरण सफल रहा! | GoogleCallback.js:96 |  |
+| 336 | Redirecting to your dashboard... | आपको डैशबोर्ड पर ले जाया जा रहा है... | GoogleCallback.js:97 |  |
+| 337 | Create your account first | पहले अपना खाता बनाएँ | GoogleCallback.js:104 |  |
+| 338 | We couldn't find a Luna Health account for this Google email. To create one, go to Register, confirm that you are 18 or older and accept the Terms and Privacy Policy, then continue with Google. | इस Google ईमेल के लिए हमें कोई Luna Health खाता नहीं मिला। खाता बनाने के लिए रजिस्टर पर जाएँ, पुष्टि करें कि आपकी आयु 18 वर्ष या उससे अधिक है और शर्तें व गोपनीयता नीति स्वीकार करें, फिर Google से जारी रखें। | GoogleCallback.js:106 |  |
+| 339 | Go to Register | रजिस्टर पर जाएँ | GoogleCallback.js:108 |  |
+| 340 | Authentication Failed | प्रमाणीकरण विफल रहा | GoogleCallback.js:114 |  |
+| 341 | Enter a medication name. | दवा का नाम लिखें। | MedicationManager.js:21 |  |
+| 342 | Names can be up to {max} characters. | नाम अधिकतम {max} अक्षरों का हो सकता है। | MedicationManager.js:22 |  |
+| 343 | You can keep up to {max} medications. Archive or delete one to add another. | आप अधिकतम {max} दवाएँ रख सकते हैं। नई दवा जोड़ने के लिए किसी एक को संग्रहीत करें या हटाएँ। | MedicationManager.js:23 |  |
+| 344 | You can keep up to {max} medications. Remove or archive one first. | आप अधिकतम {max} दवाएँ रख सकते हैं। पहले किसी एक को हटाएँ या संग्रहीत करें। | MedicationManager.js:24 |  |
+| 345 | Couldn't update your medication list. Nothing was changed — try again. | आपकी दवाओं की सूची अपडेट नहीं हो सकी। कुछ भी नहीं बदला गया — दोबारा कोशिश करें। | MedicationManager.js:26 |  |
+| 346 | ← Back to day | ← दिन पर वापस जाएँ | MedicationManager.js:98 |  |
+| 347 | My medications | मेरी दवाएँ | MedicationManager.js:99 |  |
+| 348 | Add a medication | दवा जोड़ें | MedicationManager.js:102 |  |
+| 349 | Add | जोड़ें | MedicationManager.js:105 |  |
+| 350 | No medications yet. | अभी कोई दवा नहीं है। | MedicationManager.js:108 |  |
+| 351 | New name for {name} | {name} का नया नाम | MedicationManager.js:115 |  |
+| 352 | Save name | नाम सहेजें | MedicationManager.js:119 |  |
+| 353 | Delete {name}? Past days will no longer show it. | {name} को हटाएँ? पिछले दिनों के रिकॉर्ड में इसका नाम नहीं दिखेगा। | MedicationManager.js:124 |  |
+| 354 | Yes, delete | हाँ, हटाएँ | MedicationManager.js:125, PeriodDelete.js:39 |  |
+| 355 | Rename {name} | {name} का नाम बदलें | MedicationManager.js:131 |  |
+| 356 | Rename | नाम बदलें | MedicationManager.js:131 |  |
+| 357 | Archive {name} | {name} को संग्रहीत करें | MedicationManager.js:132 |  |
+| 358 | Archive | संग्रहीत करें | MedicationManager.js:132 |  |
+| 359 | Delete {name} | {name} को हटाएँ | MedicationManager.js:133 |  |
+| 360 | Delete | हटाएँ | MedicationManager.js:133 |  |
+| 361 | Archived ({count}) | संग्रहीत ({count}) | MedicationManager.js:141 |  |
+| 362 | Restore {name} | {name} को वापस लाएँ | MedicationManager.js:146 |  |
+| 363 | Restore | वापस लाएँ | MedicationManager.js:146 |  |
+| 364 | Password must be at least 8 characters long | पासवर्ड कम से कम 8 अक्षर का होना चाहिए | PasswordReset.js:36 |  |
+| 365 | Password reset failed | पासवर्ड रीसेट नहीं हो सका | PasswordReset.js:50 |  |
+| 366 | Password Reset Successful! | पासवर्ड सफलतापूर्वक रीसेट हो गया! | PasswordReset.js:75 |  |
+| 367 | Continue to Login | लॉग इन पर जाएँ | PasswordReset.js:88 |  |
+| 368 | Reset Your Password | अपना पासवर्ड रीसेट करें | PasswordReset.js:114 |  |
+| 369 | Enter your new password below | नीचे अपना नया पासवर्ड दर्ज करें | PasswordReset.js:116 |  |
+| 370 | New Password | नया पासवर्ड | PasswordReset.js:123 |  |
+| 371 | Enter new password | नया पासवर्ड दर्ज करें | PasswordReset.js:129 |  |
+| 372 | Confirm Password | पासवर्ड की पुष्टि करें | PasswordReset.js:145 |  |
+| 373 | Confirm new password | नए पासवर्ड की पुष्टि करें | PasswordReset.js:151 |  |
+| 374 | Resetting... | रीसेट हो रहा है... | PasswordReset.js:206 |  |
+| 375 | Could not delete this entry | यह रिकॉर्ड हटाया नहीं जा सका | PeriodDelete.js:18 |  |
+| 376 | Delete this entry | यह रिकॉर्ड हटाएँ | PeriodDelete.js:27 |  |
+| 377 | This entry will be removed from your journey. This can't be undone. | यह रिकॉर्ड आपकी यात्रा से हटा दिया जाएगा। इसे वापस नहीं लाया जा सकता। | PeriodDelete.js:35 |  |
+| 378 | Deleting… | हटाया जा रहा है… | PeriodDelete.js:39, PrivacyPanel.js:92 |  |
+| 379 | Privacy & data | गोपनीयता और डेटा | PrivacyPanel.js:51 |  |
+| 380 | Withdraw AI consent | एआई सहमति वापस लें | PrivacyPanel.js:54 |  |
+| 381 | Chat and insights currently send your data to third-party AI services. | चैट और इनसाइट्स अभी आपका डेटा तीसरे पक्ष की एआई सेवाओं को भेजते हैं। | PrivacyPanel.js:58 |  |
+| 382 | Chat and insights are off until you allow AI features. | जब तक आप एआई सुविधाओं की अनुमति नहीं देते, चैट और इनसाइट्स बंद रहेंगे। | PrivacyPanel.js:59 |  |
+| 383 | Preparing… | तैयार किया जा रहा है… | PrivacyPanel.js:63 |  |
+| 384 | Download my data | मेरा डेटा डाउनलोड करें | PrivacyPanel.js:63 |  |
+| 385 | Delete my account | मेरा खाता हटाएँ | PrivacyPanel.js:73 |  |
+| 386 | This permanently deletes your account and all your data. It cannot be undone. | इससे आपका खाता और आपका सारा डेटा हमेशा के लिए हट जाएगा। इसे पहले जैसा नहीं किया जा सकता। | PrivacyPanel.js:78 |  |
+| 387 | Type DELETE to confirm | पुष्टि के लिए अंग्रेज़ी अक्षरों में DELETE टाइप करें | PrivacyPanel.js:81 |  |
+| 388 | Delete forever | हमेशा के लिए हटाएँ | PrivacyPanel.js:92 |  |
+| 389 | Something went wrong | कुछ गड़बड़ हो गई | PrivacyPanel.js:98 |  |
+| 390 | Your data was downloaded. | आपका डेटा डाउनलोड हो गया। | PrivacyPanel.js:99 |  |
+| 391 | Health profile | स्वास्थ्य प्रोफ़ाइल | ProfileBanner.js:9 |  |
+| 392 | Complete your health profile for better insights. | बेहतर इनसाइट्स के लिए अपनी स्वास्थ्य प्रोफ़ाइल पूरी करें। | ProfileBanner.js:11 |  |
+| 393 | Start | शुरू करें | ProfileBanner.js:13 |  |
+| 394 | Later | बाद में | ProfileBanner.js:14 |  |
+| 395 | Reminders | रिमाइंडर | RemindersPanel.js:70 |  |
+| 396 | Period expected soon | माहवारी जल्द आने वाली है | RemindersPanel.js:74 |  |
+| 397 | Days before | कितने दिन पहले | RemindersPanel.js:79 |  |
+| 398 | {count} day before / {count} days before | {count} दिन पहले / {count} दिन पहले | RemindersPanel.js:85 |  |
+| 399 | Period expected reminder time | माहवारी रिमाइंडर का समय | RemindersPanel.js:90 |  |
+| 400 | Daily check-in nudge | रोज़ का चेक-इन रिमाइंडर | RemindersPanel.js:100 |  |
+| 401 | Daily check-in reminder time | रोज़ के चेक-इन रिमाइंडर का समय | RemindersPanel.js:105 |  |
+| 402 | Late period check-in | माहवारी में देरी पर चेक-इन | RemindersPanel.js:114 |  |
+| 403 | Show details in notifications | नोटिफ़िकेशन में विवरण दिखाएँ | RemindersPanel.js:125 |  |
+| 404 | Details are hidden on the lock screen where Android allows it; check Settings → Notifications → Lock screen. | जहाँ Android अनुमति देता है, वहाँ लॉक स्क्रीन पर विवरण छिपे रहते हैं; सेटिंग → नोटिफ़िकेशन → लॉक स्क्रीन देखें। | RemindersPanel.js:127 |  |
+| 405 | Notifications are turned off for Luna, so these reminders won't appear. Turn them on in Android Settings → Apps → Luna → Notifications. | Luna के लिए नोटिफ़िकेशन बंद हैं, इसलिए ये रिमाइंडर दिखाई नहीं देंगे। इन्हें Android सेटिंग → ऐप्स → Luna → नोटिफ़िकेशन में चालू करें। | RemindersPanel.js:130 |  |
+| 406 | Daily nudges are scheduled for the next two weeks each time you open the app. | ऐप खोलने पर हर बार अगले दो हफ़्तों के लिए रोज़ के रिमाइंडर तय किए जाते हैं। | RemindersPanel.js:132 |  |
+| 407 | Notifications are turned off for Luna. Turn them on in Android Settings → Apps → Luna → Notifications, then try again. | Luna के लिए नोटिफ़िकेशन बंद हैं। इन्हें Android सेटिंग → ऐप्स → Luna → नोटिफ़िकेशन में चालू करें, फिर दोबारा कोशिश करें। | RemindersPanel.js:133 |  |
+| 408 | Reminders arrive within a few minutes of the set time. | रिमाइंडर तय समय के कुछ मिनट के भीतर आते हैं। | RemindersPanel.js:134 |  |
+| 409 | Before you continue | आगे बढ़ने से पहले | RequiredConsentScreen.js:29 |  |
+| 410 | Please confirm the following to use Luna Health. | Luna Health का उपयोग करने के लिए कृपया नीचे दी गई बातों की पुष्टि करें। | RequiredConsentScreen.js:32 |  |
+| 411 | Continue | जारी रखें | RequiredConsentScreen.js:37 |  |
+| 412 | Could not save your data on this device. | आपका डेटा इस डिवाइस पर सहेजा नहीं जा सका। | download.js:52 |  |
+| 413 | Could not open the share sheet to save your data. | डेटा सहेजने के लिए शेयर मेन्यू नहीं खुल सका। | download.js:60 |  |
+| 414 | Luna Health | Luna Health | launcherAppearance.js:19 | the product name stays in Latin script, so the translation equals the English text |
+| 415 | Daily Planner | दैनिक प्लानर | launcherAppearance.js:22 |  |
+| 416 | Journal | जर्नल | launcherAppearance.js:23 |  |
+| 417 | Checklist | चेकलिस्ट | launcherAppearance.js:24 |  |
+| 418 | Organizer | ऑर्गनाइज़र | launcherAppearance.js:25 |  |
+| 419 | The standard Luna moon icon | Luna का सामान्य चाँद वाला आइकन | launcherAppearance.js:32 |  |
+| 420 | Plain notepad icon | सादा नोटपैड आइकन | launcherAppearance.js:33 |  |
+| 421 | Plain calendar-page icon | सादा कैलेंडर-पन्ने का आइकन | launcherAppearance.js:34 |  |
+| 422 | Plain closed-book icon | बंद किताब का सादा आइकन | launcherAppearance.js:35 |  |
+| 423 | Plain ticked-list icon | टिक लगी सूची का सादा आइकन | launcherAppearance.js:36 |  |
+| 424 | Plain folder icon | सादा फ़ोल्डर आइकन | launcherAppearance.js:37 |  |
+| 425 | Very low | बहुत उदास | weather.js:8 | the five mood words (बहुत उदास / थोड़ा उदास / ठीक / अच्छा / बहुत बढ़िया) are a plain scale |
+| 426 | Low | थोड़ा उदास | weather.js:9 |  |
+| 427 | Okay | ठीक | weather.js:10 |  |
+| 428 | Good | अच्छा | weather.js:11 |  |
+| 429 | Great | बहुत बढ़िया | weather.js:12 |  |
 | 430 | Reminder | रिमाइंडर | reminderScheduler.js:34 |  |
 | 431 | Time for your check-in. | आपके चेक-इन का समय हो गया है। | reminderScheduler.js:35 |  |
 | 432 | Your period is expected in {count} day. / Your period is expected in {count} days. | आपकी माहवारी {count} दिन में आने की उम्मीद है। / आपकी माहवारी {count} दिन में आने की उम्मीद है। | reminderScheduler.js:38 |  |
@@ -540,8 +540,8 @@ Edit the Hindi text in `src/i18n/catalogs/hi.json` (the English sentence is the 
 | 40 | Use Chat for questions about cramps, cycle changes or patterns you’re worried about. Luna will reference your data when available, but never diagnose. | ऐंठन, चक्र में बदलाव या ऐसे पैटर्न के बारे में जिनको लेकर आप चिंतित हैं, सवाल पूछने के लिए चैट का उपयोग करें। डेटा उपलब्ध होने पर Luna उसका संदर्भ लेगी, लेकिन कभी निदान नहीं करेगी। | App.js:531 | "never diagnose" is translated literally on purpose (health disclaimer); keep it unsoftened |
 | 104 | Notes | नोट | App.js:1087, launcherAppearance.js:21 | shares the catalog entry "Notes" = नोट used elsewhere; unsure "नोट्स" would read better as an app name |
 | 263 | today | आज | CalendarScreen.js:75 | these state words are read aloud after the date by screen readers, e.g. "5 अक्टूबर 2026, आज, माहवारी का दिन"; unsure about the phrasing |
-| 278 | Very low | बहुत उदास | DaySheet.js:14 | the five mood words (बहुत उदास / थोड़ा उदास / ठीक / अच्छा / बहुत बढ़िया) are a plain scale |
-| 419 | Luna Health | Luna Health | launcherAppearance.js:19 | the product name stays in Latin script, so the translation equals the English text |
+| 414 | Luna Health | Luna Health | launcherAppearance.js:19 | the product name stays in Latin script, so the translation equals the English text |
+| 425 | Very low | बहुत उदास | weather.js:8 | the five mood words (बहुत उदास / थोड़ा उदास / ठीक / अच्छा / बहुत बढ़िया) are a plain scale |
 | 440 | Invalid credentials | ईमेल या पासवर्ड सही नहीं है | serverMessages.js:22 | deliberately vague on whether the email or the password is wrong; keep it that way in Hindi |
 | 455 | Type DELETE to confirm account deletion | खाता हटाने की पुष्टि के लिए DELETE लिखें | serverMessages.js:42 | account deletion; "DELETE" stays in Latin because the server expects that exact word |
 | 465 | Data consent is required to submit questionnaire | प्रश्नावली जमा करने के लिए डेटा सहमति आवश्यक है | serverMessages.js:57 | consent wording, translated literally |

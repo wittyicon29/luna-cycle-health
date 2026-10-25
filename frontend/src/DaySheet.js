@@ -5,19 +5,9 @@ import { SYMPTOMS_LIST, symptomLabel, flowWord } from "./symptoms";
 import { t, useLanguage } from "./i18n";
 import { maxSelectableDay, MIN_LOG_DAY } from "./CalendarScreen";
 import MedicationManager from "./MedicationManager";
+import { MOODS, moodLabel } from "./playful/weather";
 
-export const MOODS = ["Very low", "Low", "Okay", "Good", "Great"];
-// Display name of mood level 1..5 (the stored value is the number).
-function moodLabel(i) {
-  switch (i) {
-    // i18n-note: the five mood words (बहुत उदास / थोड़ा उदास / ठीक / अच्छा / बहुत बढ़िया) are a plain scale
-    case 0: return t("Very low");
-    case 1: return t("Low");
-    case 2: return t("Okay");
-    case 3: return t("Good");
-    default: return t("Great");
-  }
-}
+export { MOODS };
 const MOOD_FACES = ["😞", "🙁", "😐", "🙂", "😄"];
 const FLOWS = ["spotting", "light", "medium", "heavy"];
 const NOTE_MAX = 1000;
