@@ -61,6 +61,12 @@ export function saveSlice(email, slice, value, range) {
   });
 }
 
+// True when the slice has been stored for this user (tells "nothing cached" from an empty cached logs map).
+export function hasSlice(email, slice) {
+  if (!SLICES.includes(slice)) return Promise.resolve(false);
+  return serial(email, async () => !!(await readSlice(email, slice)));
+}
+
 export function clearSnapshot(email) {
   return serial(email, async () => { for (const s of SLICES) await store.remove(email, nameOf(s)); });
 }

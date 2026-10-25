@@ -94,3 +94,11 @@ test('a far-future date does not wipe real history from the prune anchor', async
   const { logs } = await snapshot.loadSnapshot(E);
   expect(Object.keys(logs)).toEqual([recent, '2999-01-01']);
 });
+
+test('hasSlice tells an empty cached logs map from nothing cached', async () => {
+  expect(await snapshot.hasSlice(E, 'logs')).toBe(false);
+  await snapshot.saveSlice(E, 'logs', {});
+  expect(await snapshot.hasSlice(E, 'logs')).toBe(true);
+  expect(await snapshot.hasSlice(E, 'periods')).toBe(false);
+  expect(await snapshot.hasSlice(E, 'nope')).toBe(false);
+});
