@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import LandingPage from "./LandingPage";
 import { API } from "./api";
 import ConsentCheckboxes from "./ConsentCheckboxes";
@@ -12,6 +12,7 @@ import AiConsentModal from "./AiConsentModal";
 import PrivacyPanel from "./PrivacyPanel";
 import RemindersPanel from "./RemindersPanel";
 import AppearancePanel from "./AppearancePanel";
+import PlayfulSettings from "./playful/PlayfulSettings";
 import LanguageSwitcher from "./i18n/LanguageSwitcher";
 import { t, tn, useLanguage, intlLocale, dateLocale } from "./i18n";
 import { translateServer } from "./serverMessages";
@@ -24,6 +25,14 @@ import CalendarScreen from "./CalendarScreen";
 import DaySheet from "./DaySheet";
 import { SYMPTOMS_LIST, symptomLabel, flowLabel } from "./symptoms";
 import ProfileBanner from "./ProfileBanner";
+import SkyCheckIn from "./playful/SkyCheckIn";
+import DockIcon from "./playful/DockIcon";
+import Companion, { companionMood } from "./playful/Companion";
+import { FogLayer } from "./playful/FogLayer";
+import { firstLoggedDate, coveredDates, fogRuns } from "./playful/fog";
+import { injectPlayfulStyles } from "./playful/playfulStyles";
+import { usePlayful } from "./playful/playfulPrefs";
+import { addDays } from "./calendarGrid";
 import { localDateString, formatLongDate } from "./localDate";
 import { getAccessToken, getEmail, setSession, clearSession } from "./tokenStore";
 
@@ -265,7 +274,7 @@ body{font-family:'Outfit','Noto Sans Devanagari',sans-serif;background:var(--bg)
 .terrain{flex:1;position:relative;overflow:hidden}
 .phase-bg{position:absolute;top:0;bottom:0;transition:background .3s}
 .phase-sep{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.1);pointer-events:none;z-index:2}
-.phase-sep-lbl{position:absolute;top:8px;font-size:.58rem;letter-spacing:.07em;text-transform:uppercase;font-weight:500;white-space:nowrap;z-index:3;padding:2px 7px;border-radius:3px;backdrop-filter:blur(4px);pointer-events:none;left:5px}
+.phase-sep-lbl{position:absolute;top:8px;font-size:.58rem;letter-spacing:.07em;text-transform:uppercase;font-weight:500;white-space:nowrap;z-index:6;padding:2px 7px;border-radius:3px;backdrop-filter:blur(4px);pointer-events:none;left:5px}
 .week-sep{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.03);pointer-events:none;z-index:1}
 .road{position:absolute;left:0;right:0;height:2px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.05);z-index:1}
 .p-dot{position:absolute;border-radius:50%;z-index:10;top:50%;transform:translate(-50%,-50%);cursor:pointer;transition:transform .2s,box-shadow .2s}
@@ -277,6 +286,7 @@ body{font-family:'Outfit','Noto Sans Devanagari',sans-serif;background:var(--bg)
 .beacon-line{position:absolute;top:0;bottom:0;left:0;width:2px;animation:bPulse 2.5s ease-in-out infinite}
 @keyframes bPulse{0%,100%{opacity:.6}50%{opacity:1}}
 .beacon-dot{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:13px;height:13px;border-radius:50%;z-index:16}
+.beacon-dot.calm::after{display:none}
 .beacon-dot::after{content:'';position:absolute;inset:-7px;border-radius:50%;animation:ring 2.5s ease-in-out infinite;border:1.5px solid;opacity:0}
 @keyframes ring{0%{transform:scale(1);opacity:.5}100%{transform:scale(3);opacity:0}}
 .beacon-lbl{position:absolute;bottom:calc(50% + 15px);left:50%;transform:translateX(-50%);font-size:.58rem;font-family:'Fira Code','Noto Sans Devanagari',monospace;font-weight:500;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:3px;white-space:nowrap;pointer-events:none}
@@ -306,16 +316,20 @@ body{font-family:'Outfit','Noto Sans Devanagari',sans-serif;background:var(--bg)
 
 /* DOCK */
 .dock{height:64px;flex-shrink:0;background:var(--s1);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-around;padding:0 .25rem;z-index:20}
-.dk{font-family:'Outfit','Noto Sans Devanagari',sans-serif;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:.4rem .25rem;border-radius:8px;transition:all .2s;user-select:none;min-width:44px;min-height:44px;background:transparent;border:none;color:var(--muted)}
+.dk{flex:1;min-width:0;font-family:'Outfit','Noto Sans Devanagari',sans-serif;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:.4rem .25rem;border-radius:8px;transition:all .2s;user-select:none;min-height:44px;background:transparent;border:none;color:var(--muted)}
 .dk:hover{color:var(--muted-h);background:var(--s2)}
-.dk.on{color:#64DCB4}
-.dk .di{font-size:1.15rem;transition:transform .2s}
+.dk.on{color:var(--cream)}
+.dk .di{position:relative;display:flex;margin-bottom:3px;transition:transform .2s}
+.dk.on .di::after{content:"";position:absolute;left:50%;bottom:-6px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:#FF6B8A}
 .dk:hover .di{transform:translateY(-2px)}
 .dk .dl{font-size:.58rem;font-weight:500;letter-spacing:.05em;text-transform:uppercase}
-@media(max-width:340px){.dk .dl{font-size:.54rem;letter-spacing:.02em}.dk{padding:.4rem .15rem}}
-.dock-log{width:46px;height:46px;border-radius:50%;background:#FF6B8A;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1.4rem;color:#fff;box-shadow:0 0 20px rgba(255, 107, 138, 0.45);transition:all .2s;user-select:none;flex-shrink:0}
-.dock-log:hover{transform:scale(1.1) rotate(8deg);background:#FF4D70;box-shadow:0 0 25px rgba(255, 107, 138, 0.6)}
-.dock-log:active{transform:scale(.95)}
+@media(max-width:400px){.cday-badge{display:none}}
+@media(max-width:340px){.topbar{padding:0 .75rem}.topbar>div{min-width:0}.phase-pill{min-width:0;overflow:hidden;text-overflow:ellipsis}.dk .dl{font-size:.54rem;letter-spacing:.02em}.dk{padding:.4rem .15rem}}
+.log-fab{position:absolute;right:14px;bottom:14px;z-index:20;display:flex;align-items:center;gap:.4rem;min-height:44px;padding:0 1.1rem 0 .9rem;border:none;border-radius:999px;background:#FF6B8A;color:#fff;font-family:'Outfit','Noto Sans Devanagari',sans-serif;font-size:.85rem;font-weight:600;cursor:pointer;user-select:none;transition:transform .2s}
+.log-fab:hover{transform:scale(1.05)}
+.log-fab:active{transform:scale(.96)}
+.log-fab:focus-visible{outline:2px solid var(--cream);outline-offset:2px}
+.log-fab svg{flex-shrink:0}
 
 /* OVERLAY / DRAWER */
 .cal-body{flex:1;overflow-y:auto;padding:1rem 1rem 1.5rem}
@@ -517,7 +531,7 @@ function Onboarding({ onClose, email }) {
     },
     {
       title: t("Logging periods & symptoms"),
-      body: t("Tap the glowing + button in the dock to log a new period. Add flow, pain and symptoms – Luna uses this to understand your pattern over time."),
+      body: t("Tap Log period on the map to log a new period. Add flow, pain and symptoms – Luna uses this to understand your pattern over time."),
       badge: t("Log Periods"),
     },
     {
@@ -857,15 +871,20 @@ function AuthScreen({ onLogin, initialMode = "login" }) {
 // ─── JOURNEY MAP ─────────────────────────────────────────────────────────────
 const DAY_W = 34, BACK = 90, FWD = 60, TOTAL = BACK + FWD;
 
-function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss, token, onPeriodDeleted, onLogPeriod }) {
+const LUNA_SIZE = 56;
+
+function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss, token, onPeriodDeleted, onLogPeriod, logs = {}, logsReady = false, onOpenDay = () => {}, justLogged = false, playfulMode = "normal" }) {
   useLanguage();
   const scrollRef = useRef(null);
+  const lunaRef = useRef(null);
+  const [tipOpen, setTipOpen] = useState(false);
   const [hoveredPhase, setHoveredPhase] = useState(null);
   const [phaseCardX, setPhaseCardX] = useState(0);
   const dragging = useRef(false);
   const dragOrigin = useRef({ x: 0, sl: 0 });
 
-  const timeline = buildTimeline(periods, avgCycle);
+  const todayStr = localDateString();
+  const timeline = useMemo(() => buildTimeline(periods, avgCycle), [periods, avgCycle, todayStr]); // eslint-disable-line react-hooks/exhaustive-deps
   const canvasW = TOTAL * DAY_W;
   const todayX = BACK * DAY_W;
 
@@ -876,9 +895,28 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
     }
   }, []);
 
-  function onMD(e) { dragging.current = true; dragOrigin.current = { x: e.pageX, sl: scrollRef.current.scrollLeft }; }
-  function onMM(e) { if (!dragging.current) return; scrollRef.current.scrollLeft = dragOrigin.current.sl - (e.pageX - dragOrigin.current.x); }
-  function onMU() { dragging.current = false; }
+  useEffect(() => {
+    if (!tipOpen) return undefined;
+    const onKey = e => { if (e.key === "Escape") setTipOpen(false); };
+    const onDown = e => { if (lunaRef.current && !lunaRef.current.contains(e.target)) setTipOpen(false); };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onDown);
+    return () => { document.removeEventListener("keydown", onKey); document.removeEventListener("pointerdown", onDown); };
+  }, [tipOpen]);
+
+  const dragMoved = useRef(false);
+  const suppressClick = useRef(false);
+  function onMD(e) { dragging.current = true; dragMoved.current = false; dragOrigin.current = { x: e.pageX, sl: scrollRef.current.scrollLeft }; }
+  function onMM(e) {
+    if (!dragging.current) return;
+    if (Math.abs(e.pageX - dragOrigin.current.x) > 5) dragMoved.current = true;
+    scrollRef.current.scrollLeft = dragOrigin.current.sl - (e.pageX - dragOrigin.current.x);
+  }
+  // A drag-to-scroll must not count as a tap on the fog: the click that follows mouseup is ignored.
+  function onMU() {
+    if (dragging.current && dragMoved.current) { suppressClick.current = true; setTimeout(() => { suppressClick.current = false; }, 0); }
+    dragging.current = false;
+  }
 
   // Phase transitions
   const phaseTrans = [];
@@ -904,6 +942,14 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
   const todayPh = PHASES[todayDay?.phase || "unknown"] || PHASES.unknown;
   const phText = key => phaseText(PHASES[key] ? key : "unknown");
 
+  const animated = playfulMode === "normal";
+  const dates = useMemo(() => timeline.map(d => localDateString(d.date)), [timeline]);
+  const fogList = useMemo(() => (logsReady
+    ? fogRuns({ dates, today: todayStr, first: firstLoggedDate(periods, logs), covered: coveredDates(periods, logs, todayStr) })
+    : []), [logsReady, periods, logs, timeline, dates, todayStr]); // eslint-disable-line react-hooks/exhaustive-deps
+  const todayKey = todayDay?.phase || "unknown";
+  const mood = companionMood({ phase: todayKey, hour: new Date().getHours(), justLogged });
+
   return (
     <div className="j-canvas" onClick={onDismiss}>
       {periods.length === 0 && onLogPeriod && (
@@ -911,6 +957,12 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
           <p>{t("Your journey starts with your first period.")}</p>
           <button type="button" className="btn btn-p" onClick={e => { e.stopPropagation(); onLogPeriod(); }}>{t("Log a period")}</button>
         </div>
+      )}
+      {onLogPeriod && periods.length > 0 && (
+        <button type="button" className="log-fab" onClick={e => { e.stopPropagation(); onLogPeriod(); }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14" /></svg>
+          {t("Log period")}
+        </button>
       )}
       <div ref={scrollRef} className="j-scroll" onMouseDown={onMD} onMouseMove={onMM} onMouseUp={onMU} onMouseLeave={onMU}>
         <div className="j-inner" style={{ width: canvasW }}>
@@ -959,6 +1011,10 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
             {/* Road */}
             <div className="road" />
 
+            {/* Fog of war: unlogged recent days, below the markers. Trade-off: foggy days sit above the phase backgrounds, so the desktop phase hover card does not open over them. */}
+            <FogLayer runs={fogList} dayW={DAY_W} animated={animated && logsReady}
+              onOpenRun={(run, x) => suppressClick.current ? undefined : onOpenDay(dates[run.start + Math.min(run.end - run.start, Math.max(0, Math.floor(x / DAY_W)))])} />
+
             {/* Period markers */}
             {timeline.map((d, i) => {
               if (!d.isPeriodStart && !d.isPredictedPeriodStart) return null;
@@ -977,10 +1033,29 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
             {/* Today beacon */}
             <div className="beacon" style={{ left: todayX }}>
               <div className="beacon-line" style={{ background: todayPh.color }} />
-              <div className="beacon-dot" style={{ background: todayPh.color }}>
-                <div style={{ position: "absolute", inset: "-7px", borderRadius: "50%", animation: "ring 2.5s ease-in-out infinite", border: `1.5px solid ${todayPh.color}`, opacity: 0 }} />
+              <div className="beacon-dot calm" style={{ background: todayPh.color }} />
+              <div className="beacon-lbl" style={{ bottom: "auto", top: "calc(50% + 12px)", background: todayPh.muted, color: todayPh.color, border: `1px solid ${todayPh.border}` }}>{t("NOW")}</div>
+            </div>
+
+            {/* Luna, standing on the road at today */}
+            <div ref={lunaRef} className="lc-wrap" style={{ position: "absolute", left: todayX - LUNA_SIZE / 2, top: `calc(50% - ${LUNA_SIZE}px + 8px)`, width: LUNA_SIZE, height: LUNA_SIZE, zIndex: 17 }}>
+              {/* i18n-note: Luna stays in Latin script as the product/character name; "साथी" is feminine to match Luna's voice elsewhere */}
+              <button type="button" aria-label={t("Luna, your companion. Tap to hear a tip.")} aria-expanded={tipOpen}
+                onMouseDown={e => e.stopPropagation()}
+                onClick={e => { e.stopPropagation(); setTipOpen(o => !o); }}
+                style={{ display: "block", width: "100%", height: "100%", padding: 0, border: "none", background: "none", cursor: "pointer", borderRadius: "50%" }}>
+                <Companion mood={mood} size={LUNA_SIZE} animate={animated} sparkles={animated && justLogged} />
+              </button>
+              {/* The live region is always mounted so screen readers announce the tip when it opens. */}
+              <div role="status" className="lc-tip" onClick={e => e.stopPropagation()}
+                style={{ position: "absolute", bottom: "calc(100% + 6px)", left: "50%", transform: "translateX(-50%)", width: 220, maxWidth: 220, zIndex: 22, color: "var(--cream)", textAlign: "left" }}>
+                {tipOpen && (
+                  <div className="lc-bubble">
+                    <div style={{ fontSize: ".62rem", letterSpacing: ".1em", textTransform: "uppercase", color: todayPh.color, marginBottom: 2 }}>{phText(todayKey).name}</div>
+                    {phText(todayKey).tip}
+                  </div>
+                )}
               </div>
-              <div className="beacon-lbl" style={{ background: todayPh.muted, color: todayPh.color, border: `1px solid ${todayPh.border}` }}>{t("NOW")}</div>
             </div>
 
             {/* Phase hover card */}
@@ -1801,6 +1876,8 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
                 <button className="btn btn-g" style={{ justifyContent: "flex-start", gap: ".6rem", color: "#E07070", borderColor: "rgba(224,112,112,.2)" }} onClick={onLogout}><span aria-hidden="true" className="btn-ico">⏻</span>{t("Sign Out")}</button>
               </div>
               <div className="divider" />
+              <PlayfulSettings />
+              <div className="divider" />
               <div style={{ display: "flex", flexDirection: "column", gap: ".5rem" }}>
                 <div className="ins-lbl">{t("Language")}</div>
                 <LanguageSwitcher />
@@ -1883,6 +1960,12 @@ function JourneyApp({ token, email, onLogout }) {
   const [overlay, setOverlay] = useState(null);
   const [dayDate, setDayDate] = useState(null);
   const [logsVersion, setLogsVersion] = useState(0);
+  const [mapLogs, setMapLogs] = useState({});
+  const [logsReady, setLogsReady] = useState(false);
+  const [justLogged, setJustLogged] = useState(false);
+  const logsReq = useRef(0);
+  const logsReadyRef = useRef(false);
+  const { mode: playfulMode } = usePlayful();
   const [selectedInfo, setSelectedInfo] = useState(null);
   const [showIntro, setShowIntro] = useState(false);
   const [forceQuestionnaire, setForceQuestionnaire] = useState(false);
@@ -1893,10 +1976,11 @@ function JourneyApp({ token, email, onLogout }) {
   const { consents, error: consentError, reload: reloadConsents, setConsent } = useConsents(token);
   const [pendingAi, setPendingAi] = useState(null);
 
+  const periodsLoaded = useRef(false);
   const loadPeriods = useCallback(async () => {
-    setLoading(true);
+    if (!periodsLoaded.current) setLoading(true); // only the first load blanks the screen; reloads keep the map mounted
     try { const d = await API.periods.list(token); setPeriods(Array.isArray(d) ? d.sort((a, b) => new Date(b.start_date) - new Date(a.start_date)) : []); }
-    catch (e) { } finally { setLoading(false); }
+    catch (e) { } finally { periodsLoaded.current = true; setLoading(false); }
   }, [token]);
   useEffect(() => { loadPeriods(); }, [loadPeriods]);
   const [reminderPrefs, setReminderPrefs] = useState(loadPrefs);
@@ -1908,6 +1992,38 @@ function JourneyApp({ token, email, onLogout }) {
     return () => { alive = false; };
   }, []);
   useReminders({ token, periods, prefs: reminderPrefs, appearance, logsVersion });
+
+  // Logs for the map window (fog of war). A newer request supersedes an older one; failure just means no fog.
+  useEffect(() => {
+    const id = ++logsReq.current;
+    const to = localDateString();
+    const from = addDays(to, -90);
+    (async () => {
+      try {
+        const rows = await API.logs.list(from, to, token);
+        if (id !== logsReq.current) return;
+        const map = {};
+        (Array.isArray(rows) ? rows : []).forEach(r => { if (r && r.date) map[r.date] = r; });
+        setMapLogs(map);
+        logsReadyRef.current = true;
+        setLogsReady(true);
+      } catch (e) {
+        if (id !== logsReq.current) return;
+        if (logsReadyRef.current) return; // a failed refetch keeps the fog we already have
+        setMapLogs({});
+        setLogsReady(false);
+      }
+    })();
+  }, [token, logsVersion]);
+  useEffect(() => () => { logsReq.current++; }, []);
+
+  // Luna celebrates for a few seconds after a log is saved.
+  useEffect(() => {
+    if (logsVersion === 0) return undefined;
+    setJustLogged(true);
+    const timer = setTimeout(() => setJustLogged(false), 3000);
+    return () => clearTimeout(timer);
+  }, [logsVersion]);
 
   // The API announces a 403 consent_required (e.g. consent withdrawn elsewhere): refresh our copy and ask again.
   useEffect(() => {
@@ -1993,7 +2109,7 @@ function JourneyApp({ token, email, onLogout }) {
   const phText = phaseText(PHASES[currentPhase] ? currentPhase : "unknown");
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
+    <div data-playful={playfulMode} style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
 
       {/* TOP BAR */}
       <div className="topbar">
@@ -2024,7 +2140,13 @@ function JourneyApp({ token, email, onLogout }) {
           onDismiss={() => setSelectedInfo(null)}
           token={token} onPeriodDeleted={() => { setSelectedInfo(null); loadPeriods(); }}
           onLogPeriod={() => setOverlay("log")}
+          logs={mapLogs} logsReady={logsReady} onOpenDay={setDayDate} justLogged={justLogged} playfulMode={playfulMode}
         />
+      )}
+
+      {!loading && !consentError && (
+        <SkyCheckIn token={token} logs={mapLogs} logsReady={logsReady}
+          onSaved={() => setLogsVersion(v => v + 1)} onAddDetails={() => setDayDate(localDateString())} />
       )}
 
       {profileIncomplete && !bannerDismissed && (
@@ -2046,16 +2168,15 @@ function JourneyApp({ token, email, onLogout }) {
 
       {/* BOTTOM DOCK */}
       <div className="dock">
-        <button className="dk on"><span className="di">🗺</span><span className="dl">{t("Journey")}</span></button>
-        <button className="dk" onClick={() => setOverlay("calendar")}><span className="di">🗓</span><span className="dl">{t("Calendar")}</span></button>
-        <button className="dk" onClick={() => openAi("analysis")}><span className="di">✦</span><span className="dl">{t("Insights")}</span></button>
-        <button className="dock-log" onClick={() => setOverlay("log")} title={t("Log period")}>+</button>
-        <button className="dk" onClick={() => openAi("chat")}><span className="di">💬</span><span className="dl">{t("Chat")}</span></button>
-        <button className="dk" onClick={() => setOverlay("profile")}><span className="di">👤</span><span className="dl">{t("Profile")}</span></button>
+        <button className="dk on" aria-current="page"><span className="di"><DockIcon name="journey" active size={24} /></span><span className="dl">{t("Journey")}</span></button>
+        <button className="dk" onClick={() => setOverlay("calendar")}><span className="di"><DockIcon name="calendar" size={24} /></span><span className="dl">{t("Calendar")}</span></button>
+        <button className="dk" onClick={() => openAi("analysis")}><span className="di"><DockIcon name="insights" size={24} /></span><span className="dl">{t("Insights")}</span></button>
+        <button className="dk" onClick={() => openAi("chat")}><span className="di"><DockIcon name="chat" size={24} /></span><span className="dl">{t("Chat")}</span></button>
+        <button className="dk" onClick={() => setOverlay("profile")}><span className="di"><DockIcon name="profile" size={24} /></span><span className="dl">{t("Profile")}</span></button>
       </div>
 
       {/* OVERLAYS */}
-      {overlay === "log" && <LogModal token={token} onClose={() => setOverlay(null)} onSave={() => { setOverlay(null); loadPeriods(); }} />}
+      {overlay === "log" && <LogModal token={token} onClose={() => setOverlay(null)} onSave={() => { setOverlay(null); loadPeriods(); setLogsVersion(v => v + 1); }} />}
       {overlay === "calendar" && <CalendarScreen token={token} periods={periods} logsVersion={logsVersion} onClose={() => setOverlay(null)} onOpenDay={setDayDate} />}
       {dayDate && <DaySheet token={token} date={dayDate} onClose={() => setDayDate(null)} onSaved={() => setLogsVersion(v => v + 1)} />}
       {overlay === "chat" && <ChatDrawer token={token} onClose={() => setOverlay(null)} />}
@@ -2075,6 +2196,7 @@ function JourneyApp({ token, email, onLogout }) {
 // ─── ROOT ─────────────────────────────────────────────────────────────────────
 export default function App() {
   injectStyles();
+  injectPlayfulStyles();
   const [token, setToken] = useState(null);
   const [email, setEmail] = useState("");
   const [showAuth, setShowAuth] = useState(false);
@@ -2156,4 +2278,4 @@ export default function App() {
   return <JourneyApp token={token} email={email} onLogout={handleLogout} />;
 }
 
-export { injectStyles, AuthScreen, JourneyApp, ChatDrawer, LogModal, AnalysisDrawer };
+export { injectStyles, AuthScreen, JourneyApp, JourneyMap, ChatDrawer, LogModal, AnalysisDrawer };

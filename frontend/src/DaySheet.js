@@ -5,20 +5,10 @@ import { SYMPTOMS_LIST, symptomLabel, flowWord } from "./symptoms";
 import { t, useLanguage } from "./i18n";
 import { maxSelectableDay, MIN_LOG_DAY } from "./CalendarScreen";
 import MedicationManager from "./MedicationManager";
+import { MOODS, WEATHER, moodLabel } from "./playful/weather";
+import WeatherIcon from "./playful/WeatherIcon";
 
-export const MOODS = ["Very low", "Low", "Okay", "Good", "Great"];
-// Display name of mood level 1..5 (the stored value is the number).
-function moodLabel(i) {
-  switch (i) {
-    // i18n-note: the five mood words (बहुत उदास / थोड़ा उदास / ठीक / अच्छा / बहुत बढ़िया) are a plain scale
-    case 0: return t("Very low");
-    case 1: return t("Low");
-    case 2: return t("Okay");
-    case 3: return t("Good");
-    default: return t("Great");
-  }
-}
-const MOOD_FACES = ["😞", "🙁", "😐", "🙂", "😄"];
+export { MOODS };
 const FLOWS = ["spotting", "light", "medium", "heavy"];
 const NOTE_MAX = 1000;
 const DATE_RANGE_RE = /\bdate\b.*\brange\b|\brange\b.*\bdate\b/i;
@@ -301,8 +291,12 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
               return (
                 <button key={v} type="button" role="radio" aria-checked={on} aria-label={label} title={label}
                   ref={el => { moodRefs.current[i] = el; }} tabIndex={stop ? 0 : -1}
-                  className={`chip ${on ? "on" : ""}`} style={{ ...tap, fontSize: "1.3rem" }}
-                  onClick={() => set({ mood: on ? null : v })}>{MOOD_FACES[i]}</button>
+                  className={`chip ${on ? "on" : ""}`}
+                  style={{ ...tap, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, borderRadius: 14, padding: ".3rem .5rem", minWidth: 0 }}
+                  onClick={() => set({ mood: on ? null : v })}>
+                  <WeatherIcon name={WEATHER[i].key} size={28} plate={false} />
+                  <span style={{ fontSize: ".65rem" }}>{label}</span>
+                </button>
               );
             })}
           </div>

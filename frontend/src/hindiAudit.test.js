@@ -35,16 +35,18 @@ const { isNative } = require('./platform');
 const { App: CapApp } = require('@capacitor/app');
 const { setLanguage } = require('./i18n');
 const { findUntranslated } = require('./i18n/testUtils');
-const { AuthScreen, JourneyApp, LogModal, ChatDrawer, AnalysisDrawer } = require('./App');
+const { AuthScreen, JourneyApp, JourneyMap, LogModal, ChatDrawer, AnalysisDrawer } = require('./App');
 const PrivacyPanel = require('./PrivacyPanel').default;
 const RemindersPanel = require('./RemindersPanel').default;
 const CalendarScreen = require('./CalendarScreen').default;
 const DaySheet = require('./DaySheet').default;
+const SkyCheckIn = require('./playful/SkyCheckIn').default;
+const PlayfulSettings = require('./playful/PlayfulSettings').default;
 const MedicationManager = require('./MedicationManager').default;
 const { DEFAULT_PREFS } = require('./reminderPrefs');
 
 // Product and provider names stay in Latin script; the fixtures use English medicine names and AI-provided text.
-const ALLOW = ['Health', 'Android', 'Groq', 'Hugging Face', 'MedGemma', 'IST', 'Iron', 'Vitamin'];
+const ALLOW = ['Luna', 'Health', 'Android', 'Groq', 'Hugging Face', 'MedGemma', 'IST', 'Iron', 'Vitamin'];
 const hindi = () => act(() => { setLanguage('hi'); });
 const english = () => act(() => { setLanguage('en'); });
 const noEnglish = container => expect(findUntranslated(container, ALLOW)).toEqual([]);
@@ -165,6 +167,30 @@ describe('Hindi audit: no English left on the main screens', () => {
     userEvent.click(screen.getByRole('button', { name: 'प्रोफ़ाइल खोलें' }));
     await screen.findByText('Luna Health सदस्य');
     noEnglish(document.querySelector('.drawer'));
+  });
+
+  test('SkyCheckIn', async () => {
+    const { container } = render(<SkyCheckIn token="tok" logs={{}} logsReady onSaved={jest.fn()} onAddDetails={jest.fn()} />);
+    await flush();
+    noEnglish(container);
+  });
+
+  test('JourneyMap with fog and Luna', async () => {
+    const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - 10);
+    const p = n => String(n).padStart(2, '0');
+    const start = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+    const periods = [{ id: 1, start_date: start, end_date: null, flow_intensity: 'light', pain_level: 1, symptoms: [], notes: '' }];
+    const { container } = render(<JourneyMap periods={periods} avgCycle={28} selectedInfo={null} onSelectMarker={jest.fn()} onDismiss={jest.fn()} token="tok" onPeriodDeleted={jest.fn()} onLogPeriod={jest.fn()} logs={{}} logsReady />);
+    await flush();
+    expect(container.querySelectorAll('.fog-run').length).toBeGreaterThan(0);
+    noEnglish(container);
+    userEvent.click(screen.getByRole('button', { name: /Luna, आपकी साथी/ }));
+    noEnglish(container);
+  });
+
+  test('PlayfulSettings', () => {
+    const { container } = render(<PlayfulSettings />);
+    noEnglish(container);
   });
 
   test('PrivacyPanel', async () => {

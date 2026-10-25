@@ -82,7 +82,7 @@ describe('JourneyApp shell in Hindi', () => {
     noEnglish(container);
     const dock = container.querySelector('.dock');
     ['यात्रा', 'कैलेंडर', 'इनसाइट्स', 'चैट', 'प्रोफ़ाइल'].forEach(l => expect(within(dock).getByText(l)).toBeInTheDocument());
-    expect(screen.getByTitle('माहवारी दर्ज करें')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'माहवारी दर्ज करें' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'प्रोफ़ाइल खोलें' })).toBeInTheDocument();
     const strip = container.querySelector('.stats-strip');
     ['चक्र का दिन', 'अगली माहवारी', 'औसत चक्र', 'दर्ज', 'चरण'].forEach(l => expect(within(strip).getByText(l)).toBeInTheDocument());
@@ -202,7 +202,7 @@ describe('JourneyApp shell in Hindi', () => {
     const titles = [...container.querySelectorAll('.p-dot')].map(n => n.getAttribute('title'));
     expect(titles).toContain('Predicted period');
     expect(titles.some(t => /^Period: /.test(t))).toBe(true);
-    expect(screen.getByTitle('Log period')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Log period' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open profile' })).toBeInTheDocument();
   });
 
