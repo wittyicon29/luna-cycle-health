@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { injectStyles } from './App';
 
-const heading = { fontFamily: "'Cormorant Garamond', serif", fontWeight: 400 };
+const heading = { fontFamily: "'Cormorant Garamond','Noto Sans Devanagari',serif", fontWeight: 400 };
 
 export default function LegalPage({ doc }) {
   useEffect(() => {

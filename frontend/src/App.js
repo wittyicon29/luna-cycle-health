@@ -143,7 +143,7 @@ const STYLES = `
   --cream:#F5EEF8;--muted:#A889C0;--muted-h:#7A5C90;--r:8px;
   --cta:#FF6B8A;--cta-hover:#FF4D70;
 }
-body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);height:100vh;overflow:hidden;-webkit-font-smoothing:antialiased;font-size:14px;line-height:1.6}
+body{font-family:'Outfit','Noto Sans Devanagari',sans-serif;background:var(--bg);color:var(--cream);height:100vh;overflow:hidden;-webkit-font-smoothing:antialiased;font-size:14px;line-height:1.6}
 #root{height:100vh;display:flex;flex-direction:column}
 ::-webkit-scrollbar{width:3px;height:3px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -160,10 +160,10 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .auth-logo{text-align:center;margin-bottom:2rem}
 .auth-moon{display:block;font-size:2.2rem;margin-bottom:.5rem;animation:moonFloat 4s ease-in-out infinite}
 @keyframes moonFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-.auth-logo h1{font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:500;color:var(--cream);letter-spacing:.02em}
+.auth-logo h1{font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;font-size:2rem;font-weight:500;color:var(--cream);letter-spacing:.02em}
 .auth-logo p{font-size:.7rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-top:.3rem}
 .auth-tabs{display:flex;gap:.3rem;margin-bottom:1.8rem}
-.auth-tab{flex:1;padding:.55rem;background:transparent;border:1px solid transparent;color:var(--muted);font-family:'Outfit',sans-serif;font-size:.75rem;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;border-radius:6px;transition:all .2s}
+.auth-tab{flex:1;padding:.55rem;background:transparent;border:1px solid transparent;color:var(--muted);font-family:'Outfit','Noto Sans Devanagari',sans-serif;font-size:.75rem;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;border-radius:6px;transition:all .2s}
 .auth-tab.on{color:#FF8A80;border-color:rgba(196,84,74,.3);background:rgba(196,84,74,.07)}
 .auth-tab:not(.on):hover{color:var(--cream)}
 .pw-wrap{position:relative}
@@ -178,7 +178,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 /* FORM */
 .f{margin-bottom:1rem}
 .f label{display:block;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem;font-weight:500}
-.f input,.f select,.f textarea{width:100%;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--cream);padding:.62rem .85rem;font-family:'Outfit',sans-serif;font-size:.82rem;outline:none;border-radius:var(--r);transition:border-color .2s,box-shadow .2s,background .2s;appearance:none}
+.f input,.f select,.f textarea{width:100%;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--cream);padding:.62rem .85rem;font-family:'Outfit','Noto Sans Devanagari',sans-serif;font-size:.82rem;outline:none;border-radius:var(--r);transition:border-color .2s,box-shadow .2s,background .2s;appearance:none}
 .f input:focus,.f select:focus,.f textarea:focus{border-color:rgba(196,84,74,.5);background:rgba(255,255,255,.06);box-shadow:0 0 0 3px rgba(196,84,74,.1)}
 .f input:hover:not(:focus),.f select:hover:not(:focus){border-color:var(--border-h)}
 .f textarea{resize:vertical;min-height:70px}
@@ -206,7 +206,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 }
 
 /* BUTTONS */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;padding:.62rem 1.2rem;font-family:'Outfit',sans-serif;font-size:.78rem;font-weight:500;cursor:pointer;border:none;border-radius:var(--r);transition:all .2s cubic-bezier(.4,0,.2,1);user-select:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;padding:.62rem 1.2rem;font-family:'Outfit','Noto Sans Devanagari',sans-serif;font-size:.78rem;font-weight:500;cursor:pointer;border:none;border-radius:var(--r);transition:all .2s cubic-bezier(.4,0,.2,1);user-select:none}
 .btn:active:not(:disabled){transform:scale(.97)}
 .btn-p{background:#FF6B8A;color:#fff;box-shadow:0 0 20px rgba(255, 107, 138, 0.45)}
 .btn-p:hover:not(:disabled){background:#FF4D70;transform:translateY(-1px)}
@@ -225,17 +225,17 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 
 /* TOPBAR */
 .topbar{height:56px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 1.5rem;background:#0F081A;backdrop-filter:blur(12px);border-bottom:1px solid var(--border);z-index:20}
-.tlogo{font-family:'Cormorant Garamond',serif;font-size:1.35rem;font-weight:500;color:var(--cream);letter-spacing:.02em;display:flex;align-items:center;gap:.5rem}
+.tlogo{font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;font-size:1.35rem;font-weight:500;color:var(--cream);letter-spacing:.02em;display:flex;align-items:center;gap:.5rem}
 .tlogo .m{display:inline-block;animation:moonFloat 4s ease-in-out infinite}
 .phase-pill{display:flex;align-items:center;gap:.4rem;padding:.28rem .7rem;border-radius:100px;font-size:.72rem;font-weight:500;letter-spacing:.03em;border:1px solid;white-space:nowrap;transition:all .4s}
-.cday-badge{font-family:'Fira Code',monospace;font-size:.68rem;color:var(--muted);padding:.25rem .6rem;border:1px solid var(--border);border-radius:4px;white-space:nowrap}
+.cday-badge{font-family:'Fira Code','Noto Sans Devanagari',monospace;font-size:.68rem;color:var(--muted);padding:.25rem .6rem;border:1px solid var(--border);border-radius:4px;white-space:nowrap}
 .avatar-btn{width:44px;height:44px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;color:#fff;border:none;transition:transform .2s,box-shadow .2s;flex-shrink:0}
 .avatar-btn:hover{transform:scale(1.08)}
 
 /* JOURNEY CANVAS */
 .j-canvas{flex:1;overflow:hidden;position:relative;background:var(--bg)}
 .j-scroll{width:100%;height:100%;overflow-x:auto;overflow-y:hidden;cursor:grab;user-select:none}
-.j-empty{position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;padding:1rem;text-align:center;pointer-events:none;font-family:'Cormorant Garamond',serif;font-size:1.3rem;color:var(--cream)}
+.j-empty{position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;padding:1rem;text-align:center;pointer-events:none;font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;font-size:1.3rem;color:var(--cream)}
 .j-empty p{background:rgba(26,15,46,.85);background:color-mix(in srgb,var(--bg) 85%,transparent);padding:.6rem 1rem;border-radius:12px;max-width:100%}
 .j-empty .btn{pointer-events:auto;min-height:44px}
 .j-scroll:active{cursor:grabbing}
@@ -243,7 +243,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 
 /* Month row */
 .month-row{height:26px;flex-shrink:0;position:relative;background:rgba(7,8,12,.9);backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
-.month-lbl{position:absolute;bottom:5px;font-size:.58rem;color:var(--muted);font-weight:500;letter-spacing:.1em;text-transform:uppercase;font-family:'Fira Code',monospace;padding-left:6px}
+.month-lbl{position:absolute;bottom:5px;font-size:.58rem;color:var(--muted);font-weight:500;letter-spacing:.1em;text-transform:uppercase;font-family:'Fira Code','Noto Sans Devanagari',monospace;padding-left:6px}
 
 /* Terrain */
 .terrain{flex:1;position:relative;overflow:hidden}
@@ -263,14 +263,14 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .beacon-dot{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:13px;height:13px;border-radius:50%;z-index:16}
 .beacon-dot::after{content:'';position:absolute;inset:-7px;border-radius:50%;animation:ring 2.5s ease-in-out infinite;border:1.5px solid;opacity:0}
 @keyframes ring{0%{transform:scale(1);opacity:.5}100%{transform:scale(3);opacity:0}}
-.beacon-lbl{position:absolute;bottom:calc(50% + 15px);left:50%;transform:translateX(-50%);font-size:.58rem;font-family:'Fira Code',monospace;font-weight:500;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:3px;white-space:nowrap;pointer-events:none}
+.beacon-lbl{position:absolute;bottom:calc(50% + 15px);left:50%;transform:translateX(-50%);font-size:.58rem;font-family:'Fira Code','Noto Sans Devanagari',monospace;font-weight:500;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:3px;white-space:nowrap;pointer-events:none}
 
 /* Predicted stripe */
 .pred-stripe{position:absolute;top:0;bottom:0;pointer-events:none;background:repeating-linear-gradient(90deg,rgba(196,84,74,.07) 0,rgba(196,84,74,.07) 6px,transparent 6px,transparent 14px);z-index:3;border-left:1px dashed rgba(196,84,74,.28)}
 
 /* Phase hover card */
 .ph-card{position:absolute;z-index:25;bottom:12px;background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:.95rem 1.1rem;box-shadow:0 8px 32px rgba(0,0,0,.5);min-width:210px;max-width:270px;animation:cardIn .2s ease;pointer-events:none}
-.ph-card-title{font-family:'Cormorant Garamond',serif;font-size:1.1rem;letter-spacing:.01em;margin-bottom:.2rem;color:var(--cream)}
+.ph-card-title{font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;font-size:1.1rem;letter-spacing:.01em;margin-bottom:.2rem;color:var(--cream)}
 .ph-card-sub{font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem;font-weight:500}
 .ph-card-tip{font-size:.77rem;color:var(--cream);line-height:1.6;opacity:.85}
 
@@ -284,13 +284,13 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .stats-strip{height:58px;flex-shrink:0;border-top:1px solid var(--border);background:#120A22;display:flex;align-items:center;padding:0 1.5rem}
 .st-item{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;border-right:1px solid var(--border)}
 .st-item:last-child{border-right:none}
-.st-val{font-family:'Outfit',sans-serif;font-variant-numeric:lining-nums;font-size:1.4rem;line-height:1;letter-spacing:.01em;color:#FF8FAA}
+.st-val{font-family:'Outfit','Noto Sans Devanagari',sans-serif;font-variant-numeric:lining-nums;font-size:1.4rem;line-height:1;letter-spacing:.01em;color:#FF8FAA}
 .st-val-phase{font-size:.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
 .st-lbl{font-size:.58rem;color:#7A5C90;text-transform:uppercase;letter-spacing:.1em;margin-top:2px;font-weight:500}
 
 /* DOCK */
 .dock{height:64px;flex-shrink:0;background:var(--s1);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-around;padding:0 .25rem;z-index:20}
-.dk{font-family:'Outfit',sans-serif;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:.4rem .25rem;border-radius:8px;transition:all .2s;user-select:none;min-width:44px;min-height:44px;background:transparent;border:none;color:var(--muted)}
+.dk{font-family:'Outfit','Noto Sans Devanagari',sans-serif;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:.4rem .25rem;border-radius:8px;transition:all .2s;user-select:none;min-width:44px;min-height:44px;background:transparent;border:none;color:var(--muted)}
 .dk:hover{color:var(--muted-h);background:var(--s2)}
 .dk.on{color:#64DCB4}
 .dk .di{font-size:1.15rem;transition:transform .2s}
@@ -326,10 +326,10 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .o-backdrop-top{z-index:55}
 .drawer-handle{width:36px;height:4px;border-radius:2px;background:rgba(255,255,255,.13);margin:10px auto 0;flex-shrink:0;cursor:pointer}
 .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.5rem .75rem;flex-shrink:0;border-bottom:1px solid var(--border)}
-.drawer-title{font-family:'Cormorant Garamond',serif;font-size:1.4rem;font-weight:500;letter-spacing:.01em}
+.drawer-title{font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;font-size:1.4rem;font-weight:500;letter-spacing:.01em}
 @font-face{font-family:'Noto Sans Devanagari';font-weight:400 600;font-display:swap;unicode-range:U+0900-097F,U+1CD0-1CF9,U+200C-200D,U+20A8,U+20B9,U+25CC,U+A830-A839,U+A8E0-A8FF;src:url('/fonts/NotoSansDevanagari-Variable.woff2') format('woff2')}
-:lang(hi){font-family:'Outfit','Noto Sans Devanagari',sans-serif;line-height:1.7}
-:lang(hi) .drawer-title,:lang(hi) h1,:lang(hi) h2,:lang(hi) h3{font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;line-height:1.35}
+:lang(hi) body{line-height:1.7}
+:lang(hi) .btn,:lang(hi) .chip,:lang(hi) .dk .dl{line-height:1.4}
 .drawer-close{background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--muted);transition:color .2s;padding:.2rem;line-height:1;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
 .drawer-close:hover{color:var(--cream)}
 .modal-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.2rem;line-height:1;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
@@ -359,7 +359,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .bname{font-size:.6rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:.32rem;font-weight:500}
 .bubble.user .bname{color:rgba(196,84,74,.7)}
 .chat-in{padding:.8rem 1.2rem;border-top:1px solid var(--border);background:var(--s2);display:flex;gap:.6rem;align-items:flex-end}
-.chat-in textarea{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--cream);padding:.62rem .9rem;font-family:'Outfit',sans-serif;font-size:.82rem;resize:none;height:44px;min-height:44px;max-height:150px;outline:none;border-radius:var(--r);transition:border-color .2s,box-shadow .2s;line-height:1.5}
+.chat-in textarea{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--cream);padding:.62rem .9rem;font-family:'Outfit','Noto Sans Devanagari',sans-serif;font-size:.82rem;resize:none;height:44px;min-height:44px;max-height:150px;outline:none;border-radius:var(--r);transition:border-color .2s,box-shadow .2s;line-height:1.5}
 .f input:focus-visible,.f select:focus-visible,.f textarea:focus-visible,.chat-in textarea:focus-visible{outline:2px solid #E8A09A;outline-offset:2px}
 .chat-in textarea:focus{border-color:rgba(255,107,138,0.4);box-shadow:0 0 3px rgba(255,107,138,0.15)}
 .tdots{display:flex;gap:4px;align-items:center;padding:.32rem 0}
@@ -373,11 +373,11 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .tk-pulse{width:6px;height:6px;border-radius:50%;background:#FF6B8A;animation:pulse 1.2s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 .tk-lines{border-left:1px solid rgba(255,107,138,0.2);padding-left:.7rem;max-height:100px;overflow:hidden;mask-image:linear-gradient(to bottom,black 60%,transparent);-webkit-mask-image:linear-gradient(to bottom,black 60%,transparent)}
-.tk-line{font-size:.67rem;color:var(--muted);line-height:1.5;opacity:0;animation:tl 1s ease forwards;font-family:'Fira Code',monospace}
+.tk-line{font-size:.67rem;color:var(--muted);line-height:1.5;opacity:0;animation:tl 1s ease forwards;font-family:'Fira Code','Noto Sans Devanagari',monospace}
 @keyframes tl{0%{opacity:0;transform:translateX(-4px)}15%{opacity:.5;transform:none}75%{opacity:.5}100%{opacity:0;transform:translateX(2px)}}
 .tk-toggle{display:inline-flex;align-items:center;gap:.35rem;font-size:.6rem;color:var(--muted);cursor:pointer;padding:.2rem .55rem;background:rgba(255,107,138,0.08);border:1px solid rgba(255,107,138,0.15);border-radius:100px;margin-bottom:.45rem;transition:all .2s}
 .tk-toggle:hover{color:#64DCB4;border-color:rgba(100,220,180,0.25)}
-.tk-exp{border-left:1px solid rgba(100,220,180,0.14);padding-left:.7rem;margin-bottom:.45rem;font-size:.67rem;color:var(--muted);line-height:1.6;max-height:180px;overflow-y:auto;font-family:'Fira Code',monospace;animation:feedIn .3s ease}
+.tk-exp{border-left:1px solid rgba(100,220,180,0.14);padding-left:.7rem;margin-bottom:.45rem;font-size:.67rem;color:var(--muted);line-height:1.6;max-height:180px;overflow-y:auto;font-family:'Fira Code','Noto Sans Devanagari',monospace;animation:feedIn .3s ease}
 
 /* ANALYSIS */
 .ins-quote{font-size:.85rem;line-height:1.75;color:var(--cream);padding:1rem 1.1rem;background:rgba(255,107,138,0.08);border-left:3px solid #FF6B8A;border-radius:0 8px 8px 0;margin-bottom:1.2rem}
@@ -386,7 +386,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .score-ring{flex-shrink:0;position:relative;width:108px;height:108px}
 .score-ring svg{transform:rotate(-90deg)}
 .score-num{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
-.score-num .n{font-family:'Cormorant Garamond',serif;font-size:1.85rem;color:#E8A09A;line-height:1}
+.score-num .n{font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;font-size:1.85rem;color:#E8A09A;line-height:1}
 .score-num .s{font-size:.55rem;color:var(--muted);letter-spacing:.1em}
 .sbar{margin-bottom:.8rem}
 .sbar-lbl{display:flex;justify-content:space-between;font-size:.7rem;color:var(--muted);margin-bottom:.3rem}
@@ -394,17 +394,17 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .sbar-fill{height:3px;background:linear-gradient(90deg,#C4544A,#E8A09A);transition:width 1.2s cubic-bezier(.4,0,.2,1);border-radius:2px}
 .pred-tile{padding:.75rem 1rem;background:rgba(255,255,255,.03);border:1px solid var(--border);flex:1;min-width:120px;border-radius:var(--r)}
 .pred-lbl{font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:.3rem;font-weight:500}
-.pred-val{font-family:'Outfit',sans-serif;font-variant-numeric:lining-nums;font-size:1rem;color:#E8A09A}
+.pred-val{font-family:'Outfit','Noto Sans Devanagari',sans-serif;font-variant-numeric:lining-nums;font-size:1rem;color:#E8A09A}
 
 /* MODAL */
 .modal-ov{position:fixed;inset:0;background:rgba(7,8,12,.85);backdrop-filter:blur(6px);z-index:60;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s ease}
 .modal{background:var(--s1);border:1px solid var(--border);width:100%;max-width:450px;max-height:88vh;overflow-y:auto;padding:2rem;border-radius:12px;box-shadow:0 24px 80px rgba(0,0,0,.6);animation:cardIn .3s cubic-bezier(.4,0,.2,1)}
-.modal-title{font-family:'Cormorant Garamond',serif;font-size:1.35rem;color:#E8A09A;margin-bottom:1.4rem}
+.modal-title{font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;font-size:1.35rem;color:#E8A09A;margin-bottom:1.4rem}
 .modal-foot{display:flex;gap:.65rem;justify-content:flex-end;margin-top:1.4rem;position:sticky;bottom:-2rem;margin-left:-2rem;margin-right:-2rem;margin-bottom:-2rem;padding:1rem 2rem;background:var(--s1);border-top:1px solid var(--border)}
 
 /* CHIPS */
 .chips{display:flex;flex-wrap:wrap;gap:.4rem}
-.chip{min-height:40px;padding:.22rem .8rem;font-size:.7rem;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'Outfit',sans-serif;transition:all .15s;border-radius:100px;user-select:none}
+.chip{min-height:40px;padding:.22rem .8rem;font-size:.7rem;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'Outfit','Noto Sans Devanagari',sans-serif;transition:all .15s;border-radius:100px;user-select:none}
 .chip.on{border-color:#C4544A;color:#C4544A;background:rgba(196,84,74,.1)}
 .chip:hover:not(.on){border-color:var(--border-h);color:var(--cream)}
 
@@ -417,7 +417,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .empty{text-align:center;padding:3rem 2rem}
 .empty .ei{font-size:1.8rem;opacity:.35;margin-bottom:.75rem}
 .empty p{font-size:.8rem;color:var(--muted);line-height:1.7}
-.q-sec-title{font-family:'Cormorant Garamond',serif;font-size:1rem;color:#E8A09A;margin-bottom:.9rem;letter-spacing:.01em}
+.q-sec-title{font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;font-size:1rem;color:#E8A09A;margin-bottom:.9rem;letter-spacing:.01em}
 .q-sec{background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:var(--r);padding:1.1rem;margin-bottom:.7rem}
 
 /* ONBOARDING */
@@ -425,7 +425,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .intro-dots{display:flex;gap:.35rem;margin-top:1rem}
 .intro-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.15);transition:all .2s}
 .intro-dot.on{width:14px;background:#C4544A}
-.intro-kbd{display:inline-flex;align-items:center;justify-content:center;padding:.12rem .45rem;border-radius:4px;border:1px solid rgba(255,255,255,.12);font-size:.68rem;font-family:'Fira Code',monospace;background:rgba(0,0,0,.35);margin-left:.3rem}
+.intro-kbd{display:inline-flex;align-items:center;justify-content:center;padding:.12rem .45rem;border-radius:4px;border:1px solid rgba(255,255,255,.12);font-size:.68rem;font-family:'Fira Code','Noto Sans Devanagari',monospace;background:rgba(0,0,0,.35);margin-left:.3rem}
 
 /* CHAT AVATAR (LUNA) */
 .chat-head-left{display:flex;align-items:center;gap:.65rem}
@@ -531,7 +531,7 @@ function Onboarding({ onClose, email }) {
         </div>
         <div style={{ fontSize: ".86rem", color: "var(--muted)", marginBottom: "1.1rem" }}>
           {active.badge && <span className="badge b-m" style={{ marginBottom: ".5rem", display: "inline-flex" }}>{active.badge}</span>}
-          <h3 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.2rem", color: "var(--cream)", margin: ".25rem 0 .55rem" }}>{active.title}</h3>
+          <h3 style={{ fontFamily: "'Cormorant Garamond','Noto Sans Devanagari',serif", fontSize: "1.2rem", color: "var(--cream)", margin: ".25rem 0 .55rem" }}>{active.title}</h3>
           <p style={{ lineHeight: 1.75 }}>{active.body}</p>
         </div>
         <div style={{ fontSize: ".74rem", color: "var(--muted)", marginBottom: ".8rem" }}>
@@ -979,10 +979,10 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
                   {d.loggedPeriod ? (
                     <>
                       <div className="mk-card-head" style={{ fontSize: ".62rem", letterSpacing: ".1em", textTransform: "uppercase", color: PHASES.menstrual.color, marginBottom: ".45rem", fontWeight: 500 }}>🩸 Logged Period</div>
-                      <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.05rem", marginBottom: ".35rem" }}>{formatLongDate(d.loggedPeriod.start_date)}</div>
+                      <div style={{ fontFamily: "'Cormorant Garamond','Noto Sans Devanagari',serif", fontSize: "1.05rem", marginBottom: ".35rem" }}>{formatLongDate(d.loggedPeriod.start_date)}</div>
                       {d.loggedPeriod.end_date && <div style={{ fontSize: ".7rem", color: "var(--muted)" }}>Ended: {formatLongDate(d.loggedPeriod.end_date)}</div>}
                       {d.loggedPeriod.flow_intensity && <div style={{ marginTop: ".45rem" }}><span className="badge b-r">{d.loggedPeriod.flow_intensity} flow</span></div>}
-                      {d.loggedPeriod.pain_level != null && <div style={{ fontSize: ".7rem", color: "var(--muted)", marginTop: ".35rem", fontFamily: "'Fira Code',monospace" }}>Pain: {d.loggedPeriod.pain_level}/10</div>}
+                      {d.loggedPeriod.pain_level != null && <div style={{ fontSize: ".7rem", color: "var(--muted)", marginTop: ".35rem", fontFamily: "'Fira Code','Noto Sans Devanagari',monospace" }}>Pain: {d.loggedPeriod.pain_level}/10</div>}
                       {(d.loggedPeriod.symptoms || []).length > 0 && <div style={{ marginTop: ".5rem", display: "flex", flexWrap: "wrap", gap: ".22rem" }}>{d.loggedPeriod.symptoms.slice(0, 4).map(s => <span key={s} className="badge b-m">{s}</span>)}</div>}
                       <PeriodDelete period={d.loggedPeriod} token={token} onDeleted={onPeriodDeleted} />
                     </>
@@ -1045,7 +1045,7 @@ function LogModal({ token, onClose, onSave }) {
       </div>
       <div className="f"><label>Flow Intensity</label><select value={flow} onChange={e => setFlow(e.target.value)}><option value="light">Light</option><option value="medium">Medium</option><option value="heavy">Heavy</option></select></div>
       <div className="f">
-        <label>Pain Level — <span style={{ color: "#C4544A", fontFamily: "'Fira Code',monospace" }}>{pain}/10</span></label>
+        <label>Pain Level — <span style={{ color: "#C4544A", fontFamily: "'Fira Code','Noto Sans Devanagari',monospace" }}>{pain}/10</span></label>
         <input type="range" min="0" max="10" value={pain} onChange={e => setPain(Number(e.target.value))} style={{ accentColor: "#C4544A" }} />
       </div>
       <div className="f"><label>Symptoms</label><div className="chips">{SYMPTOMS_LIST.map(s => <button key={s} type="button" className={`chip ${symptoms.includes(s) ? "on" : ""}`} onClick={() => toggle(s)}>{s}</button>)}</div></div>
@@ -1064,13 +1064,13 @@ function LogModal({ token, onClose, onSave }) {
         {!statsLoading && stats && (
           <div style={{ display: "flex", flexDirection: "column", gap: ".65rem", fontSize: ".78rem" }}>
             <div style={{ color: "var(--muted)" }}>
-              Based on your last <span style={{ fontFamily: "'Fira Code',monospace" }}>{stats.count}</span> logged periods.
+              Based on your last <span style={{ fontFamily: "'Fira Code','Noto Sans Devanagari',monospace" }}>{stats.count}</span> logged periods.
             </div>
             {stats.avgCycle && (
               <div>
                 <div className="sbar-lbl">
                   <span>Typical cycle length</span>
-                  <span style={{ fontFamily: "'Fira Code',monospace", color: "#E8A09A" }}>{stats.avgCycle} days</span>
+                  <span style={{ fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", color: "#E8A09A" }}>{stats.avgCycle} days</span>
                 </div>
                 <div className="sbar-track">
                   <div className="sbar-fill" style={{ width: `${Math.min((stats.avgCycle / 40) * 100, 100)}%` }} />
@@ -1086,7 +1086,7 @@ function LogModal({ token, onClose, onSave }) {
               <div>
                 <div className="sbar-lbl">
                   <span>Bleeding days</span>
-                  <span style={{ fontFamily: "'Fira Code',monospace", color: "#E8A09A" }}>{stats.avgDuration} days</span>
+                  <span style={{ fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", color: "#E8A09A" }}>{stats.avgDuration} days</span>
                 </div>
                 <div className="sbar-track">
                   <div className="sbar-fill" style={{ width: `${Math.min((stats.avgDuration / 14) * 100, 100)}%`, background: "linear-gradient(90deg,#C4544A,#E8A09A)" }} />
@@ -1102,7 +1102,7 @@ function LogModal({ token, onClose, onSave }) {
               <div>
                 <div className="sbar-lbl">
                   <span>Average pain level</span>
-                  <span style={{ fontFamily: "'Fira Code',monospace", color: "#E8A09A" }}>{stats.avgPain}/10</span>
+                  <span style={{ fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", color: "#E8A09A" }}>{stats.avgPain}/10</span>
                 </div>
                 <div className="sbar-track">
                   <div className="sbar-fill" style={{ width: `${Math.min((stats.avgPain / 10) * 100, 100)}%`, background: "linear-gradient(90deg,#E07070,#C4544A)" }} />
@@ -1227,7 +1227,7 @@ function ChatDrawer({ token, onClose }) {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: ".75rem" }}>
             <button type="button" className="chat-hist-toggle" aria-label="Conversation history" aria-expanded={histOpen} onClick={() => setHistOpen(o => !o)}>History</button>
-            <div className="chat-ai-label" style={{ fontSize: ".65rem", color: "var(--muted)", fontFamily: "'Fira Code',monospace" }}>AI companion</div>
+            <div className="chat-ai-label" style={{ fontSize: ".65rem", color: "var(--muted)", fontFamily: "'Fira Code','Noto Sans Devanagari',monospace" }}>AI companion</div>
             <button className="drawer-close" aria-label="Close" onClick={onClose}>×</button>
           </div>
         </div>
@@ -1572,8 +1572,8 @@ function AnalysisDrawer({ token, onClose }) {
                       {score == null && <div style={{ fontSize: ".66rem", color: "var(--muted)", textAlign: "center", maxWidth: 120 }}>Needs 3+ cycles for a score</div>}
                     </div>
                     <div style={{ flex: 1, minWidth: 180 }}>
-                      {active.avg_cycle_length && <div className="sbar"><div className="sbar-lbl"><span>Avg Cycle</span><span style={{ fontFamily: "'Fira Code',monospace", color: "#E8A09A" }}>{active.avg_cycle_length}d</span></div><div className="sbar-track"><div className="sbar-fill" style={{ width: `${Math.min((active.avg_cycle_length / 35) * 100, 100)}%` }} /></div></div>}
-                      {active.cycle_std_deviation != null && <div className="sbar"><div className="sbar-lbl"><span>Regularity</span><span style={{ fontFamily: "'Fira Code',monospace", color: "#E8A09A" }}>σ={active.cycle_std_deviation}</span></div><div className="sbar-track"><div className="sbar-fill" style={{ width: `${Math.max(0, 100 - active.cycle_std_deviation * 10)}%`, background: "linear-gradient(90deg,#4A9E6E,#7ECECE)" }} /></div></div>}
+                      {active.avg_cycle_length && <div className="sbar"><div className="sbar-lbl"><span>Avg Cycle</span><span style={{ fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", color: "#E8A09A" }}>{active.avg_cycle_length}d</span></div><div className="sbar-track"><div className="sbar-fill" style={{ width: `${Math.min((active.avg_cycle_length / 35) * 100, 100)}%` }} /></div></div>}
+                      {active.cycle_std_deviation != null && <div className="sbar"><div className="sbar-lbl"><span>Regularity</span><span style={{ fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", color: "#E8A09A" }}>σ={active.cycle_std_deviation}</span></div><div className="sbar-track"><div className="sbar-fill" style={{ width: `${Math.max(0, 100 - active.cycle_std_deviation * 10)}%`, background: "linear-gradient(90deg,#4A9E6E,#7ECECE)" }} /></div></div>}
                     </div>
                   </div>
                   {active.predictions && <div style={{ display: "flex", flexWrap: "wrap", gap: ".6rem", marginBottom: "1.1rem" }}>
@@ -1631,7 +1631,7 @@ function AnalysisDrawer({ token, onClose }) {
                         <div style={{ fontSize: ".8rem", color: "var(--cream)" }}>
                           {a.analysis_type === "cycle_health" ? "Cycle health analysis" : (a.analysis_type || "Analysis")}
                         </div>
-                        <div style={{ fontSize: ".7rem", color: "var(--muted)", fontFamily: "'Fira Code',monospace" }}>{fmtDT(a.created_at)}</div>
+                        <div style={{ fontSize: ".7rem", color: "var(--muted)", fontFamily: "'Fira Code','Noto Sans Devanagari',monospace" }}>{fmtDT(a.created_at)}</div>
                       </div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: ".5rem", alignItems: "center" }}>
                         {typeof a.cycle_health_score === "number" && (
@@ -1707,7 +1707,7 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
     }
   }
 
-  const R = (label, val, set, min, max) => (<div className="f"><label>{label}: <span style={{ color: "#C4544A", fontFamily: "'Fira Code',monospace" }}>{val}/{max}</span></label><input type="range" min={min} max={max} value={val} onChange={e => set(Number(e.target.value))} style={{ accentColor: "#C4544A" }} /></div>);
+  const R = (label, val, set, min, max) => (<div className="f"><label>{label}: <span style={{ color: "#C4544A", fontFamily: "'Fira Code','Noto Sans Devanagari',monospace" }}>{val}/{max}</span></label><input type="range" min={min} max={max} value={val} onChange={e => set(Number(e.target.value))} style={{ accentColor: "#C4544A" }} /></div>);
   const CB = (label, val, set) => (<div className="f"><label style={{ display: "flex", alignItems: "center", gap: ".5rem", cursor: "pointer", textTransform: "none", letterSpacing: 0 }}><input type="checkbox" checked={val} onChange={e => set(e.target.checked)} style={{ width: "auto", accentColor: "#C4544A" }} /><span style={{ fontSize: ".82rem", color: "var(--cream)" }}>{label}</span></label></div>);
 
   return (
@@ -1728,7 +1728,7 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1.5rem" }}>
                 <div style={{ width: 50, height: 50, borderRadius: "50%", background: "linear-gradient(135deg,#C4544A,#7C66C0)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.15rem", fontWeight: 600, color: "#fff", flexShrink: 0 }}>{email[0]?.toUpperCase()}</div>
-                <div><div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.1rem" }}>{email}</div><div style={{ fontSize: ".7rem", color: "var(--muted)", marginTop: ".1rem" }}>Luna Health member</div></div>
+                <div><div style={{ fontFamily: "'Cormorant Garamond','Noto Sans Devanagari',serif", fontSize: "1.1rem" }}>{email}</div><div style={{ fontSize: ".7rem", color: "var(--muted)", marginTop: ".1rem" }}>Luna Health member</div></div>
               </div>
               <div className="divider" />
               <div style={{ display: "flex", flexDirection: "column", gap: ".45rem" }}>
@@ -1751,7 +1751,7 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
           {view === "questionnaire" && (done ? (
             <div style={{ paddingTop: "2rem" }}>
               <div className="ei">🌸</div>
-              <h3 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.25rem", color: "#E8A09A", marginBottom: ".6rem", fontWeight: 400 }}>Profile Saved</h3>
+              <h3 style={{ fontFamily: "'Cormorant Garamond','Noto Sans Devanagari',serif", fontSize: "1.25rem", color: "#E8A09A", marginBottom: ".6rem", fontWeight: 400 }}>Profile Saved</h3>
               <p>Your health profile has been updated.</p>
               
               {questionnaireAnalysis && (
@@ -1965,11 +1965,11 @@ function JourneyApp({ token, email, onLogout }) {
 
       {/* STATS STRIP */}
       <div className="stats-strip">
-        <div className="st-item"><div className="st-val" style={{ color: ph.color, fontFamily: "'Fira Code',monospace", fontSize: "1.2rem" }}>{cycleDay ?? "—"}</div><div className="st-lbl">Cycle Day</div></div>
+        <div className="st-item"><div className="st-val" style={{ color: ph.color, fontFamily: "'Fira Code','Noto Sans Devanagari',monospace", fontSize: "1.2rem" }}>{cycleDay ?? "—"}</div><div className="st-lbl">Cycle Day</div></div>
         <div className="st-item"><div className="st-val">{daysToNext != null ? `${daysToNext}d` : "—"}</div><div className="st-lbl">Next in</div></div>
         <div className="st-item"><div className="st-val">{avgCycle}</div><div className="st-lbl">Avg Cycle</div></div>
         <div className="st-item"><div className="st-val">{periods.length}</div><div className="st-lbl">Logged</div></div>
-        <div className="st-item"><div className="st-val st-val-phase" style={{ color: ph.color, lineHeight: 1.2, fontFamily: "'Outfit',sans-serif" }}>{ph.name}</div><div className="st-lbl">Phase</div></div>
+        <div className="st-item"><div className="st-val st-val-phase" style={{ color: ph.color, lineHeight: 1.2, fontFamily: "'Outfit','Noto Sans Devanagari',sans-serif" }}>{ph.name}</div><div className="st-lbl">Phase</div></div>
       </div>
 
       {/* BOTTOM DOCK */}

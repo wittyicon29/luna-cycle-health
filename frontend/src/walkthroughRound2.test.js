@@ -92,7 +92,9 @@ describe('profile language switcher', () => {
     const { setLanguage, getLanguage } = require('./i18n');
     render(<JourneyApp token="tok" email="u@gmail.com" onLogout={jest.fn()} />);
     userEvent.click(await screen.findByLabelText('Open profile'));
-    expect(await screen.findByText('Language')).toBeInTheDocument();
+    const heading = await screen.findByText('Language');
+    const switcher = screen.getByRole('radiogroup', { name: 'Language' });
+    expect(heading.compareDocumentPosition(switcher) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     userEvent.click(screen.getByRole('radio', { name: 'हिन्दी' }));
     expect(getLanguage()).toBe('hi');
     act(() => { setLanguage('en'); });

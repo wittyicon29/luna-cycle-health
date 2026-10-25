@@ -177,3 +177,22 @@ test("in Hindi the title and weekday row use Hindi, and switching back restores 
   act(() => { i18n.setLanguage("en"); });
   expect(screen.getByText("October 2026")).toBeInTheDocument();
 });
+
+test("STYLES font stacks all include the Devanagari fallback", () => {
+  const fs = require("fs");
+  const path = require("path");
+  const files = ["App.js", "EmailVerification.js"].map(f => fs.readFileSync(path.join(__dirname, f), "utf8"));
+  const decls = files.flatMap(src => src.match(/font-family:[^;}]*/g) || []);
+  const bad = decls.filter(d => /Outfit|Cormorant|Fira Code/.test(d) && !/Noto Sans Devanagari/.test(d));
+  expect(bad).toEqual([]);
+  expect(decls.length).toBeGreaterThan(20);
+});
+
+test("no :lang(hi) rule changes the typeface of Latin text", () => {
+  const fs = require("fs");
+  const path = require("path");
+  const src = ["App.js", "EmailVerification.js"].map(f => fs.readFileSync(path.join(__dirname, f), "utf8")).join("\n");
+  const rules = src.match(/:lang\(hi\)[^{]*\{[^}]*\}/g) || [];
+  expect(rules.length).toBeGreaterThan(0);
+  rules.forEach(r => expect(r).not.toMatch(/font-family/));
+});

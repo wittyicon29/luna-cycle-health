@@ -145,3 +145,14 @@ test('weekdayLabels follows the language', () => {
   expect(weekdayLabels('en')).toEqual(['S', 'M', 'T', 'W', 'T', 'F', 'S']);
   expect(weekdayLabels('hi')).toEqual(['र', 'सो', 'मं', 'बु', 'गु', 'शु', 'श']);
 });
+
+test('monthName and weekdayLabels default to the current language', () => {
+  const i18n = require('./i18n');
+  i18n.setLanguage('hi');
+  try {
+    expect(monthName(9)).toBe('अक्टूबर');
+    expect(weekdayLabels()[1]).toBe('सो');
+  } finally { i18n.setLanguage('en'); }
+  expect(monthName(9)).toBe('October');
+  expect(weekdayLabels()[1]).toBe('M');
+});

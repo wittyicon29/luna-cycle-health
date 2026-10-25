@@ -4,7 +4,7 @@ import { downloadJson } from './download';
 import { clearLocalUserData } from './session';
 
 const section = { display: 'flex', flexDirection: 'column', gap: '.45rem' };
-const title = { fontFamily: "'Cormorant Garamond', serif", fontSize: '1.05rem', color: '#E8A09A', marginBottom: '.3rem' };
+const title = { fontFamily: "'Cormorant Garamond','Noto Sans Devanagari',serif", fontSize: '1.05rem', color: '#E8A09A', marginBottom: '.3rem' };
 
 export default function PrivacyPanel({ token, consents, onSetConsent, onAccountDeleted }) {
   const [busy, setBusy] = useState('');

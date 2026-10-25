@@ -3,7 +3,7 @@ import { isNative } from './platform';
 import { getReminderPermission, requestReminderPermission } from './reminderScheduler';
 
 const section = { display: 'flex', flexDirection: 'column', gap: '.45rem' };
-const title = { fontFamily: "'Cormorant Garamond', serif", fontSize: '1.05rem', color: '#E8A09A', marginBottom: '.3rem' };
+const title = { fontFamily: "'Cormorant Garamond','Noto Sans Devanagari',serif", fontSize: '1.05rem', color: '#E8A09A', marginBottom: '.3rem' };
 const row = { display: 'flex', alignItems: 'center', gap: '.6rem', minHeight: 44, fontSize: '.85rem', cursor: 'pointer' };
 const box = { width: 20, height: 20, flexShrink: 0 };
 const field = { minHeight: 44, minWidth: 44 };

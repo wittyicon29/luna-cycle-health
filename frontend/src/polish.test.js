@@ -120,7 +120,7 @@ test('period markers have a 44px hit area without changing the dot', () => {
 test('Insights tiles use lining numerals in the sans font', () => {
   const val = rule(read('src/App.js'), '.pred-val');
 
-  expect(val).toMatch(/font-family:'Outfit',sans-serif/);
+  expect(val).toMatch(/font-family:'Outfit','Noto Sans Devanagari',sans-serif/);
   expect(val).toMatch(/font-variant-numeric:\s*lining-nums/);
 });
 

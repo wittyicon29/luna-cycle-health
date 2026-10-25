@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { SUPPORTED, useLanguage, setLanguage, languageLabel } from './index';
 
 const groupStyle = { display: 'flex', gap: '.4rem', justifyContent: 'center' };
@@ -21,9 +21,25 @@ function buttonStyle(active) {
 // Language names are shown in their own language and are never translated.
 export default function LanguageSwitcher() {
   const current = useLanguage();
+  const refs = useRef({});
+
+  function move(index) {
+    const lang = SUPPORTED[(index + SUPPORTED.length) % SUPPORTED.length];
+    setLanguage(lang);
+    const node = refs.current[lang];
+    if (node) node.focus();
+  }
+
+  function onKeyDown(e, index) {
+    const keys = { ArrowRight: index + 1, ArrowDown: index + 1, ArrowLeft: index - 1, ArrowUp: index - 1, Home: 0, End: SUPPORTED.length - 1 };
+    if (!(e.key in keys)) return;
+    e.preventDefault();
+    move(keys[e.key]);
+  }
+
   return (
     <div role="radiogroup" aria-label="Language" style={groupStyle}>
-      {SUPPORTED.map(lang => {
+      {SUPPORTED.map((lang, index) => {
         const active = current === lang;
         return (
           <button
@@ -31,6 +47,9 @@ export default function LanguageSwitcher() {
             type="button"
             role="radio"
             aria-checked={active}
+            tabIndex={active ? 0 : -1}
+            ref={node => { refs.current[lang] = node; }}
+            onKeyDown={e => onKeyDown(e, index)}
             lang={lang}
             data-i18n-ignore
             style={buttonStyle(active)}

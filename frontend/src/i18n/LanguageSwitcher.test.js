@@ -38,7 +38,37 @@ test('keyboard Enter and Space activate a button', () => {
   en.focus();
   userEvent.keyboard(' ');
   expect(getLanguage()).toBe('en');
-  fireEvent.keyDown(en, { key: 'Enter' });
+});
+
+test('only the checked radio is in the tab order', () => {
+  render(<LanguageSwitcher />);
+  expect(screen.getByRole('radio', { name: 'English' })).toHaveAttribute('tabindex', '0');
+  expect(screen.getByRole('radio', { name: 'हिन्दी' })).toHaveAttribute('tabindex', '-1');
+});
+
+test('arrow keys move and select with wrap; Home and End jump', () => {
+  render(<LanguageSwitcher />);
+  const en = () => screen.getByRole('radio', { name: 'English' });
+  const hi = () => screen.getByRole('radio', { name: 'हिन्दी' });
+  en().focus();
+  fireEvent.keyDown(en(), { key: 'ArrowRight' });
+  expect(getLanguage()).toBe('hi');
+  expect(hi()).toHaveFocus();
+  expect(hi()).toHaveAttribute('tabindex', '0');
+  expect(en()).toHaveAttribute('tabindex', '-1');
+  fireEvent.keyDown(hi(), { key: 'ArrowRight' });
+  expect(getLanguage()).toBe('en');
+  expect(en()).toHaveFocus();
+  fireEvent.keyDown(en(), { key: 'ArrowLeft' });
+  expect(getLanguage()).toBe('hi');
+  fireEvent.keyDown(hi(), { key: 'Home' });
+  expect(getLanguage()).toBe('en');
+  fireEvent.keyDown(en(), { key: 'End' });
+  expect(getLanguage()).toBe('hi');
+  fireEvent.keyDown(hi(), { key: 'ArrowUp' });
+  expect(getLanguage()).toBe('en');
+  fireEvent.keyDown(en(), { key: 'ArrowDown' });
+  expect(getLanguage()).toBe('hi');
 });
 
 test('buttons are 44px tall and opt out of the translation check', () => {
