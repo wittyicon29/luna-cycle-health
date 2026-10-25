@@ -69,3 +69,12 @@ test('getPlayful reflects module state even when storage fails', () => {
   expect(getPlayful()).toBe('quiet');
   savePlayful('normal');
 });
+
+test('clearLocalUserData resets the in-memory choice', () => {
+  const { savePlayful, getPlayful, defaultMode } = require('./playfulPrefs');
+  const { clearLocalUserData } = require('../session');
+  savePlayful(defaultMode() === 'normal' ? 'quiet' : 'normal');
+  expect(getPlayful()).not.toBe(defaultMode());
+  clearLocalUserData();
+  expect(getPlayful()).toBe(defaultMode());
+});

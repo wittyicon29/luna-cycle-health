@@ -10,14 +10,6 @@ import WeatherIcon from "./WeatherIcon";
 
 const NONE = Symbol("none");
 
-// Comparable form of a log entry's check-in fields (ignores date/updated_at).
-function norm(e) {
-  const p = buildCheckInPayload(e, null);
-  if (e && Number.isInteger(e.mood)) p.mood = e.mood;
-  return JSON.stringify(Object.keys(p).sort().map(k => [k, p[k]]));
-}
-const sameEntry = (a, b) => norm(a) === norm(b);
-
 // One-tap weather check-in. It merges the mood into today's existing log (never overwriting other fields)
 // and serialises writes: one request at a time, later taps collapse into a single queued choice.
 export default function SkyCheckIn({ token, logs, logsReady, onSaved, onAddDetails }) {
@@ -30,14 +22,14 @@ export default function SkyCheckIn({ token, logs, logsReady, onSaved, onAddDetai
   const inFlight = useRef(false);
   const queued = useRef(NONE);
   const flying = useRef(null);
-  const lastSaved = useRef(null);
+  const pulseTimer = useRef(null);
   const mounted = useRef(true);
   const shownRef = useRef(shown);
   const latest = useRef({});
   latest.current = { token, logs, logsReady, onSaved, animated };
   const setMood = v => { shownRef.current = v; if (mounted.current) setShown(v); };
 
-  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; clearTimeout(pulseTimer.current); }; }, []);
   // Follow the map's logs (e.g. after the day sheet saved) unless a write is under way.
   const fromLogs = logsReady && logs && logs[today] ? logs[today].mood ?? null : null;
   useEffect(() => { if (logsReady && !inFlight.current) setMood(fromLogs); }, [logsReady, fromLogs]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -51,23 +43,19 @@ export default function SkyCheckIn({ token, logs, logsReady, onSaved, onAddDetai
     try {
       setError(false);
       const cur = latest.current;
-      let entry;
-      const ls = lastSaved.current;
-      if (ls && ls.date === day && !(cur.logsReady && cur.logs && cur.logs[day] && sameEntry(cur.logs[day], ls.payload))) {
-        entry = { ...ls.payload, date: day }; // our own latest write, until the map's logs catch up
-      } else if (cur.logsReady) {
-        entry = (cur.logs && cur.logs[day]) || null;
-      } else {
-        const rows = await API.logs.list(day, day, cur.token);
-        entry = (Array.isArray(rows) ? rows.find(r => r && r.date === day) : null) || null;
-      }
+      // PUT replaces the whole day, so always merge from the server's current copy, never a cached one.
+      const rows = await API.logs.list(day, day, cur.token);
+      const entry = (Array.isArray(rows) ? rows.find(r => r && r.date === day) : null) || null;
       const payload = buildCheckInPayload(entry, value);
       flying.current = payload.mood ?? null;
       setMood(flying.current);
-      if (latest.current.animated) setPulse(value);
+      if (latest.current.animated) {
+        setPulse(value);
+        clearTimeout(pulseTimer.current);
+        pulseTimer.current = setTimeout(() => { if (mounted.current) setPulse(null); }, 700); // fallback if animationend never fires
+      }
       await API.logs.put(day, payload, latest.current.token);
       saved = payload;
-      lastSaved.current = { date: day, payload };
     } catch (e) {
       setMood(before);
       if (mounted.current) setError(true);

@@ -51,14 +51,14 @@ Edit the Hindi text in `src/i18n/catalogs/hi.json` (the English sentence is the 
 | 31 | Scroll sideways to explore past and predicted cycles. Hover over coloured bands to see which phase you're in and what it means for energy, mood and focus. | पिछले और अनुमानित चक्र देखने के लिए दाएँ-बाएँ स्क्रोल करें। रंगीन पट्टियों पर कर्सर ले जाकर देखें कि आप किस चरण में हैं और इसका ऊर्जा, मूड और ध्यान पर क्या असर पड़ता है। | App.js:528 |  |
 | 32 | Journey Canvas | यात्रा कैनवस | App.js:529 |  |
 | 33 | Logging periods & symptoms | माहवारी और लक्षण दर्ज करना | App.js:532 |  |
-| 34 | Tap the pink Log period button on the map to log a new period. Add flow, pain and symptoms – Luna uses this to understand your pattern over time. | नक्शे पर गुलाबी "माहवारी दर्ज करें" बटन पर टैप करके नई माहवारी दर्ज करें। रक्तस्राव की मात्रा, दर्द और लक्षण जोड़ें – इससे Luna को समय के साथ आपका पैटर्न समझने में मदद मिलती है। | App.js:533 |  |
+| 34 | Tap Log period on the map to log a new period. Add flow, pain and symptoms – Luna uses this to understand your pattern over time. | नई माहवारी दर्ज करने के लिए नक्शे पर "माहवारी दर्ज करें" पर टैप करें। रक्तस्राव की मात्रा, दर्द और लक्षण जोड़ें – इससे Luna को समय के साथ आपका पैटर्न समझने में मदद मिलती है। | App.js:533 |  |
 | 35 | Log Periods | माहवारी दर्ज करें | App.js:534 |  |
 | 36 | AI health insights | एआई स्वास्थ्य इनसाइट्स | App.js:537 |  |
 | 37 | In Insights, Luna analyses your last cycles to explain regularity, predicted dates and key patterns, with clear recommendations in everyday language. | इनसाइट्स में Luna आपके पिछले चक्रों का विश्लेषण करके नियमितता, अनुमानित तारीखें और मुख्य पैटर्न समझाती है, साथ ही सरल भाषा में स्पष्ट सुझाव देती है। | App.js:538 |  |
 | 38 | AI Analysis | एआई विश्लेषण | App.js:539, App.js:1663 |  |
 | 39 | Chat with Luna | Luna से चैट करें | App.js:542 |  |
 | 40 | Use Chat for questions about cramps, cycle changes or patterns you’re worried about. Luna will reference your data when available, but never diagnose. | ऐंठन, चक्र में बदलाव या ऐसे पैटर्न के बारे में जिनको लेकर आप चिंतित हैं, सवाल पूछने के लिए चैट का उपयोग करें। डेटा उपलब्ध होने पर Luna उसका संदर्भ लेगी, लेकिन कभी निदान नहीं करेगी। | App.js:544 | "never diagnose" is translated literally on purpose (health disclaimer); keep it unsoftened |
-| 41 | Chat | चैट | App.js:545, App.js:2172 |  |
+| 41 | Chat | चैट | App.js:545, App.js:2173 |  |
 | 42 | Welcome tour | स्वागत टूर | App.js:565 |  |
 | 43 | Meet your Luna journey | अपनी Luna यात्रा को जानें | App.js:567 |  |
 | 44 | Skip | छोड़ें | App.js:569 |  |
@@ -186,8 +186,8 @@ Edit the Hindi text in `src/i18n/catalogs/hi.json` (the English sentence is the 
 | 166 | 5–15 seconds | 5–15 सेकंड | App.js:1672 |  |
 | 167 | Overview | सारांश | App.js:1684 |  |
 | 168 | Needs 3+ cycles for a score | स्कोर के लिए 3+ चक्र ज़रूरी हैं | App.js:1705 |  |
-| 169 | Avg Cycle | औसत चक्र | App.js:1708, App.js:2162 |  |
-| 170 | {days}d | {days} दिन | App.js:1708, App.js:2161 |  |
+| 169 | Avg Cycle | औसत चक्र | App.js:1708, App.js:2163 |  |
+| 170 | {days}d | {days} दिन | App.js:1708, App.js:2162 |  |
 | 171 | Regularity | नियमितता | App.js:1709 |  |
 | 172 | Next Period | अगली माहवारी | App.js:1713 |  |
 | 173 | Range | संभावित तारीखें | App.js:1716 |  |
@@ -205,7 +205,7 @@ Edit the Hindi text in `src/i18n/catalogs/hi.json` (the English sentence is the 
 | 185 | As you run analyses, they’ll appear here with scores and key dates. | जैसे-जैसे आप विश्लेषण चलाएँगे, वे स्कोर और अहम तारीखों के साथ यहाँ दिखाई देंगे। | App.js:1803 |  |
 | 186 | Last period date required | आखिरी माहवारी की तारीख आवश्यक है | App.js:1848 |  |
 | 187 | Please tick the consent box to save your health profile. | अपनी स्वास्थ्य प्रोफ़ाइल सहेजने के लिए कृपया सहमति वाले बॉक्स पर निशान लगाएँ। | App.js:1848 |  |
-| 188 | Profile | प्रोफ़ाइल | App.js:1858, App.js:2173 |  |
+| 188 | Profile | प्रोफ़ाइल | App.js:1858, App.js:2174 |  |
 | 189 | Health Profile → | स्वास्थ्य प्रोफ़ाइल → | App.js:1860 |  |
 | 190 | ← Back | ← वापस | App.js:1861 |  |
 | 191 | Luna Health member | Luna Health सदस्य | App.js:1870 |  |
@@ -259,19 +259,19 @@ Edit the Hindi text in `src/i18n/catalogs/hi.json` (the English sentence is the 
 | 239 | Any other health information… | स्वास्थ्य से जुड़ी कोई और जानकारी… | App.js:1942 |  |
 | 240 | I consent to data analysis | डेटा विश्लेषण के लिए मेरी सहमति है | App.js:1943 |  |
 | 241 | Save Health Profile | स्वास्थ्य प्रोफ़ाइल सहेजें | App.js:1946 |  |
-| 242 | Retry | दोबारा कोशिश करें | App.js:2066, CalendarScreen.js:101, DaySheet.js:276 +1 more |  |
-| 243 | Sign out | साइन आउट करें | App.js:2067, RequiredConsentScreen.js:40 |  |
-| 244 | Loading your privacy settings… | आपकी गोपनीयता सेटिंग लोड हो रही हैं… | App.js:2073 |  |
-| 245 | Day {day} · {phase} | दिन {day} · {phase} | App.js:2125 |  |
-| 246 | Open profile | प्रोफ़ाइल खोलें | App.js:2126 |  |
-| 247 | Loading your journey… | आपकी यात्रा लोड हो रही है… | App.js:2133 |  |
-| 248 | Cycle Day | चक्र का दिन | App.js:2160 |  |
-| 249 | Next in | अगली माहवारी | App.js:2161 |  |
-| 250 | Logged | दर्ज | App.js:2163, CalendarScreen.js:130 |  |
-| 251 | Phase | चरण | App.js:2164 |  |
-| 252 | Journey | यात्रा | App.js:2169 |  |
-| 253 | Calendar | कैलेंडर | App.js:2170, CalendarScreen.js:87, CalendarScreen.js:89 |  |
-| 254 | Insights | इनसाइट्स | App.js:2171 |  |
+| 242 | Retry | दोबारा कोशिश करें | App.js:2067, CalendarScreen.js:101, DaySheet.js:276 +1 more |  |
+| 243 | Sign out | साइन आउट करें | App.js:2068, RequiredConsentScreen.js:40 |  |
+| 244 | Loading your privacy settings… | आपकी गोपनीयता सेटिंग लोड हो रही हैं… | App.js:2074 |  |
+| 245 | Day {day} · {phase} | दिन {day} · {phase} | App.js:2126 |  |
+| 246 | Open profile | प्रोफ़ाइल खोलें | App.js:2127 |  |
+| 247 | Loading your journey… | आपकी यात्रा लोड हो रही है… | App.js:2134 |  |
+| 248 | Cycle Day | चक्र का दिन | App.js:2161 |  |
+| 249 | Next in | अगली माहवारी | App.js:2162 |  |
+| 250 | Logged | दर्ज | App.js:2164, CalendarScreen.js:130 |  |
+| 251 | Phase | चरण | App.js:2165 |  |
+| 252 | Journey | यात्रा | App.js:2170 |  |
+| 253 | Calendar | कैलेंडर | App.js:2171, CalendarScreen.js:87, CalendarScreen.js:89 |  |
+| 254 | Insights | इनसाइट्स | App.js:2172 |  |
 | 255 | App appearance on this phone | इस फ़ोन पर ऐप का रूप | AppearancePanel.js:57 |  |
 | 256 | App appearance | ऐप का रूप | AppearancePanel.js:58 |  |
 | 257 | Confirm app appearance | ऐप का रूप बदलने की पुष्टि | AppearancePanel.js:79 |  |
@@ -443,15 +443,15 @@ Edit the Hindi text in `src/i18n/catalogs/hi.json` (the English sentence is the 
 | 423 | Plain closed-book icon | बंद किताब का सादा आइकन | launcherAppearance.js:35 |  |
 | 424 | Plain ticked-list icon | टिक लगी सूची का सादा आइकन | launcherAppearance.js:36 |  |
 | 425 | Plain folder icon | सादा फ़ोल्डर आइकन | launcherAppearance.js:37 |  |
-| 426 | Mist hasn't lifted here yet. Tap to add a day. / Mist hasn't lifted on these {count} days yet. Tap to add one. | यहाँ की धुंध अभी छँटी नहीं है। कोई दिन जोड़ने के लिए टैप करें। / इन {count} दिनों की धुंध अभी छँटी नहीं है। कोई दिन जोड़ने के लिए टैप करें। | FogLayer.js:65 | "mist" is the fog-of-war metaphor for days not yet logged; the Hindi uses धुंध (mist) and छँटना (to lift/clear), kept gentle and non-judgemental |
+| 426 | Mist hasn't lifted here yet. Tap to add a day. / Mist hasn't lifted on these {count} days yet. Tap to add one. | यहाँ की धुंध अभी छँटी नहीं है। कोई दिन जोड़ने के लिए टैप करें। / इन {count} दिनों की धुंध अभी छँटी नहीं है। कोई दिन जोड़ने के लिए टैप करें। | FogLayer.js:69 | "mist" is the fog-of-war metaphor for days not yet logged; the Hindi uses धुंध (mist) and छँटना (to lift/clear), kept gentle and non-judgemental |
 | 427 | Normal | सामान्य | PlayfulSettings.js:6 |  |
 | 428 | Quiet | शांत | PlayfulSettings.js:7 |  |
 | 429 | Playful effects | खेल-खेल वाले प्रभाव | PlayfulSettings.js:42, PlayfulSettings.js:43 |  |
 | 430 | Quiet turns off Luna's animation, sparkles and vibration. | शांत मोड में Luna का एनिमेशन, चमक और कंपन बंद रहते हैं। | PlayfulSettings.js:64 |  |
-| 431 | Today's sky: {label} | आज का आसमान: {label} | SkyCheckIn.js:110 |  |
-| 432 | How's your sky today? | आज आपका आसमान कैसा है? | SkyCheckIn.js:110 |  |
-| 433 | Add details | विवरण जोड़ें | SkyCheckIn.js:114 |  |
-| 434 | Couldn't save your check-in. Try again. | आपका चेक-इन सहेजा नहीं जा सका। फिर कोशिश करें। | SkyCheckIn.js:137 |  |
+| 431 | Today's sky: {label} | आज का आसमान: {label} | SkyCheckIn.js:98 |  |
+| 432 | How's your sky today? | आज आपका आसमान कैसा है? | SkyCheckIn.js:98 |  |
+| 433 | Add details | विवरण जोड़ें | SkyCheckIn.js:102 |  |
+| 434 | Couldn't save your check-in. Try again. | आपका चेक-इन सहेजा नहीं जा सका। फिर कोशिश करें। | SkyCheckIn.js:125 |  |
 | 435 | Very low | बहुत उदास | weather.js:8 | the five mood words (बहुत उदास / थोड़ा उदास / ठीक / अच्छा / बहुत बढ़िया) are a plain scale |
 | 436 | Low | थोड़ा उदास | weather.js:9 |  |
 | 437 | Okay | ठीक | weather.js:10 |  |
@@ -551,7 +551,7 @@ Edit the Hindi text in `src/i18n/catalogs/hi.json` (the English sentence is the 
 | 106 | Notes | नोट | App.js:1161, launcherAppearance.js:21 | shares the catalog entry "Notes" = नोट used elsewhere; unsure "नोट्स" would read better as an app name |
 | 264 | today | आज | CalendarScreen.js:75 | these state words are read aloud after the date by screen readers, e.g. "5 अक्टूबर 2026, आज, माहवारी का दिन"; unsure about the phrasing |
 | 415 | Luna Health | Luna Health | launcherAppearance.js:19 | the product name stays in Latin script, so the translation equals the English text |
-| 426 | Mist hasn't lifted here yet. Tap to add a day. / Mist hasn't lifted on these {count} days yet. Tap to add one. | यहाँ की धुंध अभी छँटी नहीं है। कोई दिन जोड़ने के लिए टैप करें। / इन {count} दिनों की धुंध अभी छँटी नहीं है। कोई दिन जोड़ने के लिए टैप करें। | FogLayer.js:65 | "mist" is the fog-of-war metaphor for days not yet logged; the Hindi uses धुंध (mist) and छँटना (to lift/clear), kept gentle and non-judgemental |
+| 426 | Mist hasn't lifted here yet. Tap to add a day. / Mist hasn't lifted on these {count} days yet. Tap to add one. | यहाँ की धुंध अभी छँटी नहीं है। कोई दिन जोड़ने के लिए टैप करें। / इन {count} दिनों की धुंध अभी छँटी नहीं है। कोई दिन जोड़ने के लिए टैप करें। | FogLayer.js:69 | "mist" is the fog-of-war metaphor for days not yet logged; the Hindi uses धुंध (mist) and छँटना (to lift/clear), kept gentle and non-judgemental |
 | 435 | Very low | बहुत उदास | weather.js:8 | the five mood words (बहुत उदास / थोड़ा उदास / ठीक / अच्छा / बहुत बढ़िया) are a plain scale |
 | 450 | Invalid credentials | ईमेल या पासवर्ड सही नहीं है | serverMessages.js:22 | deliberately vague on whether the email or the password is wrong; keep it that way in Hindi |
 | 465 | Type DELETE to confirm account deletion | खाता हटाने की पुष्टि के लिए DELETE लिखें | serverMessages.js:42 | account deletion; "DELETE" stays in Latin because the server expects that exact word |

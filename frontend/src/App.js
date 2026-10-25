@@ -316,14 +316,14 @@ body{font-family:'Outfit','Noto Sans Devanagari',sans-serif;background:var(--bg)
 
 /* DOCK */
 .dock{height:64px;flex-shrink:0;background:var(--s1);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-around;padding:0 .25rem;z-index:20}
-.dk{font-family:'Outfit','Noto Sans Devanagari',sans-serif;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:.4rem .25rem;border-radius:8px;transition:all .2s;user-select:none;min-width:44px;min-height:44px;background:transparent;border:none;color:var(--muted)}
+.dk{flex:1;min-width:0;font-family:'Outfit','Noto Sans Devanagari',sans-serif;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:.4rem .25rem;border-radius:8px;transition:all .2s;user-select:none;min-height:44px;background:transparent;border:none;color:var(--muted)}
 .dk:hover{color:var(--muted-h);background:var(--s2)}
 .dk.on{color:var(--cream)}
 .dk .di{position:relative;display:flex;margin-bottom:3px;transition:transform .2s}
 .dk.on .di::after{content:"";position:absolute;left:50%;bottom:-6px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:#FF6B8A}
 .dk:hover .di{transform:translateY(-2px)}
 .dk .dl{font-size:.58rem;font-weight:500;letter-spacing:.05em;text-transform:uppercase}
-@media(max-width:340px){.dk .dl{font-size:.54rem;letter-spacing:.02em}.dk{padding:.4rem .15rem}}
+@media(max-width:340px){.topbar{padding:0 .75rem}.topbar>div{min-width:0}.cday-badge{display:none}.phase-pill{min-width:0;overflow:hidden;text-overflow:ellipsis}.dk .dl{font-size:.54rem;letter-spacing:.02em}.dk{padding:.4rem .15rem}}
 .log-fab{position:absolute;right:14px;bottom:14px;z-index:20;display:flex;align-items:center;gap:.4rem;min-height:44px;padding:0 1.1rem 0 .9rem;border:none;border-radius:999px;background:#FF6B8A;color:#fff;font-family:'Outfit','Noto Sans Devanagari',sans-serif;font-size:.85rem;font-weight:600;cursor:pointer;user-select:none;transition:transform .2s}
 .log-fab:hover{transform:scale(1.05)}
 .log-fab:active{transform:scale(.96)}
@@ -530,7 +530,7 @@ function Onboarding({ onClose, email }) {
     },
     {
       title: t("Logging periods & symptoms"),
-      body: t("Tap the pink Log period button on the map to log a new period. Add flow, pain and symptoms – Luna uses this to understand your pattern over time."),
+      body: t("Tap Log period on the map to log a new period. Add flow, pain and symptoms – Luna uses this to understand your pattern over time."),
       badge: t("Log Periods"),
     },
     {
@@ -1975,10 +1975,11 @@ function JourneyApp({ token, email, onLogout }) {
   const { consents, error: consentError, reload: reloadConsents, setConsent } = useConsents(token);
   const [pendingAi, setPendingAi] = useState(null);
 
+  const periodsLoaded = useRef(false);
   const loadPeriods = useCallback(async () => {
-    setLoading(true);
+    if (!periodsLoaded.current) setLoading(true); // only the first load blanks the screen; reloads keep the map mounted
     try { const d = await API.periods.list(token); setPeriods(Array.isArray(d) ? d.sort((a, b) => new Date(b.start_date) - new Date(a.start_date)) : []); }
-    catch (e) { } finally { setLoading(false); }
+    catch (e) { } finally { periodsLoaded.current = true; setLoading(false); }
   }, [token]);
   useEffect(() => { loadPeriods(); }, [loadPeriods]);
   const [reminderPrefs, setReminderPrefs] = useState(loadPrefs);
@@ -2174,7 +2175,7 @@ function JourneyApp({ token, email, onLogout }) {
       </div>
 
       {/* OVERLAYS */}
-      {overlay === "log" && <LogModal token={token} onClose={() => setOverlay(null)} onSave={() => { setOverlay(null); loadPeriods(); }} />}
+      {overlay === "log" && <LogModal token={token} onClose={() => setOverlay(null)} onSave={() => { setOverlay(null); loadPeriods(); setLogsVersion(v => v + 1); }} />}
       {overlay === "calendar" && <CalendarScreen token={token} periods={periods} logsVersion={logsVersion} onClose={() => setOverlay(null)} onOpenDay={setDayDate} />}
       {dayDate && <DaySheet token={token} date={dayDate} onClose={() => setDayDate(null)} onSaved={() => setLogsVersion(v => v + 1)} />}
       {overlay === "chat" && <ChatDrawer token={token} onClose={() => setOverlay(null)} />}

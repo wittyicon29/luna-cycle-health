@@ -34,7 +34,11 @@ export function FogLayer({ runs, dayW, onOpenRun, animated }) {
     const items = gone.map((g) => ({ ...g, id: ++seq.current }));
     setLifted((l) => [...l, ...items]);
     items.forEach((it) => {
-      timers.current.push(setTimeout(() => setLifted((l) => l.filter((x) => x.id !== it.id)), LIFT_MS));
+      const tid = setTimeout(() => {
+        timers.current = timers.current.filter((x) => x !== tid);
+        setLifted((l) => l.filter((x) => x.id !== it.id));
+      }, LIFT_MS);
+      timers.current.push(tid);
     });
   }, [runs, animated]);
 

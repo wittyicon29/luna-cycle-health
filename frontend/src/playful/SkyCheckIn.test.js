@@ -14,17 +14,23 @@ const UUID = '11111111-1111-4111-8111-111111111111';
 const FULL = { date: TODAY, updated_at: 'x', sleep_hours: 7, water_glasses: 0, symptoms: ['cramps'], medications_taken: [UUID], note: 'n', flow: 'light', mood: 2 };
 const LABELS = ['Very low', 'Low', 'Okay', 'Good', 'Great'];
 
+// A tiny fake server: list returns today's stored entry, put replaces it (an empty body deletes the day).
+let server;
+const applyPut = (date, body) => { server = Object.keys(body).length ? { date, ...body } : null; return {}; };
+const holdNextPut = d => API.logs.put.mockImplementationOnce(async (date, body) => { await d.p; return applyPut(date, body); });
 beforeEach(() => {
   jest.useFakeTimers().setSystemTime(new Date(2026, 9, 25, 12, 0, 0));
   savePlayful('normal');
-  API.logs.list.mockResolvedValue([]);
-  API.logs.put.mockResolvedValue({});
+  server = null;
+  API.logs.list.mockImplementation(async () => (server ? [{ ...server }] : []));
+  API.logs.put.mockImplementation(async (date, body) => applyPut(date, body));
 });
 afterEach(() => { jest.useRealTimers(); });
 
 const flush = async () => { await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); }); };
 const draw = (props = {}) => {
   const onSaved = jest.fn(); const onAddDetails = jest.fn();
+  if (props.logs && props.logs[TODAY]) server = { ...props.logs[TODAY] };
   const utils = render(<SkyCheckIn token="tok" logs={{}} logsReady onSaved={onSaved} onAddDetails={onAddDetails} {...props} />);
   return { ...utils, onSaved, onAddDetails };
 };
@@ -72,15 +78,18 @@ test('quiet mode: no haptic and no pulse class', async () => {
   expect(tick).not.toHaveBeenCalled();
 });
 
-test('normal mode: tapped button pulses', () => {
+test('normal mode: tapped button pulses, and stops by itself if animationend never fires', async () => {
   draw();
   fireEvent.click(radio('Okay'));
+  await flush();
   expect(radio('Okay').className).toMatch(/sky-pulse/);
+  act(() => { jest.advanceTimersByTime(800); });
+  expect(radio('Okay').className).not.toMatch(/sky-pulse/);
 });
 
 test('a dropped repeat tap does not pulse', async () => {
   const d = deferred();
-  API.logs.put.mockReturnValueOnce(d.p);
+  holdNextPut(d);
   draw();
   fireEvent.click(radio('Okay'));
   fireEvent.animationEnd(radio('Okay'));
@@ -133,7 +142,7 @@ test('a failed PUT reverts the selection and shows the alert', async () => {
 
 test('a repeat tap on the in-flight mood is dropped: exactly one PUT', async () => {
   const d = deferred();
-  API.logs.put.mockReturnValueOnce(d.p);
+  holdNextPut(d);
   draw();
   fireEvent.click(radio('Good'));
   fireEvent.click(radio('Good'));
@@ -147,7 +156,7 @@ test('a repeat tap on the in-flight mood is dropped: exactly one PUT', async () 
 
 test('A, B, A sends A then B and never a clearing PUT', async () => {
   const d = deferred();
-  API.logs.put.mockReturnValueOnce(d.p);
+  holdNextPut(d);
   draw();
   fireEvent.click(radio('Good'));
   fireEvent.click(radio('Okay'));
@@ -160,7 +169,7 @@ test('A, B, A sends A then B and never a clearing PUT', async () => {
 
 test('A, A, B sends A then B', async () => {
   const d = deferred();
-  API.logs.put.mockReturnValueOnce(d.p);
+  holdNextPut(d);
   draw();
   fireEvent.click(radio('Good'));
   fireEvent.click(radio('Good'));
@@ -194,7 +203,7 @@ test('arrow keys landing on the selected option do not clear it', async () => {
 
 test('rapid A, B, C sends A then C', async () => {
   const d = deferred();
-  API.logs.put.mockReturnValueOnce(d.p);
+  holdNextPut(d);
   draw({ logs: { [TODAY]: { date: TODAY, note: 'keep' } } });
   fireEvent.click(radio('Very low'));
   fireEvent.click(radio('Okay'));
@@ -252,4 +261,37 @@ test('layout wraps and can shrink', () => {
   const group = screen.getByRole('radiogroup');
   expect(group.style.flexWrap).toBe('wrap');
   expect(radio('Okay').style.minWidth).toBe('0');
+});
+
+test('a note added elsewhere after a check-in survives the next check-in', async () => {
+  const { rerender, onSaved, onAddDetails } = draw();
+  fireEvent.click(radio('Okay'));
+  await flush();
+  // the day sheet saves a note (server changes; the logs prop is still the old one until the refetch)
+  server = { ...server, note: 'added in the sheet', symptoms: ['cramps'] };
+  fireEvent.click(radio('Good'));
+  await flush();
+  expect(API.logs.put).toHaveBeenLastCalledWith(TODAY, { symptoms: ['cramps'], note: 'added in the sheet', mood: 4 }, 'tok');
+  rerender(<SkyCheckIn token="tok" logs={{ [TODAY]: server }} logsReady onSaved={onSaved} onAddDetails={onAddDetails} />);
+});
+
+test('a field removed in the day sheet is not resurrected', async () => {
+  draw({ logs: { [TODAY]: { date: TODAY, mood: 2, note: 'old', flow: 'light' } } });
+  server = { date: TODAY, mood: 2, flow: 'light' }; // the note was deleted in the sheet
+  fireEvent.click(radio('Great'));
+  await flush();
+  expect(API.logs.put).toHaveBeenCalledWith(TODAY, { flow: 'light', mood: 5 }, 'tok');
+});
+
+test('every check-in reads today first, and a failed read sends no PUT', async () => {
+  draw();
+  fireEvent.click(radio('Good'));
+  await flush();
+  expect(API.logs.list).toHaveBeenCalledTimes(1);
+  API.logs.list.mockRejectedValueOnce(new Error('net'));
+  fireEvent.click(radio('Great'));
+  await flush();
+  expect(API.logs.put).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole('alert')).toHaveTextContent("Couldn't save your check-in. Try again.");
+  expect(radio('Good')).toHaveAttribute('aria-checked', 'true');
 });

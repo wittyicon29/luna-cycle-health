@@ -28,6 +28,12 @@ export function savePlayful(next) {
   return value;
 }
 
+// Forget the in-memory choice after local data was wiped (storage is already cleared by the caller).
+export function resetPlayful() {
+  mode = loadPlayful();
+  listeners.forEach(fn => fn());
+}
+
 export function subscribePlayful(fn) {
   listeners.add(fn);
   return () => listeners.delete(fn);

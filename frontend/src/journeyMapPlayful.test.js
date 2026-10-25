@@ -242,6 +242,21 @@ describe('JourneyApp logs', () => {
     expect(container.querySelector('[data-playful="normal"]')).toBeTruthy();
     await waitFor(() => expect(runs().length).toBeGreaterThan(0));
   });
+  test('logging a period keeps the map mounted and clears the mist it covers', async () => {
+    API.periods.create.mockResolvedValue({});
+    app();
+    await ready();
+    await waitFor(() => expect(runs().length).toBeGreaterThan(0));
+    const canvas = document.querySelector('.j-canvas');
+    const before = runs().reduce((n, el) => n + parseFloat(el.style.width), 0);
+    const covering = { id: 9, start_date: iso(26), end_date: iso(12), flow_intensity: 'light', pain_level: 1, symptoms: [], notes: '' };
+    API.periods.list.mockResolvedValue([...PERIODS, covering]);
+    fireEvent.click(document.querySelector('.log-fab'));
+    await act(async () => { fireEvent.click(await screen.findByRole('button', { name: 'Save to Journey' })); });
+    await waitFor(() => expect(mapCalls().length).toBeGreaterThanOrEqual(2));
+    expect(document.querySelector('.j-canvas')).toBe(canvas); // never unmounted by the reload
+    await waitFor(() => expect(runs().reduce((n, el) => n + parseFloat(el.style.width), 0)).toBeLessThan(before));
+  });
   test('a rejected request leaves no fog and no crash', async () => {
     API.logs.list.mockRejectedValue(new Error('down'));
     app();
