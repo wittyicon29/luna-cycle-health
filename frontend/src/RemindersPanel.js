@@ -132,6 +132,7 @@ export default function RemindersPanel({ prefs, onChange }) {
       {anyOn && permission && permission !== 'granted' && !message && (
         <div style={{ fontSize: '.75rem', color: 'var(--muted)' }}>{WARN}</div>
       )}
+      <div style={note}>Daily nudges are scheduled for the next two weeks each time you open the app.</div>
       {message && <div role="alert" style={{ fontSize: '.75rem', color: '#E07070' }}>{message}</div>}
       <div style={note}>Reminders arrive within a few minutes of the set time.</div>
     </div>

@@ -2,7 +2,13 @@ import { isNative } from './platform';
 import { planReminders } from './reminderPlanner';
 import { anyEnabled, clearPrefs } from './reminderPrefs';
 
-const CHANNEL_ID = 'reminders';
+const CHANNEL_NEUTRAL = 'reminders';
+const CHANNEL_DETAILS = 'reminders_details';
+const CHANNELS = {
+  [CHANNEL_NEUTRAL]: { id: CHANNEL_NEUTRAL, name: 'Reminders', description: 'Private check-in reminders', importance: 3, visibility: 0 },
+  // SECRET (-1): hidden entirely on the lock screen, so explicit wording never shows while locked.
+  [CHANNEL_DETAILS]: { id: CHANNEL_DETAILS, name: 'Reminders with details', description: 'Check-in reminders that name the reminder type', importance: 3, visibility: -1 },
+};
 const NEUTRAL = { title: 'Luna', body: 'Time for your check-in.' };
 
 // The plugin object is a Capacitor Proxy whose `then` throws on native: never return it from an
@@ -78,13 +84,18 @@ export function cancelAllReminders() {
   return enqueue(doCancelAll);
 }
 
+// Bumped synchronously by teardownReminders(); rebuilds queued before a teardown skip themselves.
+let generation = 0;
+
 export function teardownReminders() {
+  generation += 1;
   clearPrefs();
   return enqueue(doCancelAll);
 }
 
 export function rebuildReminders(args = {}) {
-  return enqueue(() => doRebuild(args));
+  const gen = generation;
+  return enqueue(() => (gen === generation ? doRebuild(args) : { skipped: 'cancelled' }));
 }
 
 async function doRebuild(args) {
@@ -96,17 +107,15 @@ async function doRebuild(args) {
     if (!anyEnabled(prefs)) return { skipped: 'disabled' };
     const { display } = await ln.checkPermissions();
     if (display !== 'granted') return { skipped: 'no-permission' };
-    await ln.createChannel({
-      id: CHANNEL_ID, name: 'Reminders', description: 'Private check-in reminders',
-      importance: 3, visibility: 0,
-    });
+    const channelId = prefs.explicit === true ? CHANNEL_DETAILS : CHANNEL_NEUTRAL;
+    await ln.createChannel(CHANNELS[channelId]);
     const plan = planReminders({ prefs, prediction, lastPeriodStart, lastLoggedOn, now });
     if (plan.length === 0) return { scheduled: 0 };
     await ln.schedule({
       notifications: plan.map(item => ({
         id: item.id,
         ...reminderText(item.kind, prefs),
-        channelId: CHANNEL_ID,
+        channelId,
         schedule: { at: item.at, allowWhileIdle: true },
       })),
     });

@@ -1,6 +1,7 @@
 export const KIND_BASE = { periodExpected: 100000000, dailyLog: 200000000, lateCheckIn: 300000000 };
 const LATE_CHECK_IN_AFTER_DAYS = 3;
 const SAME_CYCLE_WINDOW_DAYS = 7;
+const MAX_AHEAD_DAYS = 90;
 
 // 'YYYY-MM-DD' → LOCAL midnight (never via UTC), or null when missing/invalid.
 function parseDay(value) {
@@ -20,10 +21,13 @@ const sameDay = (a, b) => a && b && ymd(a) === ymd(b);
 
 export function planReminders({ prefs, prediction, lastPeriodStart, lastLoggedOn, now = new Date(), horizonDays = 14 }) {
   // Calendar-day horizon so a DST change inside the window cannot shift the last slot.
-  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + horizonDays,
+  const limit = days => new Date(now.getFullYear(), now.getMonth(), now.getDate() + days,
     now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+  const dailyEnd = limit(horizonDays); // only daily nudges are capped at the short horizon
+  const maxEnd = limit(MAX_AHEAD_DAYS);
   const plan = [];
   const push = (kind, at) => {
+    const end = kind === 'dailyLog' ? dailyEnd : maxEnd;
     if (at > now && at <= end) plan.push({ id: KIND_BASE[kind] + ymd(at), at, kind });
   };
 

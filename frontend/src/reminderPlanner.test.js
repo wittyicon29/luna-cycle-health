@@ -123,3 +123,21 @@ test('lateCheckIn alone is suppressed by a same-cycle log', () => {
   const prefs = on({ periodExpected: { enabled: false, daysBefore: 2, time: '09:00' }, dailyLog: { enabled: false, time: '21:00' } });
   expect(planReminders({ ...base, lastPeriodStart: '2026-10-03', prefs, prediction: { predicted_next_period: '2026-10-08' } })).toEqual([]);
 });
+
+test('period expected and late check-in are scheduled beyond 14 days, up to 90; daily stays at 14', () => {
+  const prediction = { predicted_next_period: '2026-10-29' }; // 28 days out
+  const plan = planReminders({ ...base, prefs: on(), prediction });
+  expect(plan.find(p => p.kind === 'periodExpected').at).toEqual(at(2026, 10, 27, 9, 0));
+  expect(plan.find(p => p.kind === 'lateCheckIn').at).toEqual(at(2026, 11, 1, 10, 0));
+  const daily = plan.filter(p => p.kind === 'dailyLog');
+  expect(daily[daily.length - 1].at.getTime()).toBeLessThanOrEqual(at(2026, 10, 15, 8, 0).getTime());
+});
+
+test('90-day cap is inclusive and ids stay within int32 for far-future dates', () => {
+  const prefs = on({ periodExpected: { enabled: true, daysBefore: 2, time: '08:00' }, dailyLog: { enabled: false, time: '21:00' }, lateCheckIn: { enabled: false } });
+  const exactly90 = planReminders({ ...base, prefs, prediction: { predicted_next_period: '2027-01-01' } }); // alarm Dec 30 08:00 = now + 90d
+  expect(exactly90).toHaveLength(1);
+  expect(exactly90[0].at).toEqual(at(2026, 12, 30, 8, 0));
+  expect(exactly90[0].id).toBeLessThan(2147483647);
+  expect(planReminders({ ...base, prefs, prediction: { predicted_next_period: '2027-01-02' } })).toHaveLength(0);
+});

@@ -176,3 +176,30 @@ test('rebuildReminders with no argument resolves instead of rejecting', async ()
   expect(['disabled', 'error']).toContain(Object.values(result)[0]);
   expect(result).toHaveProperty('skipped');
 });
+
+test('channels: neutral mode uses `reminders`, explicit mode uses SECRET `reminders_details`', async () => {
+  await sched.rebuildReminders({ prefs: prefs(), now: NOW });
+  expect(mockLN.createChannel).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'reminders', visibility: 0 }));
+  expect(mockLN.schedule.mock.calls[0][0].notifications.every(n => n.channelId === 'reminders')).toBe(true);
+  mockLN.createChannel.mockClear(); mockLN.schedule.mockClear();
+  await sched.rebuildReminders({ prefs: prefs({ explicit: true }), now: NOW });
+  expect(mockLN.createChannel).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'reminders_details', importance: 3, visibility: -1 }));
+  expect(mockLN.schedule.mock.calls[0][0].notifications.every(n => n.channelId === 'reminders_details')).toBe(true);
+});
+
+test('a rebuild queued before a teardown is skipped and leaves nothing scheduled', async () => {
+  const { scheduled } = fakePlugin();
+  mockLN.schedule.mockImplementation(async ({ notifications }) => { notifications.forEach(n => scheduled.add(n.id)); });
+  const first = sched.rebuildReminders({ prefs: prefs(), now: NOW });
+  const second = sched.rebuildReminders({ prefs: prefs(), now: NOW });
+  const down = sched.teardownReminders();
+  const results = await Promise.all([first, second, down]);
+  expect(results[1]).toEqual({ skipped: 'cancelled' });
+  expect(scheduled.size).toBe(0);
+});
+
+test('a rebuild requested after a teardown still runs', async () => {
+  await sched.teardownReminders();
+  const r = await sched.rebuildReminders({ prefs: prefs(), now: NOW });
+  expect(r.scheduled).toBeGreaterThan(0);
+});
