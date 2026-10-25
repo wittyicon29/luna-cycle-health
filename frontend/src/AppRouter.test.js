@@ -15,7 +15,10 @@ const renderAt = path => {
   return render(<React.StrictMode><AppRouter /></React.StrictMode>);
 };
 
-beforeEach(() => localStorage.clear());
+jest.mock('./platform', () => ({ isNative: jest.fn() }));
+const { isNative } = require('./platform');
+
+beforeEach(() => { localStorage.clear(); isNative.mockReturnValue(false); });
 
 test('signed-in user at / ends on /app', () => {
   localStorage.setItem('access_token', 't');
@@ -34,6 +37,24 @@ test('signed-out user stays on the landing page', () => {
   renderAt('/');
   expect(screen.getByText('LANDING MARKER')).toBeInTheDocument();
   expect(window.location.pathname).toBe('/');
+});
+
+test('native signed-out user at / and /landing goes to the sign-in screen', () => {
+  isNative.mockReturnValue(true);
+  renderAt('/');
+  expect(screen.getByText('APP MARKER')).toBeInTheDocument();
+  expect(window.location.pathname).toBe('/login');
+  renderAt('/landing');
+  expect(window.location.pathname).toBe('/login');
+});
+
+test('native signed-in user at / ends on /app', () => {
+  isNative.mockReturnValue(true);
+  // on native the token lives in the native store, not localStorage
+  const spy = jest.spyOn(require('./tokenStore'), 'getAccessToken').mockReturnValue('t');
+  renderAt('/');
+  expect(window.location.pathname).toBe('/app');
+  spy.mockRestore();
 });
 
 test('signed-in user can still open the legal and verify pages', () => {

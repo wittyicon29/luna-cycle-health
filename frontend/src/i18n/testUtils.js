@@ -1,4 +1,5 @@
-const DEFAULT_ALLOW = ['Luna', 'Google', 'Gmail', 'AI', 'PIN', 'DELETE', 'OK', 'ID'];
+// Product and third-party brand names stay in Latin script; Groq and Hugging Face are named in the AI consent text.
+const DEFAULT_ALLOW = ['Luna', 'Google', 'Gmail', 'AI', 'PIN', 'DELETE', 'OK', 'ID', 'Groq', 'Hugging Face'];
 const EMAIL = /\S+@\S+/g;
 const URL_RE = /(?:https?:\/\/|www\.)\S+/gi;
 const DOMAIN = /[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}(?:\/\S*)?/g;

@@ -4,12 +4,19 @@ const path = require('path');
 
 const SKIP_FILES = new Set(['setupTests.js', 'index.js', 'reportWebVitals.js', 'LandingPage.js', 'LegalPage.js', 'legalContent.js']);
 
+// Every non-test .js file under srcDir (including src/i18n/*.js such as LanguageSwitcher.js), minus the skip list.
 function collect(srcDir, exclude = []) {
-  return fs.readdirSync(srcDir)
-    .filter(name => name.endsWith('.js') && !name.endsWith('.test.js') && !SKIP_FILES.has(name) && !exclude.includes(name))
-    .filter(name => fs.statSync(path.join(srcDir, name)).isFile())
-    .sort()
-    .map(name => path.join(srcDir, name));
+  const out = [];
+  const walk = dir => {
+    fs.readdirSync(dir).sort().forEach(name => {
+      const full = path.join(dir, name);
+      const stat = fs.statSync(full);
+      if (stat.isDirectory()) { if (name !== 'node_modules') walk(full); return; }
+      if (name.endsWith('.js') && !name.endsWith('.test.js') && !SKIP_FILES.has(name) && !exclude.includes(name)) out.push(full);
+    });
+  };
+  walk(srcDir);
+  return out;
 }
 
 const placeholders = text => [...new Set((String(text).match(/\{(\w+)\}/g) || []).map(m => m.slice(1, -1)))].sort();

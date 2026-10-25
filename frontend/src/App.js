@@ -343,9 +343,13 @@ body{font-family:'Outfit','Noto Sans Devanagari',sans-serif;background:var(--bg)
 .drawer-handle{width:36px;height:4px;border-radius:2px;background:rgba(255,255,255,.13);margin:10px auto 0;flex-shrink:0;cursor:pointer}
 .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.5rem .75rem;flex-shrink:0;border-bottom:1px solid var(--border)}
 .drawer-title{font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;font-size:1.4rem;font-weight:500;letter-spacing:.01em}
-@font-face{font-family:'Noto Sans Devanagari';font-weight:400 600;font-display:swap;unicode-range:U+0900-097F,U+1CD0-1CF9,U+200C-200D,U+20A8,U+20B9,U+25CC,U+A830-A839,U+A8E0-A8FF;src:url('/fonts/NotoSansDevanagari-Variable.woff2') format('woff2')}
+@font-face{font-family:'Noto Sans Devanagari';font-weight:100 900;font-display:swap;unicode-range:U+0900-097F,U+1CD0-1CF9,U+200C-200D,U+20A8,U+20B9,U+25CC,U+A830-A839,U+A8E0-A8FF;src:url('/fonts/NotoSansDevanagari-Variable.woff2') format('woff2')}
 :lang(hi) body{line-height:1.7}
 :lang(hi) .btn,:lang(hi) .chip,:lang(hi) .dk .dl{line-height:1.4}
+:lang(hi) .auth-logo h1,:lang(hi) .auth-logo p,:lang(hi) .auth-tab,:lang(hi) .f label,:lang(hi) .tlogo,:lang(hi) .phase-pill,:lang(hi) .month-lbl,:lang(hi) .phase-sep-lbl,:lang(hi) .beacon-lbl,:lang(hi) .ph-card-title,:lang(hi) .ph-card-sub,:lang(hi) .st-val,:lang(hi) .st-lbl,:lang(hi) .dk .dl,:lang(hi) .drawer-title,:lang(hi) .ch-lbl,:lang(hi) .bname,:lang(hi) .tk-hd,:lang(hi) .ins-lbl,:lang(hi) .score-num .s,:lang(hi) .pred-lbl,:lang(hi) .badge,:lang(hi) .q-sec-title,:lang(hi) .intro-pill{letter-spacing:0}
+:lang(hi) .st-item{min-width:0}
+:lang(hi) .st-val,:lang(hi) .st-lbl{white-space:nowrap}
+@media(max-width:340px){:lang(hi) .stats-strip{padding:0 .4rem}:lang(hi) .st-val:not(.st-val-phase){font-size:1.05rem}:lang(hi) .st-lbl{font-size:.5rem}}
 .drawer-close{background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--muted);transition:color .2s;padding:.2rem;line-height:1;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
 .drawer-close:hover{color:var(--cream)}
 .modal-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.2rem;line-height:1;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
@@ -1170,7 +1174,6 @@ function ChatDrawer({ token, onClose }) {
   const [sessions, setSessions] = useState([]);
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const [input, setInput] = useState(""); const [sending, setSending] = useState(false);
-  const [err, setErr] = useState("");
   const [histOpen, setHistOpen] = useState(false);
   const bottomRef = useRef(null); const taRef = useRef(null);
 
@@ -1200,7 +1203,7 @@ function ChatDrawer({ token, onClose }) {
 
   async function send() {
     const msg = input.trim(); if (!msg || sending) return;
-    setInput(""); setErr("");
+    setInput("");
     
     let activeSid = currentSessionId;
     const isNew = !activeSid;
@@ -1228,7 +1231,7 @@ function ChatDrawer({ token, onClose }) {
       setSessions(prev => prev.map(s => s.id === tempSid ? { ...s, id: finalSid, messages: [...s.messages, newAsstMsg] } : s));
       if (isNew) setCurrentSessionId(finalSid);
     } catch (e) {
-      setErr(e.message);
+      // The failure is shown once, as an error bubble in the conversation (it follows a language switch).
       setSessions(prev => prev.map(s => s.id === tempSid ? { ...s, messages: [...s.messages, { role: "assistant", errorText: e?.message ?? "" }] } : s));
     } finally {
       setSending(false);
@@ -1325,7 +1328,6 @@ function ChatDrawer({ token, onClose }) {
               {sending && <div className="bubble asst"><div className="bname">◐ Luna</div><div className="tdots"><span /><span /><span /></div></div>}
               <div ref={bottomRef} />
             </div>
-            {err && <div style={{ padding: "0 1.2rem .5rem" }}><Err msg={err} /></div>}
             <div className="chat-in">
               <textarea ref={taRef} value={input} onChange={e => setInput(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
@@ -1364,7 +1366,8 @@ function levelLabel(value) {
   }
 }
 
-const Insights = ({ raw, medicalAnalysis, userReport }) => { 
+// ruleBasedEnglish: the text comes from the backend's fixed English rules (questionnaire result), not the AI, so it is marked lang=en.
+const Insights = ({ raw, medicalAnalysis, userReport, ruleBasedEnglish = false }) => { 
   useLanguage();
   let p = null; 
   try { 
@@ -1510,7 +1513,7 @@ const Insights = ({ raw, medicalAnalysis, userReport }) => {
           {userData.next_steps.map((it, i) => (
             <div key={i} className="ins-row">
               <span style={{ color: "#7C66C0", flexShrink: 0 }}>→</span>
-              <span data-i18n-ignore>{it}</span>
+              <span data-i18n-ignore {...(ruleBasedEnglish ? { lang: "en" } : {})}>{it}</span>
             </div>
           ))}
         </>
@@ -1820,6 +1823,7 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
                 <div style={{ marginTop: "1.5rem" }}>
                   <div className="ins-lbl">{t("Initial Analysis")}</div>
                   <Insights 
+                    ruleBasedEnglish
                     raw={JSON.stringify(questionnaireAnalysis)} 
                     medicalAnalysis={questionnaireAnalysis.medical_analysis} 
                     userReport={questionnaireAnalysis} 

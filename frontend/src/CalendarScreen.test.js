@@ -196,3 +196,18 @@ test("no :lang(hi) rule changes the typeface of Latin text", () => {
   expect(rules.length).toBeGreaterThan(0);
   rules.forEach(r => expect(r).not.toMatch(/font-family/));
 });
+
+test("every letter-spaced label in STYLES is reset under :lang(hi) (letter-spacing breaks the Devanagari headline)", () => {
+  const fs = require("fs");
+  const path = require("path");
+  const src = fs.readFileSync(path.join(__dirname, "App.js"), "utf8");
+  const reset = (src.match(/(:lang\(hi\)[^{}]*)\{letter-spacing:0\}/) || [])[1] || "";
+  expect(reset).toContain(":lang(hi) .st-lbl");
+  const spaced = [];
+  src.split("\n").forEach(line => {
+    const m = /^([.a-z][^{@]*)\{[^}]*letter-spacing:\s*\.?\d/.exec(line);
+    if (m && !m[1].startsWith(":lang") ) m[1].split(",").forEach(sel => spaced.push(sel.trim()));
+  });
+  expect(spaced.length).toBeGreaterThan(15);
+  expect(spaced.filter(sel => !reset.includes(`:lang(hi) ${sel}`))).toEqual([]);
+});

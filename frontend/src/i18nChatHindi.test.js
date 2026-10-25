@@ -122,6 +122,8 @@ describe('ChatDrawer in Hindi', () => {
     userEvent.click(screen.getByRole('button', { name: 'भेजें' }));
     await waitFor(() => expect(screen.getAllByText(pattern).length).toBeGreaterThan(0));
     expect(screen.getAllByText(/^⚠ त्रुटि: /).length).toBe(1);
+    // the failure is shown once (the bubble), not also as a banner
+    expect(container.querySelectorAll('.err').length).toBe(0);
     noEnglish(container);
   });
 

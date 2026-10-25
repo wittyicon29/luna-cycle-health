@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SUPPORT_EMAIL } from './config';
+import { useEnglishDocument } from './i18n/useEnglishDocument';
 
 // ─── PHASE DATA ───────────────────────────────────────────────────────────────
 const PHASES = [
@@ -396,6 +397,7 @@ function Marquee() {
 
 // ─── MAIN LANDING PAGE ────────────────────────────────────────────────────────
 function LandingPage({ onShowAuth } = {}) {
+  useEnglishDocument();
   useEffect(() => { injectCSS(); }, []);
 
   const navigate = useNavigate();

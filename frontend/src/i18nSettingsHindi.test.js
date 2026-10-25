@@ -158,6 +158,7 @@ describe('ProfileDrawer in Hindi', () => {
     expect(within(drawer).getByText('आपकी स्वास्थ्य प्रोफ़ाइल अपडेट हो गई है।')).toBeInTheDocument();
     expect(within(drawer).getByText('शुरुआती विश्लेषण')).toBeInTheDocument();
     expect(within(drawer).getByText('Discuss these findings at your next routine appointment')).toBeInTheDocument();
+    expect(within(drawer).getByText('Discuss these findings at your next routine appointment')).toHaveAttribute('lang', 'en');
     expect(within(drawer).getByRole('button', { name: 'फिर से अपडेट करें' })).toBeInTheDocument();
     noEnglish(drawer);
   });
