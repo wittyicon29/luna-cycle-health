@@ -58,3 +58,10 @@ test('coveredDates unions period days and log dates', () => {
   const set = coveredDates([{ start_date: '2026-10-20', end_date: '2026-10-22' }], { '2026-10-23': {} }, TODAY);
   expect([...set].sort()).toEqual(['2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23']);
 });
+
+test('impossible calendar dates are ignored', () => {
+  expect(firstLoggedDate([{ start_date: '2026-02-30' }], { '2026-13-45': {}, x: {} })).toBeNull();
+  expect(firstLoggedDate([{ start_date: '2026-02-30' }], { '2026-03-01': {} })).toBe('2026-03-01');
+  const set = coveredDates([], { '2026-02-30': {}, '2026-13-45': {}, x: {}, '2026-10-01': {} }, TODAY);
+  expect([...set]).toEqual(['2026-10-01']);
+});

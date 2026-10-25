@@ -40,3 +40,11 @@ test('plugin rejection is swallowed', async () => {
   mockImpact.mockImplementation(async () => { throw new Error('no vibrator'); });
   await expect(tick()).resolves.toBeUndefined();
 });
+
+test('a failed storage write cannot leave haptics on while Quiet is shown', async () => {
+  const spy = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('full'); });
+  savePlayful('quiet');
+  await tick();
+  spy.mockRestore();
+  expect(mockImpact).not.toHaveBeenCalled();
+});

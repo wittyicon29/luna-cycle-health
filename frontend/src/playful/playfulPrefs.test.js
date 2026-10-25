@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
-import { PLAYFUL_KEY, defaultMode, loadPlayful, savePlayful, subscribePlayful, usePlayful } from './playfulPrefs';
+import { PLAYFUL_KEY, defaultMode, getPlayful, loadPlayful, savePlayful, subscribePlayful, usePlayful } from './playfulPrefs';
 
 const setReduced = reduced => {
   window.matchMedia = jest.fn().mockImplementation(() => ({ matches: reduced }));
@@ -60,4 +60,12 @@ test('usePlayful re-renders on outside save', () => {
   expect(result.current).toMatchObject({ mode: 'quiet', animated: false });
   act(() => { result.current.setMode('normal'); });
   expect(result.current.mode).toBe('normal');
+});
+
+test('getPlayful reflects module state even when storage fails', () => {
+  const spy = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('full'); });
+  savePlayful('quiet');
+  spy.mockRestore();
+  expect(getPlayful()).toBe('quiet');
+  savePlayful('normal');
 });

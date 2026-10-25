@@ -1,5 +1,5 @@
 import { isNative } from '../platform';
-import { loadPlayful } from './playfulPrefs';
+import { getPlayful } from './playfulPrefs';
 
 async function impactLight() {
   const { Haptics } = await import('@capacitor/haptics');
@@ -7,6 +7,6 @@ async function impactLight() {
 }
 
 export async function tick() {
-  if (!isNative() || loadPlayful() !== 'normal') return;
+  if (!isNative() || getPlayful() !== 'normal') return;
   try { await impactLight(); } catch (e) { /* haptics are a nicety */ }
 }

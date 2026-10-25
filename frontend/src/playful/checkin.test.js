@@ -39,3 +39,10 @@ test('does not mutate the entry', () => {
   buildCheckInPayload(FULL, 4);
   expect(FULL).toEqual(copy);
 });
+
+test('invalid mood values never reach the payload and clear the mood', () => {
+  ['3', 0, 7, NaN, 2.5, undefined, null].forEach(v => {
+    expect(buildCheckInPayload({ mood: 4, note: 'n' }, v)).toEqual({ note: 'n' });
+    expect(buildCheckInPayload(null, v)).toEqual({});
+  });
+});

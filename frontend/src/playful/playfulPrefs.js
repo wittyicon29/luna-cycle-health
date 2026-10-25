@@ -34,6 +34,7 @@ export function subscribePlayful(fn) {
 }
 
 const getMode = () => mode;
+export const getPlayful = getMode;
 
 export function usePlayful() {
   const current = useSyncExternalStore(subscribePlayful, getMode, getMode);
