@@ -293,6 +293,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .dk .di{font-size:1.15rem;transition:transform .2s}
 .dk:hover .di{transform:translateY(-2px)}
 .dk .dl{font-size:.58rem;font-weight:500;letter-spacing:.05em;text-transform:uppercase}
+@media(max-width:340px){.dk .dl{font-size:.54rem;letter-spacing:.02em}.dk{padding:.4rem .15rem}}
 .dock-log{width:46px;height:46px;border-radius:50%;background:#FF6B8A;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1.4rem;color:#fff;box-shadow:0 0 20px rgba(255, 107, 138, 0.45);transition:all .2s;user-select:none;flex-shrink:0}
 .dock-log:hover{transform:scale(1.1) rotate(8deg);background:#FF4D70;box-shadow:0 0 25px rgba(255, 107, 138, 0.6)}
 .dock-log:active{transform:scale(.95)}
@@ -302,13 +303,13 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--cream);hei
 .cal-wd{text-align:center;font-size:.7rem;color:var(--muted);padding:.25rem 0}
 .cal-day{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-width:0;border-radius:10px;border:1px solid transparent;background:transparent;color:var(--cream);font-size:.9rem;cursor:pointer;padding:2px 0}
 .cal-day.out{opacity:.4}
-.cal-day.period{background:color-mix(in srgb,var(--cta) 35%,transparent)}
+.cal-day.period{background:rgba(255,107,138,.35);background:color-mix(in srgb,var(--cta) 35%,transparent)}
 .cal-day.predicted{border:1px dashed var(--cta)}
 .cal-day.today{box-shadow:0 0 0 2px var(--cta)}
 .cal-day:disabled{opacity:.3;cursor:default}
 .cal-marks{display:flex;gap:2px;font-size:.55rem;line-height:1;min-height:.6rem}
 .cal-sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:middle;border:1px solid transparent}
-.cal-sw.period{background:color-mix(in srgb,var(--cta) 35%,transparent)}
+.cal-sw.period{background:rgba(255,107,138,.35);background:color-mix(in srgb,var(--cta) 35%,transparent)}
 .cal-sw.predicted{border:1px dashed var(--cta)}
 .cal-retry,.cal-today-btn{background:var(--s2);border:1px solid var(--border);color:var(--cream);border-radius:10px;padding:0 1rem;cursor:pointer}
 .cal-today-btn{width:100%}

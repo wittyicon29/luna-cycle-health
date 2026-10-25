@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import CalendarScreen from "./CalendarScreen";
+import CalendarScreen, { maxSelectableDay } from "./CalendarScreen";
 import { API } from "./api";
 
 jest.mock("./api", () => ({
@@ -55,24 +55,24 @@ test("marks logged, flow, period, expected and today days", async () => {
   setup({ periods: [{ start_date: "2026-10-23", end_date: null }] });
   await flush();
   expect(screen.getByRole("button", { name: /October 10.*logged.*flow light/ })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /^October 12, logged$/ })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /^October 12, 2026, logged$/ })).toBeInTheDocument();
   expect(screen.getAllByTestId("logged-dot")).toHaveLength(2);
   expect(screen.getAllByTestId("flow-mark")).toHaveLength(1);
-  expect(screen.getByRole("button", { name: /October 24, period day/ })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /October 25, today, period day/ })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /October 28, expected period/ })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /October 27, expected period/ })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /October 31$/ })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /October 24, 2026, period day/ })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /October 25, 2026, today, period day/ })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /October 28, 2026, expected period/ })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /October 27, 2026, expected period/ })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /October 31, 2026$/ })).toBeInTheDocument();
 });
 
 test("clicking a day opens it; days after tomorrow are disabled; Log today", async () => {
   const { onOpenDay } = setup();
   await flush();
-  fireEvent.click(screen.getByRole("button", { name: /October 20/ }));
+  fireEvent.click(screen.getByRole("button", { name: /October 20, 2026/ }));
   expect(onOpenDay).toHaveBeenCalledWith("2026-10-20");
-  fireEvent.click(screen.getByRole("button", { name: /October 26/ }));
+  fireEvent.click(screen.getByRole("button", { name: /October 26, 2026/ }));
   expect(onOpenDay).toHaveBeenCalledWith("2026-10-26");
-  const far = screen.getByRole("button", { name: /October 27/ });
+  const far = screen.getByRole("button", { name: /October 27, 2026/ });
   expect(far).toBeDisabled();
   fireEvent.click(far);
   expect(onOpenDay).not.toHaveBeenCalledWith("2026-10-27");
@@ -85,8 +85,8 @@ test("logs failure shows message and Retry, grid still shows periods and predict
   setup({ periods: [{ start_date: "2026-10-20", end_date: "2026-10-22" }] });
   await flush();
   expect(screen.getByText(/Couldn't load your logs/)).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /October 21, period day/ })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /October 28, expected period/ })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /October 21, 2026, period day/ })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /October 28, 2026, expected period/ })).toBeInTheDocument();
   API.logs.list.mockResolvedValue([{ date: "2026-10-10" }]);
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
   await flush();
@@ -122,7 +122,7 @@ test("stale response from a previous month never overwrites the current one", as
   expect(screen.getAllByTestId("logged-dot")).toHaveLength(1);
   await act(async () => { resolveFirst([{ date: "2026-11-11" }, { date: "2026-11-12" }]); await Promise.resolve(); });
   expect(screen.getAllByTestId("logged-dot")).toHaveLength(1);
-  expect(screen.getByRole("button", { name: /November 10, logged/ })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /November 10, 2026, logged/ })).toBeInTheDocument();
 });
 
 test("44px targets, legend, close, and no sensitive wording", async () => {
@@ -134,4 +134,23 @@ test("44px targets, legend, close, and no sensitive wording", async () => {
   expect(container.textContent).not.toMatch(/ovulat|fertil|pregnan/i);
   fireEvent.click(screen.getByLabelText("Close"));
   expect(onClose).toHaveBeenCalled();
+});
+
+test("maxSelectableDay is the earlier of local tomorrow and UTC tomorrow", () => {
+  // Local date ahead of UTC date: capped to UTC today + 1.
+  const ahead = { getFullYear: () => 2026, getMonth: () => 9, getDate: () => 26, toISOString: () => "2026-10-25T20:00:00.000Z" };
+  expect(maxSelectableDay(ahead)).toBe("2026-10-26");
+  // Local date behind UTC date: local tomorrow wins.
+  const behind = { getFullYear: () => 2026, getMonth: () => 9, getDate: () => 25, toISOString: () => "2026-10-26T03:00:00.000Z" };
+  expect(maxSelectableDay(behind)).toBe("2026-10-26");
+});
+
+test("today rolls over at local midnight and when the page becomes visible", async () => {
+  setup();
+  await flush();
+  expect(screen.getByRole("button", { name: /October 25, 2026, today/ })).toBeInTheDocument();
+  await act(async () => { jest.setSystemTime(new Date(2026, 9, 26, 0, 0, 5)); jest.advanceTimersByTime(13 * 3600 * 1000); });
+  expect(screen.getByRole("button", { name: /October 26, 2026, today/ })).toBeInTheDocument();
+  await act(async () => { jest.setSystemTime(new Date(2026, 9, 27, 9)); document.dispatchEvent(new Event("visibilitychange")); });
+  expect(screen.getByRole("button", { name: /October 27, 2026, today/ })).toBeInTheDocument();
 });

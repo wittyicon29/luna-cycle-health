@@ -3,9 +3,25 @@ import { API } from "./api";
 import { localDateString } from "./localDate";
 import { monthGrid, shiftMonth, periodDaySet, predictedRangeSet, addDays, MONTH_NAMES, WEEKDAY_LABELS } from "./calendarGrid";
 
+// Latest selectable day: mirrors the backend limit (UTC today + 1) and never exceeds local tomorrow.
+export function maxSelectableDay(now = new Date()) {
+  const localTomorrow = addDays(localDateString(now), 1);
+  const utcTomorrow = addDays(now.toISOString().slice(0, 10), 1);
+  return localTomorrow < utcTomorrow ? localTomorrow : utcTomorrow;
+}
+
 export default function CalendarScreen({ token, periods, logsVersion, onClose, onOpenDay }) {
-  const today = localDateString();
-  const tomorrow = addDays(today, 1);
+  const [today, setToday] = useState(() => localDateString());
+  const maxDay = maxSelectableDay();
+  useEffect(() => {
+    const refresh = () => setToday(localDateString());
+    const onVis = () => { if (document.visibilityState === "visible") refresh(); };
+    document.addEventListener("visibilitychange", onVis);
+    const now = new Date();
+    const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 1);
+    const t = setTimeout(refresh, Math.max(1000, next - now));
+    return () => { document.removeEventListener("visibilitychange", onVis); clearTimeout(t); };
+  }, [today]);
   const [view, setView] = useState(() => {
     const [y, m] = today.split("-").map(Number);
     return { year: y, month: m - 1 };
@@ -47,7 +63,7 @@ export default function CalendarScreen({ token, periods, logsVersion, onClose, o
   const go = useCallback(delta => setView(v => shiftMonth(v, delta)), []);
 
   const label = (cell) => {
-    const parts = [`${MONTH_NAMES[Number(cell.date.slice(5, 7)) - 1]} ${cell.day}`];
+    const parts = [`${MONTH_NAMES[Number(cell.date.slice(5, 7)) - 1]} ${cell.day}, ${cell.date.slice(0, 4)}`];
     if (cell.date === today) parts.push("today");
     if (periodDays.has(cell.date)) parts.push("period day");
     if (predicted.has(cell.date)) parts.push("expected period");
@@ -73,7 +89,7 @@ export default function CalendarScreen({ token, periods, logsVersion, onClose, o
           </div>
           {loadError && (
             <div role="alert" style={{ display: "flex", alignItems: "center", gap: ".5rem", flexWrap: "wrap", margin: ".5rem 0", fontSize: ".85rem", color: "var(--muted)" }}>
-              <span>Couldn't load your logs. Pull to retry.</span>
+              <span>Couldn't load your logs. Tap Retry.</span>
               <button type="button" className="cal-retry" style={{ minHeight: 44, minWidth: 44 }} onClick={() => setRetry(n => n + 1)}>Retry</button>
             </div>
           )}
@@ -90,7 +106,7 @@ export default function CalendarScreen({ token, periods, logsVersion, onClose, o
               if (predicted.has(cell.date)) cls.push("predicted");
               return (
                 <button key={cell.date} type="button" className={cls.join(" ")} style={{ minHeight: 44 }}
-                  aria-label={label(cell)} disabled={cell.date > tomorrow} onClick={() => onOpenDay(cell.date)}>
+                  aria-label={label(cell)} disabled={cell.date > maxDay} onClick={() => onOpenDay(cell.date)}>
                   <span>{cell.day}</span>
                   <span className="cal-marks" aria-hidden="true">
                     {log && <span className="cal-dot" data-testid="logged-dot">●</span>}
