@@ -41,17 +41,21 @@
 | reminder | रिमाइंडर |
 | calendar | कैलेंडर |
 | journey | यात्रा |
-| insights | इनसाइट्स (अंतर्दृष्टि) |
+| insights | इनसाइट्स |
 | profile | प्रोफ़ाइल |
-| sign in | साइन इन करें |
+| sign in (button) | साइन इन करें |
 | register | रजिस्टर करें |
-| log in | लॉग इन |
-| log out | लॉग आउट |
+| log in (button) | लॉग इन करें |
+| log out (button) | लॉग आउट करें |
 | delete account | खाता हटाएँ |
 | privacy | गोपनीयता |
 | consent | सहमति |
 | terms | शर्तें |
 | AI | एआई |
+
+Notes on the glossary:
+- Use "sign in" and "log in" exactly as the app's English copy does: whichever English wording a screen uses maps to its own Hindi row above, and the two are not mixed on one screen. "Register" is only for creating an account.
+- Reviewer note: "period" is written माहवारी in formal copy. The colloquial पीरियड / पीरियड्स is common; use it in short labels only if the reviewer prefers.
 
 ## Uncertain translations
 Put a comment directly above the `t()` call explaining why a translation is uncertain:

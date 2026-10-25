@@ -121,3 +121,72 @@ describe('findUntranslated', () => {
     expect(findUntranslated(render('<p>Iron</p>'), ['Iron'])).toEqual([]);
   });
 });
+
+describe('hardening', () => {
+  test('detectLanguage only treats hi / hi-* / hi_* as Hindi', () => {
+    localStorage.clear();
+    const spy = jest.spyOn(window.navigator, 'language', 'get');
+    [['hil-PH', 'en'], ['hi_IN', 'hi'], ['HI', 'hi'], ['hi-IN', 'hi'], ['', 'en']].forEach(([tag, want]) => {
+      spy.mockReturnValue(tag);
+      expect(detectLanguage()).toBe(want);
+    });
+    spy.mockRestore();
+  });
+
+  test('tn never prints NaN', () => {
+    [NaN, undefined, 'abc', null, Infinity].forEach(c => {
+      expect(tn(c, '{count} day', '{count} days')).toBe('0 days');
+    });
+    hi['{count} day'] = { one: '{count} दिन', other: '{count} दिनों' };
+    setLanguage('hi');
+    expect(tn(NaN, '{count} day', '{count} days')).toBe('0 दिन');
+    expect(tn(0.5, '{count} day', '{count} days')).toBe('0.5 दिन');
+    expect(tn(-1, '{count} day', '{count} days')).toBe('-1 दिनों');
+  });
+
+  test('tn works under the pseudo-locale', () => {
+    setLanguage('en-XA');
+    const out = tn(3, '{count} day', '{count} days');
+    expect(out).toContain('3');
+    expect(out).not.toContain('{');
+  });
+
+  test('replacement patterns and braces inside values stay literal', () => {
+    expect(t('Hi {name}', { name: '$& {x} $1' })).toBe('Hi $& {x} $1');
+    expect(t('{a} {b}', { a: '{b}', b: 'B' })).toBe('{b} B');
+  });
+
+  test('prototype keys are returned as themselves', () => {
+    setLanguage('hi');
+    ['constructor', '__proto__', 'toString', 'hasOwnProperty'].forEach(k => {
+      expect(t(k)).toBe(k);
+      expect(tn(2, k, 'many')).toBe('many');
+    });
+    expect(t('Hi {constructor}', {})).toBe('Hi {constructor}');
+  });
+});
+
+describe('findUntranslated (hardening)', () => {
+  const { findUntranslated } = require('./testUtils');
+  const render = html => { const d = document.createElement('div'); d.innerHTML = html; document.body.appendChild(d); return d; };
+  afterEach(() => { document.body.innerHTML = ''; });
+
+  test('inspects aria-label, placeholder, title, alt and button-like input values', () => {
+    const d = render('<button aria-label="Close dialog">x</button><input placeholder="Your name"><a title="More info">y</a><img alt="A chart"><input type="submit" value="Send now"><input type="text" value="typed words">');
+    expect(findUntranslated(d).sort()).toEqual(['A chart', 'Close dialog', 'More info', 'Send now', 'Your name']);
+  });
+  test('skips hidden subtrees unless includeHidden', () => {
+    const d = render('<div hidden>Secret words</div><div aria-hidden="true">Decor words</div><div style="display:none">Gone words</div>');
+    expect(findUntranslated(d)).toEqual([]);
+    expect(findUntranslated(d, [], { includeHidden: true })).toHaveLength(3);
+  });
+  test('allow-list matches whole phrases and words', () => {
+    const d = render('<p>Connect Google Calendar</p><p>Send an e-mail</p>');
+    expect(findUntranslated(d, ['Google Calendar', 'e-mail', 'Connect', 'Send'])).toEqual([]);
+    expect(findUntranslated(d, ['Calendar'])).toHaveLength(2);
+  });
+  test('ignores scheme-less domains and name@domain', () => {
+    const d = render('<p>luna.app</p><p>me@host</p><p>Visit luna.app/help</p>');
+    expect(findUntranslated(d)).toEqual(['Visit luna.app/help']); // only the word "Visit" is English
+  });
+});

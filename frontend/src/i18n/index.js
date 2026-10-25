@@ -7,7 +7,7 @@ export const LANGUAGE_KEY = 'luna_language';
 export const PSEUDO = 'en-XA';
 
 const CATALOGS = { hi };
-const IS_ONE = { en: n => n === 1, hi: n => n === 0 || n === 1 };
+const IS_ONE = { en: n => n === 1, hi: n => n >= 0 && n <= 1 };
 const listeners = new Set();
 
 const allowed = lang => SUPPORTED.includes(lang) || (lang === PSEUDO && process.env.NODE_ENV !== 'production');
@@ -18,7 +18,7 @@ export function detectLanguage() {
     if (SUPPORTED.includes(stored)) return stored;
   } catch (e) { /* storage unavailable */ }
   const nav = typeof navigator !== 'undefined' ? (navigator.language || (navigator.languages || [])[0]) : '';
-  return String(nav || '').toLowerCase().startsWith('hi') ? 'hi' : 'en';
+  return /^hi([-_]|$)/i.test(String(nav || '')) ? 'hi' : 'en';
 }
 
 let current = detectLanguage();
@@ -44,10 +44,11 @@ export const useLanguage = () => useSyncExternalStore(subscribe, getLanguage, ge
 
 function format(text, vars) {
   if (!vars) return text;
-  return text.replace(/\{(\w+)\}/g, (m, name) => (vars[name] === undefined || vars[name] === null ? m : String(vars[name])));
+  return text.replace(/\{(\w+)\}/g, (m, name) => (has(vars, name) && vars[name] !== undefined && vars[name] !== null ? String(vars[name]) : m));
 }
 
-const entryFor = text => (CATALOGS[current] ? CATALOGS[current][text] : undefined);
+const has = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
+const entryFor = text => (CATALOGS[current] && has(CATALOGS[current], text) ? CATALOGS[current][text] : undefined);
 
 export function t(text, vars) {
   const entry = entryFor(text);
@@ -56,7 +57,8 @@ export function t(text, vars) {
 }
 
 export function tn(count, one, other, vars) {
-  const n = Number(count);
+  const num = Number(count);
+  const n = Number.isFinite(num) ? num : 0;
   const entry = entryFor(one);
   let chosen;
   if (entry && typeof entry === 'object' && typeof entry.one === 'string' && typeof entry.other === 'string' && entry.one && entry.other) {

@@ -51,4 +51,40 @@ describe('the checker itself', () => {
     });
     expect(r).toEqual({ missing: [], unused: [], placeholderMismatches: [], emptyTranslations: [], invalidCalls: [] });
   });
+  const EMPTY = { missing: [], unused: [], placeholderMismatches: [], emptyTranslations: [], invalidCalls: [] };
+
+  test('ignores t() inside line and block comments, and inside string literals', () => {
+    const src = "// t('x')\n/* t('y') */\nconst a = \"t('z')\";\nconst b = 'a // not a comment'; t('Real');\nconst c = `t('w')`;";
+    const r = checkCatalog(project({ 'a.js': src }, { Real: 'असली' }));
+    expect(r).toEqual(EMPTY);
+  });
+  test('still finds calls inside template ${} expressions and after a URL in a string', () => {
+    const src = "const u = 'http://x.y/z'; const s = `a ${t('Inner')} b`;";
+    expect(checkCatalog(project({ 'a.js': src }, {})).missing).toEqual(['Inner']);
+  });
+  test('decodes JS escapes like the runtime', () => {
+    const src = String.raw`t('café'); t('a\u{1F600}b'); t('x\x41y'); t('t\tab'); t('line\
+cont'); t('un\qknown'); t('nul\0');`;
+    const keys = ['café', 'a\u{1F600}b', 'xAy', 't\tab', 'linecont', 'unqknown', 'nul\0'];
+    const catalog = {};
+    keys.forEach(k => { catalog[k] = 'अनुवाद'; });
+    expect(checkCatalog(project({ 'a.js': src }, catalog))).toEqual(EMPTY);
+  });
+  test('handles multiline calls and tn with a regex literal in the first argument', () => {
+    const src = "t(\n  'Multi'\n);\ntn(items.filter(x => /[,)(]\\//.test(x)).length, '{count} a', '{count} b');";
+    const r = checkCatalog(project({ 'a.js': src }, { Multi: 'बहु', '{count} a': { one: '{count} क', other: '{count} ख' } }));
+    expect(r).toEqual(EMPTY);
+  });
+  test('regex literal containing quotes does not swallow later calls', () => {
+    const r = checkCatalog(project({ 'a.js': "const re = /['\"`]/g; t('After');" }, {}));
+    expect(r.missing).toEqual(['After']);
+  });
+  test('flags aliased imports and bare references to t/tn', () => {
+    const alias = checkCatalog(project({ 'a.js': "import { t as tr } from './i18n';\ntr('x');" }, {}));
+    expect(alias.invalidCalls.length).toBe(1);
+    const bare = checkCatalog(project({ 'a.js': "import { t } from './i18n';\nconst out = list.map(t);" }, {}));
+    expect(bare.invalidCalls.length).toBe(1);
+    const fine = checkCatalog(project({ 'a.js': "import { t, tn } from './i18n';\nt('Ok');" }, { Ok: 'ठीक' }));
+    expect(fine).toEqual(EMPTY);
+  });
 });
