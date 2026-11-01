@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { API } from "./api";
+import { useOfflineData } from "./offline/useOffline";
 import { formatLongDate } from "./localDate";
 import { SYMPTOMS_LIST, symptomLabel, flowWord } from "./symptoms";
 import { t, useLanguage } from "./i18n";
@@ -91,8 +91,9 @@ function Stepper({ label, resetLabel, value, step, min, max, firstPlus, firstMin
   );
 }
 
-export default function DaySheet({ token, date, onClose, onSaved }) {
+export default function DaySheet({ token, date, syncVersion = 0, onClose, onSaved }) {
   useLanguage();
+  const data = useOfflineData();
   const tooEarly = date < MIN_LOG_DAY;
   const tooFar = date > maxSelectableDay();
   const unavailable = tooFar || tooEarly;
@@ -100,6 +101,7 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
   const [baseline, setBaseline] = useState(canon(EMPTY));
   const [loadedMedIds, setLoadedMedIds] = useState([]);
   const [hasData, setHasData] = useState(false);
+  const [pending, setPending] = useState(false);
   const [allMeds, setAllMeds] = useState([]);
   const [medsLoaded, setMedsLoaded] = useState(false);
   const [medsError, setMedsError] = useState(false);
@@ -158,7 +160,7 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
   const loadMeds = useCallback(async (initial) => {
     const my = ++medSeq.current;
     try {
-      const meds = await API.medications.list(token, true);
+      const meds = await data.listMedications(token, true);
       if (my !== medSeq.current || !mounted.current) return;
       setAllMeds(Array.isArray(meds) ? meds : []);
       medsLoadedRef.current = true; setMedsLoaded(true); setMedsError(false);
@@ -166,14 +168,14 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
       if (my !== medSeq.current || !mounted.current) return;
       if (initial && !medsLoadedRef.current) setMedsError(true);
     }
-  }, [token]);
+  }, [token, data]);
 
   useEffect(() => {
     if (unavailable) return undefined;
     let alive = true;
     setLoading(true); setLoadError(false); setMedsError(false);
     medsLoadedRef.current = false; setMedsLoaded(false);
-    API.logs.list(date, date, token).then(rows => {
+    data.listLogs(date, date, token).then(rows => {
       if (!alive) return;
       const row = Array.isArray(rows) ? rows.find(r => r && r.date === date) || rows[0] : null;
       const loaded = row ? fromRow(row) : EMPTY;
@@ -181,11 +183,24 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
       setBaseline(canon(loaded));
       setLoadedMedIds(loaded.meds);
       setHasData(!!row);
+      setPending(!!(row && row.pending));
       setLoading(false);
     }).catch(() => { if (alive) { setLoadError(true); setLoading(false); } });
     loadMeds(true);
     return () => { alive = false; };
-  }, [date, token, unavailable, retry, loadMeds]);
+  }, [date, token, unavailable, retry, loadMeds, data]);
+
+  // A background sync finished: refresh only the "waiting to sync" flag, never the fields being edited.
+  useEffect(() => {
+    if (!syncVersion || unavailable) return undefined;
+    let alive = true;
+    data.listLogs(date, date, token).then(rows => {
+      if (!alive) return;
+      const row = Array.isArray(rows) ? rows.find(r => r && r.date === date) || rows[0] : null;
+      setPending(!!(row && row.pending));
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [syncVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const active = allMeds.filter(m => !m.archived);
   const known = new Set(allMeds.map(m => m.id));
@@ -230,7 +245,8 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
     const forDate = date;
     savingRef.current = true; setSaving(true); setMessage(null); setConfirmDiscard(false);
     try {
-      await API.logs.put(forDate, buildPayload(effective), token);
+      // Offline the facade queues it and resolves with the day as it will be (shown at once, synced later).
+      await data.saveLog(forDate, buildPayload(effective), token);
       if (mounted.current) setMessage("saved");
       finish(forDate);
     } catch (e) {
@@ -243,7 +259,7 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
     const forDate = date;
     savingRef.current = true; setSaving(true); setMessage(null);
     try {
-      await API.logs.remove(forDate, token);
+      await data.removeLog(forDate, token);
       finish(forDate);
     } catch (e) {
       if (mounted.current) setMessage("clearFail");
@@ -370,6 +386,12 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
       <div className="drawer drawer-top" ref={drawerRef} onKeyDown={trapTab} style={{ height: "88vh" }} role="dialog" aria-label={t("Log for {date}", { date: formatLongDate(date) })}>
         <div className="drawer-head">
           <span className="drawer-title" ref={titleRef} tabIndex={-1} style={{ outline: "none" }}>{formatLongDate(date)}</span>
+          {pending && !loading && (
+            <span className="pend-mark" data-testid="pending-mark">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8" /><path d="M12 8v4l2.5 2" /></svg>
+              <span className="vh">{t("Waiting to sync")}</span>
+            </span>
+          )}
           <button type="button" className="drawer-close" aria-label={t("Close")} disabled={saving} onClick={requestClose}>×</button>
         </div>
         {confirmDiscard && (

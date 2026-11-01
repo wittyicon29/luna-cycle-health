@@ -178,3 +178,75 @@ test('summary puts the mood before "Next in"', async () => {
   await act(async () => { await Promise.resolve(); await Promise.resolve(); });
   expect(container.querySelector('.today-sum').textContent).toBe("Day 26 · Luteal · Today's sky: Good · Next in 4d");
 });
+
+describe('offline status', () => {
+  const { makeHarness } = require('../offline/testing/statusHarness');
+  const setup = () => { const h = makeHarness(); const r = render(<h.Provider><TodayCard {...base} /></h.Provider>); return { h, ...r }; };
+  const live = c => c.querySelector('.today-card > [aria-live="polite"]');
+  const sum = c => c.querySelector('.today-sum');
+
+  test('nothing extra when online with nothing pending', () => {
+    const { container } = setup();
+    expect(sum(container).textContent).toBe('Day 26 · Luteal · Next in 4d');
+    expect(live(container).textContent).toBe('');
+    expect(container.querySelector('.today-note')).toBeNull();
+    expect(container.querySelectorAll('.today-card > *')).toHaveLength(4); // summary, two hidden live regions, row
+  });
+
+  test('offline, pending singular/plural and both come first in the summary', () => {
+    const { h, container } = setup();
+    act(() => h.internal.setNetwork(false));
+    expect(sum(container).textContent).toMatch(/^Offline · Day 26/);
+    act(() => h.internal.setPending(1));
+    expect(sum(container).textContent).toMatch(/^Offline · 1 change waiting to sync · Day 26/);
+    act(() => h.internal.setNetwork(true));
+    act(() => h.internal.setPending(2));
+    expect(sum(container).textContent).toMatch(/^2 changes waiting to sync · Day 26/);
+  });
+
+  test('the live region carries only the status text and changes once per change', () => {
+    const { h, container } = setup();
+    const region = live(container);
+    expect(region).toHaveAttribute('role', 'status');
+    expect(region).toHaveClass('vh');
+    const mo = new MutationObserver(() => {});
+    mo.observe(region, { childList: true, characterData: true, subtree: true });
+    const changes = () => mo.takeRecords().length;
+    act(() => h.internal.setPending(2));
+    expect(region.textContent).toBe('2 changes waiting to sync');
+    expect(changes()).toBeGreaterThan(0);
+    act(() => h.internal.setNetwork(false));
+    expect(region.textContent).toBe('Offline · 2 changes waiting to sync');
+    expect(changes()).toBeGreaterThan(0);
+    act(() => h.internal.setPending(2)); // no change
+    act(() => h.internal.setNetwork(false)); // no change
+    expect(changes()).toBe(0);
+    mo.disconnect();
+  });
+
+  test('the visible status part is its own non-shrinking, aria-hidden span (the live region announces it)', () => {
+    const { h, container } = setup();
+    act(() => h.internal.setPending(1));
+    const sync = container.querySelector('.today-sync');
+    expect(sync).toHaveAttribute('aria-hidden', 'true');
+    expect(sync.textContent).toBe('1 change waiting to sync · ');
+    expect(container.querySelector('.today-sum-r')).not.toHaveAttribute('aria-hidden');
+  });
+
+  test('a notice adds one row and dismisses through acknowledge', async () => {
+    const { h, container } = setup();
+    act(() => h.internal.addDropped([{ kind: 'x' }]));
+    expect(container.querySelector('.today-note')).toHaveTextContent("1 change couldn't be saved.");
+    await userEvent.click(screen.getByRole('button', { name: 'Dismiss notice' }));
+    expect(container.querySelector('.today-note')).toBeNull();
+    expect(h.status.getState().dropped).toEqual([]);
+  });
+});
+
+test('new CSS avoids filters, blend modes and non-transform transitions', () => {
+  const css = require('fs').readFileSync(require('path').join(__dirname, '..', 'App.js'), 'utf8');
+  const rules = css.split('\n').filter(l => /^\.(today-note|today-sync|today-sum|pend-mark|cal-pend)/.test(l)).join('\n');
+  expect(rules).toContain('.today-note-x');
+  expect(rules).not.toMatch(/filter|backdrop|mix-blend|animation|transition/);
+  expect(rules).toMatch(/\.today-note-x\{[^}]*min-width:44px;min-height:44px/);
+});

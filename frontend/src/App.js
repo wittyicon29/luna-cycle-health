@@ -34,6 +34,9 @@ import { usePlayful } from "./playful/playfulPrefs";
 import { addDays } from "./calendarGrid";
 import { localDateString, formatLongDate } from "./localDate";
 import { getAccessToken, getEmail, setSession, clearSession } from "./tokenStore";
+import OfflineProvider from "./offline/OfflineProvider";
+import { useOffline, useOfflineData } from "./offline/useOffline";
+import { clearOfflineData } from "./offline/store";
 
 // ─── PHASE CONFIG ─────────────────────────────────────────────────────────────
 const PHASES = {
@@ -316,7 +319,14 @@ body{font-family:'Outfit','Noto Sans Devanagari',sans-serif;background:var(--bg)
 .st-lbl{font-size:.58rem;color:#7A5C90;text-transform:uppercase;letter-spacing:.1em;margin-top:2px;font-weight:500}
 .vh{position:absolute !important;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 .today-card{position:relative;flex-shrink:0;background:#120A22;border-top:1px solid var(--border);padding:4px 8px 2px;min-width:0}
-.today-sum{cursor:pointer;font-size:.68rem;color:var(--muted);height:16px;line-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.today-sum{cursor:pointer;display:flex;font-size:.68rem;color:var(--muted);height:16px;line-height:16px;white-space:nowrap;overflow:hidden}
+.today-sync{flex-shrink:0;white-space:pre}
+.today-sum-r{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.today-note{display:flex;align-items:center;gap:4px;min-width:0;font-size:.72rem;color:var(--cream)}
+.today-note-t{flex:1;min-width:0;line-height:1.25}
+.today-note-x{flex-shrink:0;min-width:44px;min-height:44px;background:transparent;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer}
+.pend-mark{display:inline-flex;align-items:center;margin-left:.4rem;color:var(--muted);vertical-align:middle}
+.cal-pend{color:var(--cta)}
 .today-row{display:flex;align-items:center;gap:4px;min-width:0}
 .today-sky{flex:1;min-width:0}
 .today-chev{position:relative;flex-shrink:0;width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;color:var(--muted);cursor:pointer;border-radius:8px}
@@ -1105,7 +1115,8 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
                       {d.loggedPeriod.flow_intensity && <div style={{ marginTop: ".45rem" }}><span className="badge b-r">{flowLabel(d.loggedPeriod.flow_intensity)}</span></div>}
                       {d.loggedPeriod.pain_level != null && <div style={{ fontSize: ".7rem", color: "var(--muted)", marginTop: ".35rem", fontFamily: "'Fira Code','Noto Sans Devanagari',monospace" }}>{t("Pain: {level}/10", { level: d.loggedPeriod.pain_level })}</div>}
                       {(d.loggedPeriod.symptoms || []).length > 0 && <div style={{ marginTop: ".5rem", display: "flex", flexWrap: "wrap", gap: ".22rem" }}>{d.loggedPeriod.symptoms.slice(0, 4).map(s => <span key={s} className="badge b-m">{symptomLabel(s)}</span>)}</div>}
-                      <PeriodDelete period={d.loggedPeriod} token={token} onDeleted={onPeriodDeleted} />
+                      {/* A pending (unsynced) period has a client id the server may not know yet: no delete until it syncs. */}
+                      {!d.loggedPeriod.pending && <PeriodDelete period={d.loggedPeriod} token={token} onDeleted={onPeriodDeleted} />}
                     </>
                   ) : <div className="mk-card-head" style={{ fontSize: ".77rem", color: "var(--muted)" }}>{t("Predicted period start")}</div>}
                 </div>
@@ -1122,6 +1133,7 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
 // ─── LOG PERIOD MODAL ─────────────────────────────────────────────────────────
 function LogModal({ token, onClose, onSave }) {
   useLanguage();
+  const offline = useOfflineData();
   const today = localDateString();
   const [startDate, setStartDate] = useState(today); const [endDate, setEndDate] = useState("");
   const [flow, setFlow] = useState("medium"); const [pain, setPain] = useState(3);
@@ -1136,7 +1148,7 @@ function LogModal({ token, onClose, onSave }) {
       setStatsLoading(true);
       setStatsErr("");
       try {
-        const data = await API.periods.list(token);
+        const data = await offline.listPeriods(token);
         if (!cancelled) {
           const st = computePeriodStats(Array.isArray(data) ? data : []);
           setStats(st);
@@ -1148,14 +1160,15 @@ function LogModal({ token, onClose, onSave }) {
       }
     })();
     return () => { cancelled = true; };
-  }, [token]);
+  }, [token, offline]);
   async function save() {
     if (!startDate) { setErr(t("Start date required")); return; }
     const todayNow = localDateString();
     if (endDate && endDate < startDate) { setErr(t("The end date can't be before the start date.")); return; }
     if (startDate > todayNow || (endDate && endDate > todayNow)) { setErr(t("Dates can't be in the future.")); return; }
     setSaving(true); setErr("");
-    try { await API.periods.create({ start_date: startDate, end_date: endDate || null, flow_intensity: flow, pain_level: pain, symptoms, notes }, token); onSave(); }
+    // Offline the period is queued (pending) and the map shows it right away; it syncs later.
+    try { await offline.createPeriod({ start_date: startDate, end_date: endDate || null, flow_intensity: flow, pain_level: pain, symptoms, notes }, token); onSave(); }
     catch (e) { setErr(e.message); } finally { setSaving(false); }
   }
   return (
@@ -1965,13 +1978,28 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
   );
 }
 
+const isNetworkError = e => !!e && e.name === "ApiError" && e.status === 0;
+
 // ─── MAIN JOURNEY APP ─────────────────────────────────────────────────────────
-function JourneyApp({ token, email, onLogout }) {
+// One offline facade per signed-in session; `onOfflineRegister` hands { pendingSummary, wipe } to the root for sign-out.
+function JourneyApp({ token, email, onLogout, onOfflineRegister }) {
+  return (
+    <OfflineProvider email={email} token={token} onRegister={onOfflineRegister}>
+      <JourneyScreens token={token} email={email} onLogout={onLogout} />
+    </OfflineProvider>
+  );
+}
+
+function JourneyScreens({ token, email, onLogout }) {
   useLanguage();
+  const data = useOfflineData();
   const [periods, setPeriods] = useState([]); const [loading, setLoading] = useState(true);
   const [overlay, setOverlay] = useState(null);
   const [dayDate, setDayDate] = useState(null);
   const [logsVersion, setLogsVersion] = useState(0);
+  // Moves when a background sync sent or dropped changes: screens reload what they show (pending marks, periods)
+  // without the celebration and reminder replans that logsVersion triggers.
+  const [syncVersion, setSyncVersion] = useState(0);
   const [mapLogs, setMapLogs] = useState({});
   const [logsReady, setLogsReady] = useState(false);
   const [justLogged, setJustLogged] = useState(false);
@@ -1991,10 +2019,19 @@ function JourneyApp({ token, email, onLogout }) {
   const periodsLoaded = useRef(false);
   const loadPeriods = useCallback(async () => {
     if (!periodsLoaded.current) setLoading(true); // only the first load blanks the screen; reloads keep the map mounted
-    try { const d = await API.periods.list(token); setPeriods(Array.isArray(d) ? d.sort((a, b) => new Date(b.start_date) - new Date(a.start_date)) : []); }
+    // Offline: the cached list plus queued periods (pending: true), which render like any other period.
+    try { const d = await data.listPeriods(token); setPeriods(Array.isArray(d) ? d.sort((a, b) => new Date(b.start_date) - new Date(a.start_date)) : []); }
     catch (e) { } finally { periodsLoaded.current = true; setLoading(false); }
-  }, [token]);
+  }, [token, data]);
   useEffect(() => { loadPeriods(); }, [loadPeriods]);
+  const { status: offlineStatus } = useOffline();
+  const seenRevision = useRef(offlineStatus.revision);
+  useEffect(() => {
+    if (seenRevision.current === offlineStatus.revision) return;
+    seenRevision.current = offlineStatus.revision;
+    loadPeriods();
+    setSyncVersion(v => v + 1);
+  }, [offlineStatus.revision, loadPeriods]);
   const [reminderPrefs, setReminderPrefs] = useState(loadPrefs);
   const [appearance, setAppearanceState] = useState("default");
   useEffect(() => {
@@ -2012,7 +2049,7 @@ function JourneyApp({ token, email, onLogout }) {
     const from = addDays(to, -90);
     (async () => {
       try {
-        const rows = await API.logs.list(from, to, token);
+        const rows = await data.listLogs(from, to, token);
         if (id !== logsReq.current) return;
         const map = {};
         (Array.isArray(rows) ? rows : []).forEach(r => { if (r && r.date) map[r.date] = r; });
@@ -2026,7 +2063,7 @@ function JourneyApp({ token, email, onLogout }) {
         setLogsReady(false);
       }
     })();
-  }, [token, logsVersion]);
+  }, [token, logsVersion, syncVersion, data]);
   useEffect(() => () => { logsReq.current++; }, []);
 
   // Luna celebrates for a few seconds after a log is saved.
@@ -2047,30 +2084,33 @@ function JourneyApp({ token, email, onLogout }) {
   const refreshProfileStatus = useCallback(async () => {
     if (!token) return;
     try {
-      const userStatus = await API.auth.status(token);
+      const userStatus = await data.getAuthStatus(token);
       setProfileIncomplete(!userStatus.has_completed_questionnaire);
     } catch (e) { /* keep the current banner state */ }
-  }, [token]);
+  }, [token, data]);
 
   useEffect(() => {
     const checkUserStatus = async () => {
+      let seen = null;
       try {
         // Check onboarding status (keep localStorage for this since it's one-time)
-        const seen = window.localStorage.getItem(email ? `luna_onboarding_done_${email}` : "luna_onboarding_done");
+        seen = window.localStorage.getItem(email ? `luna_onboarding_done_${email}` : "luna_onboarding_done");
         if (!seen) setShowIntro(true);
         
         // Check questionnaire status via API
         if (token) {
-          const userStatus = await API.auth.status(token);
+          const userStatus = await data.getAuthStatus(token); // offline: the cached answer when there is one
           setProfileIncomplete(!userStatus.has_completed_questionnaire);
         }
       } catch (error) {
-        setShowIntro(true);
+        // The intro follows the "seen" flag above. A failure opens it only when nothing is known: not offline
+        // (network error, nothing cached) and not for a returning user who has already seen it.
+        if (!seen && !isNetworkError(error)) setShowIntro(true);
       }
     };
     
     checkUserStatus();
-  }, [token, email]);
+  }, [token, email, data]);
 
   if (consentError) {
     return (
@@ -2180,8 +2220,8 @@ function JourneyApp({ token, email, onLogout }) {
 
       {/* OVERLAYS */}
       {overlay === "log" && <LogModal token={token} onClose={() => setOverlay(null)} onSave={() => { setOverlay(null); loadPeriods(); setLogsVersion(v => v + 1); }} />}
-      {overlay === "calendar" && <CalendarScreen token={token} periods={periods} logsVersion={logsVersion} onClose={() => setOverlay(null)} onOpenDay={setDayDate} />}
-      {dayDate && <DaySheet token={token} date={dayDate} onClose={() => setDayDate(null)} onSaved={() => setLogsVersion(v => v + 1)} />}
+      {overlay === "calendar" && <CalendarScreen token={token} periods={periods} logsVersion={logsVersion} syncVersion={syncVersion} onClose={() => setOverlay(null)} onOpenDay={setDayDate} />}
+      {dayDate && <DaySheet token={token} date={dayDate} syncVersion={syncVersion} onClose={() => setDayDate(null)} onSaved={() => setLogsVersion(v => v + 1)} />}
       {overlay === "chat" && <ChatDrawer token={token} onClose={() => setOverlay(null)} />}
       {overlay === "analysis" && <AnalysisDrawer token={token} onClose={() => setOverlay(null)} />}
       {overlay === "profile" && <ProfileDrawer token={token} email={email} onClose={() => { setOverlay(null); setForceQuestionnaire(false); refreshProfileStatus(); }} onLogout={onLogout} consents={consents} onSetConsent={setConsent} reminderPrefs={reminderPrefs} onReminderPrefsChange={next => setReminderPrefs(savePrefs(next))} appearance={appearance} onAppearanceChange={setAppearanceState} initialView={forceQuestionnaire ? "questionnaire" : "main"} />}
@@ -2196,6 +2236,27 @@ function JourneyApp({ token, email, onLogout }) {
   );
 }
 
+// ─── SIGN-OUT CONFIRM ───────────────────────────────────────────────────────────
+const UNKNOWN_UNSYNCED = -1; // the pending count couldn't be read: ask anyway, without a number
+
+function SignOutConfirm({ count, onStay, onConfirm }) {
+  useLanguage();
+  const tall = { minHeight: 44 };
+  const body = count === UNKNOWN_UNSYNCED
+    // i18n-note: shown when the app couldn't count the changes waiting to sync; please check it reads as a question
+    ? t("Some changes may not have synced. Sign out anyway?")
+    // i18n-note: "sync" is kept as सिंक (common loanword on Android); unsure whether a Hindi verb reads better
+    : tn(count, "{count} change hasn't synced yet and will be lost if you sign out.", "{count} changes haven't synced yet and will be lost if you sign out.");
+  return (
+    <Modal title={t("Sign out?")} onClose={onStay}
+      footer={<><button className="btn btn-g" style={tall} onClick={onStay}>{t("Stay signed in")}</button><button className="btn btn-p" style={tall} onClick={onConfirm}>{t("Sign out anyway")}</button></>}>
+      <p style={{ fontSize: ".85rem", lineHeight: 1.6, color: "var(--muted)" }}>
+        {body}
+      </p>
+    </Modal>
+  );
+}
+
 // ─── ROOT ─────────────────────────────────────────────────────────────────────
 export default function App() {
   injectStyles();
@@ -2204,6 +2265,14 @@ export default function App() {
   const [email, setEmail] = useState("");
   const [showAuth, setShowAuth] = useState(false);
   const [authMode, setAuthMode] = useState("login");
+  // The active session's offline facade ({ pendingSummary, wipe }), registered by JourneyApp's provider.
+  const offlineRef = useRef(null);
+  const registerOffline = useCallback(api => {
+    offlineRef.current = api;
+    return () => { if (offlineRef.current === api) offlineRef.current = null; };
+  }, []);
+  const [unsynced, setUnsynced] = useState(0); // 0: no confirm; >0: count; UNKNOWN_UNSYNCED: count unreadable
+  const signingOut = useRef(false);
 
   // Restore the stored session (localStorage on web, Keystore cache on native) on mount
   useEffect(() => {
@@ -2219,6 +2288,9 @@ export default function App() {
   // is deliberately left alone); bounce to login only if the session dies.
   useEffect(() => {
     const onExpired = () => {
+      // Keeps the offline cache and queue; only a confirm left open is dropped so it can't reappear after re-login.
+      setUnsynced(0);
+      signingOut.current = false;
       teardownReminders();
       setToken(null);
       setEmail("");
@@ -2259,10 +2331,41 @@ export default function App() {
     teardownReminders();
     setToken(null);
     setEmail("");
+    // Only the session and the offline data go; other luna_* preferences intentionally survive a manual sign-out.
     clearSession();
     
     // Redirect to login page after logout
     window.history.pushState({}, '', '/login');
+  };
+
+  // Manual sign-out wipes the offline cache and queue (session expiry does not), so it asks first when changes
+  // haven't synced yet.
+  const wipeAndLogout = async () => {
+    if (signingOut.current) return; // a second tap while the first is wiping
+    setUnsynced(0);
+    signingOut.current = true;
+    try {
+      const offline = offlineRef.current;
+      if (offline) await offline.wipe();
+    } catch (e) {
+      clearOfflineData(); // sign out regardless, and still drop the encrypted cache and vault key
+    } finally {
+      signingOut.current = false;
+      handleLogout();
+    }
+  };
+
+  const requestLogout = async () => {
+    if (signingOut.current) return;
+    signingOut.current = true;
+    let count = 0;
+    try {
+      const offline = offlineRef.current;
+      count = offline ? (await offline.pendingSummary()).count : 0;
+    } catch (e) { count = UNKNOWN_UNSYNCED; } // unknown: never sign out (and lose changes) without asking
+    signingOut.current = false;
+    if (count > 0 || count === UNKNOWN_UNSYNCED) { setUnsynced(count); return; }
+    await wipeAndLogout();
   };
 
   const handleShowAuth = (mode = "login") => {
@@ -2278,7 +2381,12 @@ export default function App() {
     return <LandingPage onShowAuth={handleShowAuth} />;
   }
 
-  return <JourneyApp token={token} email={email} onLogout={handleLogout} />;
+  return (
+    <>
+      <JourneyApp token={token} email={email} onLogout={requestLogout} onOfflineRegister={registerOffline} />
+      {unsynced !== 0 && <SignOutConfirm count={unsynced} onStay={() => setUnsynced(0)} onConfirm={wipeAndLogout} />}
+    </>
+  );
 }
 
 export { injectStyles, AuthScreen, JourneyApp, JourneyMap, ChatDrawer, LogModal, AnalysisDrawer };

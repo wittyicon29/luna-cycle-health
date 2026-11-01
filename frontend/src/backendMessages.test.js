@@ -13,6 +13,7 @@ const NOT_USER_FACING = {
   'Invalid token': 'access-token failure leads to the refresh / session-expiry flow, the text is never rendered',
   'Invalid user ID': 'malformed access token, treated as session expiry, the text is never rendered',
   'We need at least 2 completed cycles to make predictions. Continue tracking to build your pattern.': 'internal prediction-service result; the periods API drops it and returns an empty prediction',
+  'Period id is already in use': 'only the offline sync engine sends client period ids; it treats this as an id conflict and drops the queued item, the text is never rendered',
   'User not found': 'token for a deleted user, treated as session expiry, the text is never rendered',
 };
 

@@ -1,3 +1,10 @@
+// The check-in patch for a tap on `value` while `current` is the mood on screen: a repeat of it clears the mood,
+// another integer 1..5 sets it. Anything else is not a mood and gives null (nothing is sent).
+export function checkInPatch(current, value) {
+  if (!(Number.isInteger(value) && value >= 1 && value <= 5)) return null;
+  return value === current ? { set: {}, clear: ['mood'] } : { set: { mood: value }, clear: [] };
+}
+
 export function buildCheckInPayload(entry, value) {
   const out = {};
   const src = entry || {};

@@ -69,7 +69,8 @@ async function patchOnline(api, date, patch, token) {
   const entry = rows.find(r => r && r.date === date) || null;
   const payload = applyPatch(entry, patch);
   if (isEmpty(payload)) {
-    await api.logs.remove(date, token);
+    // An empty PUT deletes the day on the server (same request the check-in always sent).
+    await api.logs.put(date, {}, token);
     return deletedDay(date);
   }
   return api.logs.put(date, payload, token);
@@ -86,6 +87,8 @@ export function createPassthrough(api = API) {
     removeLog: (date, token) => api.logs.remove(date, token),
     getConsents: token => api.consents.get(token),
     getAuthStatus: token => api.auth.status(token),
+    // After a successful consents.set (online only): store the server's answer so offline reads never serve the old one.
+    refreshConsents: async () => {},
     pendingSummary: async () => ({ count: 0 }),
     wipe: async () => {},
   };
@@ -143,6 +146,9 @@ function createNativeOffline({ email, getToken, api, timeoutMs, syncFactory }) {
     refreshOutbox(store.currentGeneration()); // r.pending can be stale when a write landed as the run finished
     internal.addDropped(r.dropped);
     if (r.queueLost) internal.reportLoss();
+    if (r.forced) internal.allowStuck();
+    if (r.synced > 0 || (r.dropped && r.dropped.length)) internal.bumpRevision();
+    internal.setStuck(r.stoppedBy === 'error' && (r.pending || 0) > 0);
     if (r.storageError) internal.setError(store.lastStoreError() || new Error('offline storage failed'));
   }
 
@@ -325,6 +331,16 @@ function createNativeOffline({ email, getToken, api, timeoutMs, syncFactory }) {
 
     getConsents(token) { return cachedValue('consents', () => net.consents.get(token), () => web.getConsents(token)); },
     getAuthStatus(token) { return cachedValue('authStatus', () => net.auth.status(token), () => web.getAuthStatus(token)); },
+
+    // `value` is the consents map the server returned from consents.set: it replaces the cached copy. Anything else
+    // (e.g. undefined after a failed set) only drops the cached copy, so a stale one is never served offline.
+    async refreshConsents(value) {
+      if (retired()) return;
+      const gen = store.currentGeneration();
+      // Drop first, then store: a failed save leaves nothing cached (never the old answer).
+      await update(gen, 'consents', () => null);
+      if (value && typeof value === 'object' && !Array.isArray(value)) await cache(gen, 'consents', value);
+    },
 
     createPeriod(payload, token) {
       if (retired()) return web.createPeriod(payload, token);

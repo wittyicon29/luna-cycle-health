@@ -67,7 +67,7 @@ test('happy path: create + patch + replace sync in order, empty the queue and re
   await outbox.enqueue(E, { kind: 'log.replace', date: D2, payload: { note: 'n', flow: 'light', date: D2, updated_at: 'x' } });
   const result = await make({ onChange }).syncNow();
 
-  expect(result).toEqual({ synced: 3, dropped: [], stoppedBy: null, pending: 0, queueLost: false, storageError: false });
+  expect(result).toEqual({ synced: 3, dropped: [], stoppedBy: null, pending: 0, queueLost: false, storageError: false, forced: false });
   expect(server.names()).toEqual(['periods.create', 'logs.list', 'logs.put', 'logs.put', 'periods.list']);
   expect(server.calls[0].args[0]).toEqual({ start_date: '2026-01-01', id: 'c1' });
   expect(server.calls[2].args).toEqual([D, { mood: 4 }]);
@@ -82,7 +82,7 @@ test('happy path: create + patch + replace sync in order, empty the queue and re
 
 test('an empty queue makes no requests', async () => {
   const result = await make().syncNow();
-  expect(result).toEqual({ synced: 0, dropped: [], stoppedBy: null, pending: 0, queueLost: false, storageError: false });
+  expect(result).toEqual({ synced: 0, dropped: [], stoppedBy: null, pending: 0, queueLost: false, storageError: false, forced: false });
   expect(server.calls).toEqual([]);
 });
 
@@ -316,7 +316,7 @@ describe('error classes', () => {
     server.failNext('periods.create', apiErr(status));
     const sync = make();
     const result = await sync.syncNow();
-    expect(result).toEqual({ synced: 0, dropped: [], stoppedBy: 'error', pending: 2, queueLost: false, storageError: false });
+    expect(result).toEqual({ synced: 0, dropped: [], stoppedBy: 'error', pending: 2, queueLost: false, storageError: false, forced: false });
     const [head, next] = await items();
     expect(head).toMatchObject({ clientId: 'c1', attempts: 0, nextTryAt: 0 });
     expect(next).toMatchObject({ clientId: 'c2', attempts: 0, nextTryAt: 0 });

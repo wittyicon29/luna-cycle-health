@@ -190,6 +190,15 @@ describe('Hindi audit: no English left on the main screens', () => {
     expect(container.querySelector('.today-panel')).not.toBeNull();
   });
 
+  test('StatusNotice', async () => {
+    const { makeHarness } = require('./offline/testing/statusHarness');
+    const StatusNotice = require('./offline/StatusNotice').default;
+    const h = makeHarness();
+    const { container } = render(<h.Provider><StatusNotice /></h.Provider>);
+    act(() => { h.internal.addDropped([{ kind: 'x' }]); });
+    noEnglish(container);
+  });
+
   test('JourneyMap with fog and Luna', async () => {
     const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - 10);
     const p = n => String(n).padStart(2, '0');

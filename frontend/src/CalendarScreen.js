@@ -4,6 +4,7 @@ import { localDateString } from "./localDate";
 import { monthGrid, shiftMonth, periodDaySet, predictedRangeSet, addDays, monthName, weekdayLabels } from "./calendarGrid";
 import { t, useLanguage } from "./i18n";
 import { flowAria } from "./symptoms";
+import { useOfflineData } from "./offline/useOffline";
 
 // Latest selectable day: mirrors the backend limit (UTC today + 1) and never exceeds local tomorrow.
 export function maxSelectableDay(now = new Date()) {
@@ -15,8 +16,9 @@ export function maxSelectableDay(now = new Date()) {
 // Earliest day the backend accepts for a daily log.
 export const MIN_LOG_DAY = "2000-01-01";
 
-export default function CalendarScreen({ token, periods, logsVersion, onClose, onOpenDay }) {
+export default function CalendarScreen({ token, periods, logsVersion, syncVersion = 0, onClose, onOpenDay }) {
   useLanguage();
+  const data = useOfflineData();
   const [today, setToday] = useState(() => localDateString());
   const maxDay = maxSelectableDay();
   useEffect(() => {
@@ -51,7 +53,7 @@ export default function CalendarScreen({ token, periods, logsVersion, onClose, o
     reqId.current += 1;
     const id = reqId.current;
     setLoadError(false);
-    API.logs.list(from, to, token).then(rows => {
+    data.listLogs(from, to, token).then(rows => {
       if (id !== reqId.current) return;
       const map = {};
       (Array.isArray(rows) ? rows : []).forEach(r => { if (r && r.date) map[r.date] = r; });
@@ -62,12 +64,14 @@ export default function CalendarScreen({ token, periods, logsVersion, onClose, o
       setLoadError(true);
     });
     return () => { reqId.current += 1; };
-  }, [from, to, token, logsVersion, retry]);
+  }, [from, to, token, logsVersion, syncVersion, retry, data]);
 
   const periodDays = useMemo(() => periodDaySet(periods, today), [periods, today]);
+  const pendingPeriodDays = useMemo(() => periodDaySet((Array.isArray(periods) ? periods : []).filter(p => p && p.pending), today), [periods, today]);
   const predicted = useMemo(() => predictedRangeSet(prediction, today), [prediction, today]);
   const go = useCallback(delta => setView(v => shiftMonth(v, delta)), []);
 
+  const isPending = date => !!(logs[date] && logs[date].pending) || pendingPeriodDays.has(date);
   const label = (cell) => {
     // The date word order comes from the catalog; the state words are a list joined with commas.
     const parts = [t("{month} {day}, {year}", { month: monthName(Number(cell.date.slice(5, 7)) - 1), day: cell.day, year: cell.date.slice(0, 4) })];
@@ -78,7 +82,8 @@ export default function CalendarScreen({ token, periods, logsVersion, onClose, o
     const log = logs[cell.date];
     if (log) parts.push(t("logged"));
     if (log && log.flow) parts.push(flowAria(log.flow));
-    return parts.join(", ");
+    const text = parts.join(", ");
+    return isPending(cell.date) ? t("{date}, waiting to sync", { date: text }) : text;
   };
 
   return (
@@ -118,6 +123,7 @@ export default function CalendarScreen({ token, periods, logsVersion, onClose, o
                   <span>{cell.day}</span>
                   <span className="cal-marks" aria-hidden="true">
                     {log && <span className="cal-dot" data-testid="logged-dot">●</span>}
+                    {isPending(cell.date) && <span className="cal-pend" data-testid="pending-mark">◔</span>}
                     {log && log.flow && <span className="cal-flow" data-testid="flow-mark">▾</span>}
                   </span>
                 </button>

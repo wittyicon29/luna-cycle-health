@@ -211,3 +211,19 @@ test("every letter-spaced label in STYLES is reset under :lang(hi) (letter-spaci
   expect(spaced.length).toBeGreaterThan(15);
   expect(spaced.filter(sel => !reset.includes(`:lang(hi) ${sel}`))).toEqual([]);
 });
+
+test("a pending day or period day gets a marker and a waiting-to-sync label; settled days do not", async () => {
+  API.logs.list.mockResolvedValue([
+    { date: "2026-10-20", mood: 3, pending: true },
+    { date: "2026-10-21", mood: 3 },
+  ]);
+  const { container } = setup({ periods: [{ id: "c1", start_date: "2026-10-10", end_date: "2026-10-11", pending: true }, { id: 4, start_date: "2026-10-01", end_date: "2026-10-02" }] });
+  await flush();
+  const btn = d => container.querySelector(`button[aria-label^="October ${d}, 2026"]`);
+  expect(btn(20).getAttribute("aria-label")).toMatch(/, waiting to sync$/);
+  expect(btn(20).querySelector('[data-testid="pending-mark"]')).not.toBeNull();
+  expect(btn(10).getAttribute("aria-label")).toMatch(/waiting to sync$/);
+  expect(btn(21).getAttribute("aria-label")).not.toMatch(/waiting/);
+  expect(btn(21).querySelector('[data-testid="pending-mark"]')).toBeNull();
+  expect(btn(1).getAttribute("aria-label")).not.toMatch(/waiting/);
+});

@@ -102,7 +102,9 @@ describe('online happy path', () => {
     server.calls = [];
     server.logs = { [D2]: entry(D2, { mood: 2 }) };
     expect(await data.patchLog(D2, { clear: ['mood'] }, 'tok')).toEqual({ date: D2, deleted: true });
-    expect(server.names()).toEqual(['logs.list', 'logs.remove']);
+    // An empty PUT (the request SkyCheckIn always sent) deletes the day on the server.
+    expect(server.names()).toEqual(['logs.list', 'logs.put']);
+    expect(server.calls[1].args).toEqual([D2, {}]);
     expect(server.logs[D2]).toBeUndefined();
     expect((await snapshot.loadSnapshot(E)).logs[D2]).toBeUndefined();
   });
@@ -608,12 +610,87 @@ describe('review fixes', () => {
     expect(status.getState().pendingCount).toBe(1);
   });
 
+  test('a run stopped by an error with changes kept marks the status stuck; acknowledge hides it until a clean run', async () => {
+    let captured = null;
+    const fakeEngine = opts => {
+      captured = opts;
+      return { syncNow: async () => ({ synced: 0, dropped: [], stoppedBy: null, pending: 0, queueLost: false, storageError: false }), start() {}, stop() {}, reset() {} };
+    };
+    const { status } = make({ syncFactory: fakeEngine });
+    const stuckRun = { synced: 0, dropped: [], stoppedBy: 'error', pending: 2, queueLost: false, storageError: false };
+    captured.onChange(stuckRun);
+    expect(status.getState().stuck).toBe(true);
+    status.acknowledge();
+    captured.onChange(stuckRun);
+    expect(status.getState().stuck).toBe(false);
+    captured.onChange({ ...stuckRun, stoppedBy: null, pending: 0 });
+    captured.onChange(stuckRun);
+    expect(status.getState().stuck).toBe(true);
+  });
+
+  test('acknowledged paused notice returns after the next forced run stops on an error, not after a timer run', async () => {
+    let captured = null;
+    const fakeEngine = opts => {
+      captured = opts;
+      return { syncNow: async () => ({ synced: 0, dropped: [], stoppedBy: null, pending: 0, queueLost: false, storageError: false }), start() {}, stop() {}, reset() {} };
+    };
+    const { status } = make({ syncFactory: fakeEngine });
+    const run = extra => ({ synced: 0, dropped: [], stoppedBy: 'error', pending: 1, queueLost: false, storageError: false, forced: false, ...extra });
+    captured.onChange(run());
+    status.acknowledge('stuck');
+    captured.onChange(run()); // timer tick
+    expect(status.getState().stuck).toBe(false);
+    captured.onChange(run({ forced: true }));
+    expect(status.getState().stuck).toBe(true);
+  });
+
+  test('revision moves when a run synced or dropped something, not on an idle run', async () => {
+    let captured = null;
+    const fakeEngine = opts => {
+      captured = opts;
+      return { syncNow: async () => ({ synced: 0, dropped: [], stoppedBy: null, pending: 0, queueLost: false, storageError: false }), start() {}, stop() {}, reset() {} };
+    };
+    const { status } = make({ syncFactory: fakeEngine });
+    const run = extra => ({ synced: 0, dropped: [], stoppedBy: null, pending: 0, queueLost: false, storageError: false, ...extra });
+    captured.onChange(run());
+    expect(status.getState().revision).toBe(0);
+    captured.onChange(run({ synced: 1 }));
+    expect(status.getState().revision).toBe(1);
+    captured.onChange(run({ dropped: [{ kind: 'x' }] }));
+    expect(status.getState().revision).toBe(2);
+  });
+
   test('patchLog: a non-array list response is a bad response, nothing is written', async () => {
     server.api.logs.list = async () => ({});
     const { data } = make();
     await expect(data.patchLog(D1, { set: { mood: 2 } }, 'tok')).rejects.toThrow();
     expect(server.names()).not.toContain('logs.put');
     expect(await items()).toEqual([]);
+  });
+
+  test('refreshConsents: the server answer replaces the cached copy, anything else drops it; no request is sent', async () => {
+    server.consents = { ai_processing: true, terms_privacy: true };
+    const { data } = make();
+    await data.getConsents('tok');
+    server.calls = [];
+    await data.refreshConsents({ ai_processing: false, terms_privacy: true });
+    expect((await snapshot.loadSnapshot(E)).consents).toEqual({ ai_processing: false, terms_privacy: true });
+    server.setOffline(true);
+    expect(await data.getConsents('tok')).toEqual({ ai_processing: false, terms_privacy: true });
+
+    await data.refreshConsents(undefined);
+    expect((await snapshot.loadSnapshot(E)).consents).toBeNull();
+    await expect(data.getConsents('tok')).rejects.toMatchObject({ status: 0 });
+    expect(server.names()).toEqual(['consents.get', 'consents.get']); // only the two offline reads
+  });
+
+  test('refreshConsents drops the cached copy first: a failed save leaves nothing cached', async () => {
+    server.consents = { ai_processing: true };
+    const { data } = make();
+    await data.getConsents('tok');
+    jest.spyOn(snapshot, 'saveSlice').mockRejectedValue(new Error('disk full'));
+    await data.refreshConsents({ ai_processing: false });
+    expect((await snapshot.loadSnapshot(E)).consents).toBeNull();
   });
 
   test('a later persisted write clears lastError', async () => {

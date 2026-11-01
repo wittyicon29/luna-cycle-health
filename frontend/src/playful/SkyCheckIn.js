@@ -1,19 +1,20 @@
 import React, { useEffect, useRef, useState } from "react";
-import { API } from "../api";
 import { t } from "../i18n";
 import { localDateString } from "../localDate";
 import { MOODS, WEATHER, moodLabel } from "./weather";
-import { buildCheckInPayload } from "./checkin";
+import { checkInPatch } from "./checkin";
+import { useOfflineData } from "../offline/useOffline";
 import { tick } from "./haptics";
 import { usePlayful } from "./playfulPrefs";
 import WeatherIcon from "./WeatherIcon";
 
 const NONE = Symbol("none");
 
-// One-tap weather check-in. It merges the mood into today's existing log (never overwriting other fields)
-// and serialises writes: one request at a time, later taps collapse into a single queued choice.
+// One-tap weather check-in. It merges the mood into today's existing log (never overwriting other fields) through
+// the offline facade's patchLog, and serialises writes: one request at a time, later taps collapse into a single queued choice.
 export default function SkyCheckIn({ token, logs, logsReady, onSaved, onAddDetails, compact = false, onShownChange }) {
   const { animated } = usePlayful();
+  const data = useOfflineData();
   const today = localDateString();
   const [shown, setShown] = useState(() => (logsReady && logs && logs[today] ? logs[today].mood ?? null : null));
   const [error, setError] = useState(false);
@@ -26,7 +27,7 @@ export default function SkyCheckIn({ token, logs, logsReady, onSaved, onAddDetai
   const mounted = useRef(true);
   const shownRef = useRef(shown);
   const latest = useRef({});
-  latest.current = { token, logs, logsReady, onSaved, animated };
+  latest.current = { token, logs, logsReady, onSaved, animated, data };
   useEffect(() => { if (onShownChange) onShownChange(shown); }, [shown]); // eslint-disable-line react-hooks/exhaustive-deps
   const setMood = v => { shownRef.current = v; if (mounted.current) setShown(v); };
 
@@ -36,27 +37,26 @@ export default function SkyCheckIn({ token, logs, logsReady, onSaved, onAddDetai
   useEffect(() => { if (logsReady && !inFlight.current) setMood(fromLogs); }, [logsReady, fromLogs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function run(value) {
-    inFlight.current = true;
-    flying.current = value;
-    const day = localDateString();
     const before = shownRef.current;
-    let saved = null;
+    // Set or clear is decided from the mood on screen; only an integer 1..5 is ever sent.
+    const patch = checkInPatch(before, value);
+    if (!patch) return;
+    const target = patch.set.mood ?? null;
+    inFlight.current = true;
+    flying.current = value; // the button being sent: a repeat tap of it is dropped (set or clear)
+    const day = localDateString();
+    let saved = false;
+    setError(false);
+    setMood(target);
+    if (latest.current.animated) {
+      setPulse(value);
+      clearTimeout(pulseTimer.current);
+      pulseTimer.current = setTimeout(() => { if (mounted.current) setPulse(null); }, 700); // fallback if animationend never fires
+    }
     try {
-      setError(false);
-      const cur = latest.current;
-      // PUT replaces the whole day, so always merge from the server's current copy, never a cached one.
-      const rows = await API.logs.list(day, day, cur.token);
-      const entry = (Array.isArray(rows) ? rows.find(r => r && r.date === day) : null) || null;
-      const payload = buildCheckInPayload(entry, value);
-      flying.current = payload.mood ?? null;
-      setMood(flying.current);
-      if (latest.current.animated) {
-        setPulse(value);
-        clearTimeout(pulseTimer.current);
-        pulseTimer.current = setTimeout(() => { if (mounted.current) setPulse(null); }, 700); // fallback if animationend never fires
-      }
-      await API.logs.put(day, payload, latest.current.token);
-      saved = payload;
+      // Online: merged into the server's current copy of the day (fresh read, then PUT). Offline: queued as a patch.
+      await latest.current.data.patchLog(day, patch, latest.current.token);
+      saved = true;
     } catch (e) {
       setMood(before);
       if (mounted.current) setError(true);
@@ -69,7 +69,7 @@ export default function SkyCheckIn({ token, logs, logsReady, onSaved, onAddDetai
       if (latest.current.onSaved) latest.current.onSaved();
     }
     // after a failure the queued choice is dropped; a queued choice means "set", so one equal to what was just saved is skipped
-    if (next !== NONE && saved && mounted.current && next !== (saved.mood ?? null)) run(next);
+    if (next !== NONE && saved && mounted.current && next !== target) run(next);
   }
 
   function select(value) {
