@@ -258,3 +258,19 @@ class DailyLogResponse(BaseModel):
     medications_taken: List[UUID] = []
     note: Optional[str] = None
     updated_at: Optional[datetime] = None
+
+
+class VerifyRequest(BaseModel):
+    purchase_token: Annotated[str, StringConstraints(min_length=1, max_length=4096)]
+    product_id: Annotated[str, StringConstraints(min_length=1, max_length=200)]
+
+
+class BillingStatus(BaseModel):
+    enabled: bool
+    active: bool
+    plan: Literal["free", "ai"]
+    state: Optional[str] = None
+    product_id: Optional[str] = None
+    expires_at: Optional[datetime] = None
+    auto_renewing: Optional[bool] = None
+    account_token: str
