@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Dict, Optional
 
 import redis as redis_sync
 from fastapi import FastAPI, Request
@@ -77,12 +77,22 @@ def health_check():
     return {"status": "healthy"}
 
 
+# One client (and connection pool) per process for the readiness check, keyed by URL.
+_redis_clients: Dict[str, redis_sync.Redis] = {}
+
+
+def _redis_client() -> redis_sync.Redis:
+    url = settings.REDIS_URL
+    client = _redis_clients.get(url)
+    if client is None:
+        client = redis_sync.Redis.from_url(url, socket_connect_timeout=2, socket_timeout=2)
+        _redis_clients.clear()
+        _redis_clients[url] = client
+    return client
+
+
 def _redis_ping() -> None:
-    client = redis_sync.Redis.from_url(settings.REDIS_URL, socket_connect_timeout=2, socket_timeout=2)
-    try:
-        client.ping()
-    finally:
-        client.close()
+    _redis_client().ping()
 
 
 def _readiness_failure() -> Optional[str]:

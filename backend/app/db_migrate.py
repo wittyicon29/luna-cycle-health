@@ -71,8 +71,18 @@ def _migration_lock(engine: Engine):
         try:
             yield
         finally:
-            conn.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": ADVISORY_LOCK_KEY})
-            conn.commit()
+            # A failed unlock must not mask the migration's own error. Invalidating the
+            # connection closes it instead of returning it to the pool, which releases the
+            # session-level lock on the server.
+            try:
+                conn.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": ADVISORY_LOCK_KEY})
+                conn.commit()
+            except Exception as exc:
+                logger.warning("Could not release the migration lock (%s); closing the connection", type(exc).__name__)
+                try:
+                    conn.invalidate()
+                except Exception:
+                    pass
 
 
 def migrate(engine: Optional[Engine] = None, *, stamp_existing: bool = False) -> str:

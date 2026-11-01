@@ -181,6 +181,111 @@ def test_cli_runs_from_another_working_directory(tmp_path):
     assert "bootstrapped" in result.stdout
 
 
+FAILING_MIGRATE = """
+import sys
+from sqlalchemy.exc import OperationalError
+import app.db_migrate as d
+from scripts import migrate as cli
+
+def boom(**kwargs):
+    raise OperationalError("SELECT 1", {}, Exception('could not connect to host=db password=secret'))
+
+d.migrate = boom
+sys.exit(cli.main(sys.argv[1:]))
+"""
+
+
+def run_failing_cli(tmp_path, *args, **extra_env):
+    env = {k: v for k, v in os.environ.items() if k != "MIGRATE_DEBUG"}
+    env.update(APP_ENV="testing", SECRET_KEY="test-secret-key",
+               DATABASE_URL=f"sqlite:///{tmp_path / 'fail.db'}", **extra_env)
+    return subprocess.run(
+        [sys.executable, "-c", FAILING_MIGRATE, *args],
+        cwd=BACKEND_DIR, env=env, capture_output=True, text=True, timeout=120,
+    )
+
+
+def test_cli_unexpected_error_prints_only_the_class_name(tmp_path):
+    result = run_failing_cli(tmp_path)
+    assert result.returncode == 1
+    assert "migrate: failed (OperationalError); set MIGRATE_DEBUG=1 for details" in result.stderr
+    output = result.stderr + result.stdout
+    assert "secret" not in output and "db" not in output
+    assert "Traceback" not in output
+
+
+@pytest.mark.parametrize("args,extra_env", [((), {"MIGRATE_DEBUG": "1"}), (("--debug",), {})])
+def test_cli_debug_logs_the_traceback(tmp_path, args, extra_env):
+    result = run_failing_cli(tmp_path, *args, **extra_env)
+    assert result.returncode == 1
+    assert "Traceback" in result.stderr and "OperationalError" in result.stderr
+
+
+def test_cli_imports_the_app_inside_main():
+    source = (BACKEND_DIR / "scripts" / "migrate.py").read_text()
+    module_level = [line for line in source.splitlines() if line.startswith(("import ", "from "))]
+    assert not any("app." in line or "app " in line for line in module_level)
+
+
+# --- advisory lock release ---------------------------------------------------
+
+class _FakeConn:
+    def __init__(self, fail_unlock):
+        self.fail_unlock = fail_unlock
+        self.invalidated = False
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def execute(self, statement, params=None):
+        if "unlock" in str(statement) and self.fail_unlock:
+            raise RuntimeError("connection lost")
+
+    def commit(self):
+        pass
+
+    def invalidate(self):
+        self.invalidated = True
+
+
+class _FakePgEngine:
+    class dialect:
+        name = "postgresql"
+
+    def __init__(self, fail_unlock=True):
+        self.conn = _FakeConn(fail_unlock)
+
+    def connect(self):
+        return self.conn
+
+
+def test_failed_unlock_does_not_mask_the_original_error(caplog):
+    engine = _FakePgEngine()
+    with pytest.raises(ValueError, match="original"):
+        with db_migrate._migration_lock(engine):
+            raise ValueError("original")
+    assert "migration lock" in caplog.text.lower()
+    assert engine.conn.invalidated
+
+
+def test_failed_unlock_after_success_only_warns(caplog):
+    engine = _FakePgEngine()
+    with db_migrate._migration_lock(engine):
+        pass
+    assert any(r.levelname == "WARNING" for r in caplog.records)
+    assert engine.conn.invalidated
+
+
+def test_unlock_success_keeps_connection():
+    engine = _FakePgEngine(fail_unlock=False)
+    with db_migrate._migration_lock(engine):
+        pass
+    assert not engine.conn.invalidated
+
+
 # --- PostgreSQL (only when TEST_POSTGRES_URL is set) -------------------------
 
 requires_postgres = pytest.mark.skipif(

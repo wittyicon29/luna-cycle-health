@@ -107,7 +107,17 @@ def test_engine_options_pass_pool_settings_to_postgres():
     s = Settings(_env_file=None, APP_ENV="testing", DB_POOL_SIZE=3, DB_MAX_OVERFLOW=4,
                  DB_POOL_RECYCLE_SECONDS=60)
     options = engine_options("postgresql://user:pw@db.example.com/luna", s)
-    assert options == {"pool_pre_ping": True, "pool_size": 3, "max_overflow": 4, "pool_recycle": 60}
+    assert options == {"pool_pre_ping": True, "pool_size": 3, "max_overflow": 4, "pool_recycle": 60,
+                       "connect_args": {"connect_timeout": 5}}
+
+
+@pytest.mark.parametrize("env,hidden", [("development", False), ("testing", False), ("production", True), ("staging", True)])
+def test_engine_options_hide_sql_parameters_outside_development(env, hidden):
+    from app.core.database import engine_options
+
+    s = Settings.model_construct(APP_ENV=env, DB_POOL_SIZE=1, DB_MAX_OVERFLOW=1, DB_POOL_RECYCLE_SECONDS=1)
+    for url in ("postgresql://user:pw@db.example.com/luna", "sqlite://"):
+        assert engine_options(url, s).get("hide_parameters", False) is hidden
 
 
 @pytest.mark.parametrize("url", ["sqlite:///./test.db", "sqlite://"])

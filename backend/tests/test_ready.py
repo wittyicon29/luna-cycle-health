@@ -37,6 +37,29 @@ class FakeRedis:
         pass
 
 
+@pytest.fixture(autouse=True)
+def _fresh_redis_client():
+    main._redis_clients.clear()
+    yield
+    main._redis_clients.clear()
+
+
+def test_redis_client_is_reused_with_short_timeouts(client, monkeypatch):
+    calls = []
+
+    def from_url(cls, url, **kwargs):
+        calls.append(kwargs)
+        return FakeRedis()
+
+    monkeypatch.setattr(settings, "APP_ENV", "development")
+    monkeypatch.setattr(main.redis_sync.Redis, "from_url", classmethod(from_url))
+
+    assert client.get("/ready").status_code == 200
+    assert client.get("/ready").status_code == 200
+    assert len(calls) == 1
+    assert calls[0]["socket_connect_timeout"] == 2 and calls[0]["socket_timeout"] == 2
+
+
 def test_ready_on_healthy_test_database(client):
     response = client.get("/ready")
 
