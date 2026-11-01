@@ -21,6 +21,7 @@ jest.mock('./api', () => ({
     account: { export: jest.fn(), delete: jest.fn() },
     logs: { list: jest.fn(), put: jest.fn(), remove: jest.fn() },
     medications: { list: jest.fn(), create: jest.fn(), update: jest.fn(), remove: jest.fn() },
+    billing: { status: jest.fn(), verify: jest.fn(), refresh: jest.fn() },
   },
 }));
 jest.mock('./platform', () => ({ isNative: jest.fn(() => false) }));
@@ -110,6 +111,7 @@ beforeEach(() => {
   API.analysis.latest.mockResolvedValue(ANALYSIS);
   API.logs.list.mockResolvedValue([]);
   API.medications.list.mockResolvedValue([]);
+  API.billing.status.mockResolvedValue({ enabled: false, active: false, plan: 'free', account_token: 'acct', product_ids: [] });
   CapApp.addListener.mockImplementation(async () => ({ remove: jest.fn() }));
   mockLN.checkPermissions.mockResolvedValue({ display: 'granted' });
   mockLN.requestPermissions.mockResolvedValue({ display: 'granted' });
@@ -171,6 +173,22 @@ describe('Hindi audit: no English left on the main screens', () => {
     userEvent.click(screen.getByRole('button', { name: 'प्रोफ़ाइल खोलें' }));
     await screen.findByText('Luna Health सदस्य');
     noEnglish(document.querySelector('.drawer'));
+  });
+
+  test('ProfileDrawer plan row and the Luna AI plan paywall (billing on, web)', async () => {
+    API.billing.status.mockResolvedValue({
+      enabled: true, active: false, plan: 'free', state: null, product_id: null, expires_at: null, auto_renewing: null,
+      account_token: 'acct', product_ids: ['luna_ai_monthly', 'luna_ai_yearly'],
+    });
+    render(<JourneyApp token="tok" email="u@gmail.com" onLogout={jest.fn()} />);
+    await waitFor(() => expect(document.querySelector('.today-card')).toBeTruthy());
+    userEvent.click(screen.getByRole('button', { name: 'प्रोफ़ाइल खोलें' }));
+    await screen.findByText('Luna एआई प्लान');
+    noEnglish(document.querySelector('.drawer'));
+    userEvent.click(screen.getByRole('button', { name: 'अपग्रेड करें' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Luna एआई प्लान' });
+    await screen.findByText(/Android ऐप में खरीदा जाता है/);
+    noEnglish(dialog);
   });
 
   test('SkyCheckIn', async () => {

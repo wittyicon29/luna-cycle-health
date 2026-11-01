@@ -9,6 +9,11 @@ import { newGoogleState, buildGoogleRedirect } from "./googleState";
 import useConsents from "./useConsents";
 import RequiredConsentScreen from "./RequiredConsentScreen";
 import AiConsentModal from "./AiConsentModal";
+import Modal from "./Modal";
+import BillingProvider from "./billing/BillingProvider";
+import useBilling from "./billing/useBilling";
+import Paywall from "./billing/Paywall";
+import PlanRow from "./billing/PlanRow";
 import PrivacyPanel from "./PrivacyPanel";
 import RemindersPanel from "./RemindersPanel";
 import AppearancePanel from "./AppearancePanel";
@@ -457,6 +462,26 @@ body{font-family:'Outfit','Noto Sans Devanagari',sans-serif;background:var(--bg)
 .modal{background:var(--s1);border:1px solid var(--border);width:100%;max-width:450px;max-height:88vh;overflow-y:auto;padding:2rem;border-radius:12px;box-shadow:0 24px 80px rgba(0,0,0,.6);animation:cardIn .3s cubic-bezier(.4,0,.2,1)}
 .modal-title{font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;font-size:1.35rem;color:#E8A09A;margin-bottom:1.4rem}
 .modal-foot{display:flex;gap:.65rem;justify-content:flex-end;margin-top:1.4rem;position:sticky;bottom:-2rem;margin-left:-2rem;margin-right:-2rem;margin-bottom:-2rem;padding:1rem 2rem;background:var(--s1);border-top:1px solid var(--border)}
+.modal[role=dialog]:focus{outline:none}
+.pay{display:flex;flex-direction:column;gap:.8rem;min-width:0;overflow-wrap:anywhere}
+.pay-lead{font-size:.85rem;line-height:1.6;margin:0}
+.pay-stack{display:flex;flex-direction:column;gap:.65rem;min-width:0}
+.pay-plans{display:flex;flex-direction:column;gap:.5rem;min-width:0}
+.pay-plan{display:flex;flex-direction:column;align-items:flex-start;gap:.2rem;min-height:44px;padding:.65rem .9rem;text-align:left;background:transparent;border:1px solid var(--border);border-radius:var(--r);color:var(--cream);font-family:inherit;font-size:.85rem;cursor:pointer;min-width:0;max-width:100%;overflow-wrap:anywhere}
+.pay-plan.on{border-color:#FF6B8A;background:var(--s2)}
+.pay-plan:disabled{opacity:.6;cursor:not-allowed}
+.pay-price{font-weight:600}
+.pay-trial{font-size:.75rem;color:#E8A09A}
+.pay-note{font-size:.78rem;line-height:1.55;color:var(--muted);margin:0}
+.pay-notice{display:flex;flex-direction:column;gap:.35rem}
+.pay-btn{min-height:44px;white-space:normal;text-align:center;max-width:100%}
+.pay-actions{display:flex;flex-wrap:wrap;gap:.5rem}
+.pay-legal{display:flex;flex-wrap:wrap;gap:.4rem 1rem;font-size:.75rem}
+.pay-legal a{display:inline-flex;align-items:center;min-height:44px}
+.plan-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.6rem;min-width:0}
+.plan-row-text{display:flex;flex-direction:column;gap:.2rem;min-width:0;flex:1 1 10rem;overflow-wrap:anywhere}
+.plan-row-status{font-size:.8rem;color:var(--cream)}
+.plan-row-actions{display:flex;flex-wrap:wrap;gap:.5rem}
 
 /* CHIPS */
 .chips{display:flex;flex-wrap:wrap;gap:.4rem}
@@ -518,22 +543,6 @@ function injectStyles() {
 function Spinner() { return <span className="spinner" />; }
 function LoadingC({ text }) { return <div className="loading-c"><Spinner /><span>{text}</span></div>; }
 function Err({ msg }) { if (!msg) return null; return <div className="err">⚠ {msg}</div>; }
-
-function Modal({ title, onClose, children, footer }) {
-  useLanguage();
-  return (
-    <div className="modal-ov" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.4rem" }}>
-          <div className="modal-title">{title}</div>
-          <button className="modal-close" aria-label={t("Close")} onClick={onClose}>×</button>
-        </div>
-        {children}
-        {footer && <div className="modal-foot">{footer}</div>}
-      </div>
-    </div>
-  );
-}
 
 // ─── ONBOARDING OVERLAY ─────────────────────────────────────────────────────────
 function Onboarding({ onClose, email }) {
@@ -1838,7 +1847,7 @@ function AnalysisDrawer({ token, onClose }) {
 }
 
 // ─── PROFILE DRAWER ───────────────────────────────────────────────────────────
-function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent, reminderPrefs, onReminderPrefsChange, appearance, onAppearanceChange, initialView = "main" }) {
+function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent, reminderPrefs, onReminderPrefsChange, appearance, onAppearanceChange, initialView = "main", onOpenPlan }) {
   useLanguage();
   const [view, setView] = useState(initialView);
   const [saving, setSaving] = useState(false); const [err, setErr] = useState(null); const [done, setDone] = useState(false);
@@ -1912,6 +1921,7 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
               {isNative() && <div className="divider" />}
               <RemindersPanel prefs={reminderPrefs} onChange={onReminderPrefsChange} />
               <div className="divider" />
+              <PlanRow onUpgrade={onOpenPlan} />
               <PrivacyPanel token={token} consents={consents} onSetConsent={onSetConsent} onAccountDeleted={onLogout} />
             </div>
           )}
@@ -1985,7 +1995,9 @@ const isNetworkError = e => !!e && e.name === "ApiError" && e.status === 0;
 function JourneyApp({ token, email, onLogout, onOfflineRegister }) {
   return (
     <OfflineProvider email={email} token={token} onRegister={onOfflineRegister}>
-      <JourneyScreens token={token} email={email} onLogout={onLogout} />
+      <BillingProvider token={token} email={email}>
+        <JourneyScreens token={token} email={email} onLogout={onLogout} />
+      </BillingProvider>
     </OfflineProvider>
   );
 }
@@ -2015,6 +2027,16 @@ function JourneyScreens({ token, email, onLogout }) {
   });
   const { consents, error: consentError, reload: reloadConsents, setConsent } = useConsents(token);
   const [pendingAi, setPendingAi] = useState(null);
+  const billing = useBilling();
+  // The AI screen the paywall continues to once the server says the plan is active ("" from Profile: just close).
+  const [paywallTarget, setPaywallTarget] = useState("");
+  // An AI tap made while the plan status is still loading waits for it (no paywall flash); the button shows busy.
+  const [aiWaiting, setAiWaiting] = useState(null);
+  const gateSeq = useRef(0);
+  const overlayRef = useRef(overlay);
+  overlayRef.current = overlay;
+  // plan_required loop guard: one paywall per burst of 403s; re-armed by the next AI tap.
+  const planPromptArmed = useRef(true);
 
   const periodsLoaded = useRef(false);
   const loadPeriods = useCallback(async () => {
@@ -2081,6 +2103,23 @@ function JourneyScreens({ token, email, onLogout }) {
     return () => window.removeEventListener("luna:consent-required", onConsentRequired);
   }, [reloadConsents]);
 
+  // The API announces a 403 plan_required (a stale status, or the plan ended): the provider refreshes the status;
+  // the paywall opens once, returning to the AI screen that was open.
+  useEffect(() => {
+    const onPlanRequired = () => {
+      if (!planPromptArmed.current) return;
+      planPromptArmed.current = false;
+      const current = overlayRef.current;
+      gateSeq.current += 1;
+      setAiWaiting(null);
+      setPaywallTarget(current === "chat" || current === "analysis" ? current : "");
+      setOverlay("paywall");
+    };
+    window.addEventListener("luna:plan-required", onPlanRequired);
+    return () => window.removeEventListener("luna:plan-required", onPlanRequired);
+  }, []);
+  useEffect(() => () => { gateSeq.current += 1; }, []);
+
   const refreshProfileStatus = useCallback(async () => {
     if (!token) return;
     try {
@@ -2135,8 +2174,26 @@ function JourneyScreens({ token, email, onLogout }) {
     );
   }
 
+  const openPaywall = target => { setPaywallTarget(target || ""); setOverlay("paywall"); };
+
+  // After consent: the plan gate. Billing off or an active plan opens the AI screen as before.
+  const gateAi = target => {
+    const now = billing.access();
+    if (now === "open") { setOverlay(target); return; }
+    if (now === "paywall") { openPaywall(target); return; }
+    const seq = ++gateSeq.current;
+    setAiWaiting(target);
+    billing.checkAccess().then(result => {
+      if (seq !== gateSeq.current) return;
+      setAiWaiting(null);
+      if (result === "open") setOverlay(target);
+      else openPaywall(target);
+    });
+  };
+
   const openAi = target => {
-    if (consents.ai_processing) { setOverlay(target); return; }
+    planPromptArmed.current = true;
+    if (consents.ai_processing) { gateAi(target); return; }
     setPendingAi(target);
     setOverlay("ai-consent");
   };
@@ -2213,8 +2270,8 @@ function JourneyScreens({ token, email, onLogout }) {
       <div className="dock">
         <button className="dk on" aria-current="page"><span className="di"><DockIcon name="journey" active size={24} /></span><span className="dl">{t("Journey")}</span></button>
         <button className="dk" onClick={() => setOverlay("calendar")}><span className="di"><DockIcon name="calendar" size={24} /></span><span className="dl vh">{t("Calendar")}</span></button>
-        <button className="dk" onClick={() => openAi("analysis")}><span className="di"><DockIcon name="insights" size={24} /></span><span className="dl vh">{t("Insights")}</span></button>
-        <button className="dk" onClick={() => openAi("chat")}><span className="di"><DockIcon name="chat" size={24} /></span><span className="dl vh">{t("Chat")}</span></button>
+        <button className="dk" aria-busy={aiWaiting === "analysis" || undefined} onClick={() => openAi("analysis")}><span className="di"><DockIcon name="insights" size={24} /></span><span className="dl vh">{t("Insights")}</span></button>
+        <button className="dk" aria-busy={aiWaiting === "chat" || undefined} onClick={() => openAi("chat")}><span className="di"><DockIcon name="chat" size={24} /></span><span className="dl vh">{t("Chat")}</span></button>
         <button className="dk" onClick={() => setOverlay("profile")}><span className="di"><DockIcon name="profile" size={24} /></span><span className="dl vh">{t("Profile")}</span></button>
       </div>
 
@@ -2224,11 +2281,17 @@ function JourneyScreens({ token, email, onLogout }) {
       {dayDate && <DaySheet token={token} date={dayDate} syncVersion={syncVersion} onClose={() => setDayDate(null)} onSaved={() => setLogsVersion(v => v + 1)} />}
       {overlay === "chat" && <ChatDrawer token={token} onClose={() => setOverlay(null)} />}
       {overlay === "analysis" && <AnalysisDrawer token={token} onClose={() => setOverlay(null)} />}
-      {overlay === "profile" && <ProfileDrawer token={token} email={email} onClose={() => { setOverlay(null); setForceQuestionnaire(false); refreshProfileStatus(); }} onLogout={onLogout} consents={consents} onSetConsent={setConsent} reminderPrefs={reminderPrefs} onReminderPrefsChange={next => setReminderPrefs(savePrefs(next))} appearance={appearance} onAppearanceChange={setAppearanceState} initialView={forceQuestionnaire ? "questionnaire" : "main"} />}
+      {overlay === "profile" && <ProfileDrawer token={token} email={email} onClose={() => { setOverlay(null); setForceQuestionnaire(false); refreshProfileStatus(); }} onLogout={onLogout} consents={consents} onSetConsent={setConsent} reminderPrefs={reminderPrefs} onReminderPrefsChange={next => setReminderPrefs(savePrefs(next))} appearance={appearance} onAppearanceChange={setAppearanceState} initialView={forceQuestionnaire ? "questionnaire" : "main"} onOpenPlan={() => { setForceQuestionnaire(false); openPaywall(""); }} />}
       {overlay === "ai-consent" && (
         <AiConsentModal
           onClose={() => { setOverlay(null); setPendingAi(null); }}
-          onGrant={async () => { await setConsent("ai_processing", true); setOverlay(pendingAi); setPendingAi(null); }}
+          onGrant={async () => { await setConsent("ai_processing", true); const target = pendingAi; setPendingAi(null); setOverlay(null); gateAi(target); }}
+        />
+      )}
+      {overlay === "paywall" && (
+        <Paywall
+          onClose={() => setOverlay(null)}
+          onUnlocked={() => setOverlay(paywallTarget || null)}
         />
       )}
       {showIntro && <Onboarding email={email} onClose={() => setShowIntro(false)} />}

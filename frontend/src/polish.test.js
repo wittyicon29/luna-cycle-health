@@ -46,7 +46,8 @@ test('small controls are at least 44px to tap', () => {
 });
 
 test('close buttons and the new-chat button have a 44px hit area and a label', () => {
-  const app = read('src/App.js');
+  // The shared Modal lives in src/Modal.js (App.js and the billing paywall both use it).
+  const app = read('src/App.js') + read('src/Modal.js');
 
   expect(app).toMatch(/\.mk-card-close\{[^}]*min-width:44px[^}]*min-height:44px/);
   expect(app).toMatch(/\.modal-close\{[^}]*min-width:44px[^}]*min-height:44px/);
