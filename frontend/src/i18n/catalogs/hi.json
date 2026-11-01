@@ -539,5 +539,20 @@
   },
   "Sign out anyway": "फिर भी साइन आउट करें",
   "Stay signed in": "साइन इन रहें",
-  "Some changes may not have synced. Sign out anyway?": "हो सकता है कुछ बदलाव अभी सिंक न हुए हों। फिर भी साइन आउट करें?"
+  "Some changes may not have synced. Sign out anyway?": "हो सकता है कुछ बदलाव अभी सिंक न हुए हों। फिर भी साइन आउट करें?",
+  "Offline": "ऑफ़लाइन",
+  "{count} change waiting to sync": {
+    "one": "{count} बदलाव सिंक होने की प्रतीक्षा में",
+    "other": "{count} बदलाव सिंक होने की प्रतीक्षा में"
+  },
+  "{count} change couldn't be saved.": {
+    "one": "{count} बदलाव सहेजा नहीं जा सका।",
+    "other": "{count} बदलाव सहेजे नहीं जा सके।"
+  },
+  "Offline data couldn't be read, so changes waiting to sync were lost.": "ऑफ़लाइन डेटा पढ़ा नहीं जा सका, इसलिए सिंक के इंतज़ार वाले बदलाव मिट गए।",
+  "Couldn't save offline data on this phone.": "इस फ़ोन पर ऑफ़लाइन डेटा सहेजा नहीं जा सका।",
+  "Syncing is paused. We'll keep trying.": "सिंक रुका हुआ है। हम कोशिश करते रहेंगे।",
+  "Dismiss": "हटाएँ",
+  "Waiting to sync": "सिंक की प्रतीक्षा में",
+  "{date}, waiting to sync": "{date}, सिंक की प्रतीक्षा में"
 }

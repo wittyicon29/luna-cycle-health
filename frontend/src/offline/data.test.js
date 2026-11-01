@@ -610,6 +610,24 @@ describe('review fixes', () => {
     expect(status.getState().pendingCount).toBe(1);
   });
 
+  test('a run stopped by an error with changes kept marks the status stuck; acknowledge hides it until a clean run', async () => {
+    let captured = null;
+    const fakeEngine = opts => {
+      captured = opts;
+      return { syncNow: async () => ({ synced: 0, dropped: [], stoppedBy: null, pending: 0, queueLost: false, storageError: false }), start() {}, stop() {}, reset() {} };
+    };
+    const { status } = make({ syncFactory: fakeEngine });
+    const stuckRun = { synced: 0, dropped: [], stoppedBy: 'error', pending: 2, queueLost: false, storageError: false };
+    captured.onChange(stuckRun);
+    expect(status.getState().stuck).toBe(true);
+    status.acknowledge();
+    captured.onChange(stuckRun);
+    expect(status.getState().stuck).toBe(false);
+    captured.onChange({ ...stuckRun, stoppedBy: null, pending: 0 });
+    captured.onChange(stuckRun);
+    expect(status.getState().stuck).toBe(true);
+  });
+
   test('patchLog: a non-array list response is a bad response, nothing is written', async () => {
     server.api.logs.list = async () => ({});
     const { data } = make();

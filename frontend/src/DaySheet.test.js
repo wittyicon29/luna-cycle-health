@@ -548,3 +548,19 @@ describe("final fixes", () => {
     expect(note.scrollIntoView).toHaveBeenCalledWith({ block: "center" });
   });
 });
+
+describe("pending marker", () => {
+  test("shown with hidden text only when the day is waiting to sync", async () => {
+    API.logs.list.mockResolvedValue([{ ...ROW, pending: true }]);
+    const { container } = await setup();
+    const mark = container.querySelector('[data-testid="pending-mark"]');
+    expect(mark).not.toBeNull();
+    expect(mark).toHaveTextContent("Waiting to sync");
+    expect(mark.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+  });
+  test("absent for a settled day", async () => {
+    API.logs.list.mockResolvedValue([ROW]);
+    const { container } = await setup();
+    expect(container.querySelector('[data-testid="pending-mark"]')).toBeNull();
+  });
+});

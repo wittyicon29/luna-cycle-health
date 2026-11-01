@@ -67,9 +67,11 @@ export default function CalendarScreen({ token, periods, logsVersion, onClose, o
   }, [from, to, token, logsVersion, retry, data]);
 
   const periodDays = useMemo(() => periodDaySet(periods, today), [periods, today]);
+  const pendingPeriodDays = useMemo(() => periodDaySet((Array.isArray(periods) ? periods : []).filter(p => p && p.pending), today), [periods, today]);
   const predicted = useMemo(() => predictedRangeSet(prediction, today), [prediction, today]);
   const go = useCallback(delta => setView(v => shiftMonth(v, delta)), []);
 
+  const isPending = date => !!(logs[date] && logs[date].pending) || pendingPeriodDays.has(date);
   const label = (cell) => {
     // The date word order comes from the catalog; the state words are a list joined with commas.
     const parts = [t("{month} {day}, {year}", { month: monthName(Number(cell.date.slice(5, 7)) - 1), day: cell.day, year: cell.date.slice(0, 4) })];
@@ -80,7 +82,8 @@ export default function CalendarScreen({ token, periods, logsVersion, onClose, o
     const log = logs[cell.date];
     if (log) parts.push(t("logged"));
     if (log && log.flow) parts.push(flowAria(log.flow));
-    return parts.join(", ");
+    const text = parts.join(", ");
+    return isPending(cell.date) ? t("{date}, waiting to sync", { date: text }) : text;
   };
 
   return (
@@ -120,6 +123,7 @@ export default function CalendarScreen({ token, periods, logsVersion, onClose, o
                   <span>{cell.day}</span>
                   <span className="cal-marks" aria-hidden="true">
                     {log && <span className="cal-dot" data-testid="logged-dot">●</span>}
+                    {isPending(cell.date) && <span className="cal-pend" data-testid="pending-mark">◔</span>}
                     {log && log.flow && <span className="cal-flow" data-testid="flow-mark">▾</span>}
                   </span>
                 </button>

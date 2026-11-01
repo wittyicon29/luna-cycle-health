@@ -1,6 +1,7 @@
-// Small observable store for the offline state the UI shows: { online, pendingCount, lastError, queueLost, dropped }.
+// Small observable store for the offline state the UI shows: { online, pendingCount, lastError, queueLost, dropped, stuck }
+// (`stuck`: the last sync run stopped on an error with changes kept; `lastError`/`stuck` are also cleared by acknowledge()).
 // `queueLost` and `dropped` stay set until acknowledge(); a loss reported again for the same unreadable queue is ignored.
-const fresh = () => ({ pendingCount: 0, lastError: null, queueLost: false, dropped: [] });
+const fresh = () => ({ pendingCount: 0, lastError: null, queueLost: false, dropped: [], stuck: false });
 const deviceOnline = () => !(typeof navigator !== 'undefined' && navigator.onLine === false);
 
 export function createStatus({ onAcknowledge } = {}) {
@@ -8,6 +9,8 @@ export function createStatus({ onAcknowledge } = {}) {
   let fields = fresh();
   let netOk = true;
   let suppressLoss = false; // after acknowledge, until the queue is seen readable again
+  let suppressStuck = false; // after acknowledge, until a run is seen without the error
+  let suppressError = false; // after acknowledge, until a write is stored again
   let cached = null;
 
   function getState() {
@@ -44,7 +47,9 @@ export function createStatus({ onAcknowledge } = {}) {
     },
     acknowledge() {
       suppressLoss = true;
-      update({ queueLost: false, dropped: [] });
+      suppressStuck = true;
+      suppressError = true;
+      update({ queueLost: false, dropped: [], stuck: false, lastError: null });
       if (typeof onAcknowledge === 'function') onAcknowledge();
     },
     // Returns true when a request succeeded right after one had failed on the network (a recovery).
@@ -55,7 +60,16 @@ export function createStatus({ onAcknowledge } = {}) {
     },
     deviceChanged() { onlineChanged(() => {}); },
     setPending(n) { if (Number.isInteger(n) && n >= 0) update({ pendingCount: n }); },
-    setError(e) { update({ lastError: e || null }); },
+    setError(e) {
+      if (!e) suppressError = false;
+      else if (suppressError) return;
+      update({ lastError: e || null });
+    },
+    setStuck(on) {
+      if (on && suppressStuck) return;
+      if (!on) suppressStuck = false;
+      update({ stuck: !!on });
+    },
     reportLoss() {
       if (fields.queueLost || suppressLoss) return;
       update({ queueLost: true });
@@ -66,6 +80,8 @@ export function createStatus({ onAcknowledge } = {}) {
     },
     reset() {
       suppressLoss = false;
+      suppressStuck = false;
+      suppressError = false;
       netOk = true;
       fields = fresh();
       emit();
@@ -75,7 +91,7 @@ export function createStatus({ onAcknowledge } = {}) {
   return { status, internal };
 }
 
-const WEB_STATE = Object.freeze({ online: true, pendingCount: 0, lastError: null, queueLost: false, dropped: Object.freeze([]) });
+const WEB_STATE = Object.freeze({ online: true, pendingCount: 0, lastError: null, queueLost: false, dropped: Object.freeze([]), stuck: false });
 
 export const webStatus = Object.freeze({
   getState: () => WEB_STATE,

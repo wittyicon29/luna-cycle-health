@@ -1,5 +1,7 @@
 import React, { useEffect, useId, useRef, useState } from "react";
-import { t, useLanguage } from "../i18n";
+import { t, tn, useLanguage } from "../i18n";
+import { useOffline } from "../offline/useOffline";
+import StatusNotice from "../offline/StatusNotice";
 import SkyCheckIn from "../playful/SkyCheckIn";
 import { usePlayful } from "../playful/playfulPrefs";
 import { moodLabel } from "../playful/weather";
@@ -9,6 +11,7 @@ import ProfileBanner from "../ProfileBanner";
 export default function TodayCard({ token, logs, logsReady, onSaved, onAddDetails, cycleDay, daysToNext, avgCycle, periodsCount, phaseName, phaseColor, profilePrompt }) {
   useLanguage();
   const { animated } = usePlayful();
+  const { status } = useOffline();
   const [open, setOpen] = useState(false);
   const [mood, setMood] = useState(null);
   const root = useRef(null);
@@ -25,7 +28,12 @@ export default function TodayCard({ token, logs, logsReady, onSaved, onAddDetail
     return () => { document.removeEventListener("keydown", onKey); document.removeEventListener("pointerdown", onDown); };
   }, [open]);
 
-  const parts = [];
+  // The sync status comes first so the ellipsis never cuts it; a hidden polite region announces only this part.
+  const syncParts = [];
+  if (!status.online) syncParts.push(t("Offline"));
+  if (status.pendingCount > 0) syncParts.push(tn(status.pendingCount, "{count} change waiting to sync", "{count} changes waiting to sync"));
+  const syncText = syncParts.join(" · ");
+  const parts = syncText ? [syncText] : [];
   if (cycleDay && typeof phaseName === "string" && phaseName) parts.push(t("Day {day} · {phase}", { day: cycleDay, phase: phaseName }));
   if (mood != null) parts.push(t("Today's sky: {label}", { label: moodLabel(mood - 1) }));
   if (Number.isFinite(daysToNext)) parts.push(`${t("Next in")} ${t("{days}d", { days: daysToNext })}`);
@@ -33,6 +41,8 @@ export default function TodayCard({ token, logs, logsReady, onSaved, onAddDetail
   return (
     <div className="today-card" data-open={open ? "true" : "false"} ref={root}>
       <div className="today-sum" onClick={() => setOpen(true)}>{parts.join(" · ")}</div>
+      <span className="vh" role="status" aria-live="polite">{syncText}</span>
+      <StatusNotice />
       <div className="today-row">
         <div className="today-sky">
           <SkyCheckIn compact token={token} logs={logs} logsReady={logsReady} onSaved={onSaved} onAddDetails={onAddDetails} onShownChange={setMood} />

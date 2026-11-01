@@ -320,6 +320,11 @@ body{font-family:'Outfit','Noto Sans Devanagari',sans-serif;background:var(--bg)
 .vh{position:absolute !important;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 .today-card{position:relative;flex-shrink:0;background:#120A22;border-top:1px solid var(--border);padding:4px 8px 2px;min-width:0}
 .today-sum{cursor:pointer;font-size:.68rem;color:var(--muted);height:16px;line-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.today-note{display:flex;align-items:center;gap:4px;min-width:0;font-size:.72rem;color:var(--cream)}
+.today-note-t{flex:1;min-width:0;line-height:1.25}
+.today-note-x{flex-shrink:0;min-width:44px;min-height:44px;background:transparent;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer}
+.pend-mark{display:inline-flex;align-items:center;margin-left:.4rem;color:var(--muted);vertical-align:middle}
+.cal-pend{color:var(--cta)}
 .today-row{display:flex;align-items:center;gap:4px;min-width:0}
 .today-sky{flex:1;min-width:0}
 .today-chev{position:relative;flex-shrink:0;width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;color:var(--muted);cursor:pointer;border-radius:8px}

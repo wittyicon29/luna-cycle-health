@@ -101,6 +101,7 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
   const [baseline, setBaseline] = useState(canon(EMPTY));
   const [loadedMedIds, setLoadedMedIds] = useState([]);
   const [hasData, setHasData] = useState(false);
+  const [pending, setPending] = useState(false);
   const [allMeds, setAllMeds] = useState([]);
   const [medsLoaded, setMedsLoaded] = useState(false);
   const [medsError, setMedsError] = useState(false);
@@ -182,6 +183,7 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
       setBaseline(canon(loaded));
       setLoadedMedIds(loaded.meds);
       setHasData(!!row);
+      setPending(!!(row && row.pending));
       setLoading(false);
     }).catch(() => { if (alive) { setLoadError(true); setLoading(false); } });
     loadMeds(true);
@@ -372,6 +374,12 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
       <div className="drawer drawer-top" ref={drawerRef} onKeyDown={trapTab} style={{ height: "88vh" }} role="dialog" aria-label={t("Log for {date}", { date: formatLongDate(date) })}>
         <div className="drawer-head">
           <span className="drawer-title" ref={titleRef} tabIndex={-1} style={{ outline: "none" }}>{formatLongDate(date)}</span>
+          {pending && !loading && (
+            <span className="pend-mark" data-testid="pending-mark">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8" /><path d="M12 8v4l2.5 2" /></svg>
+              <span className="vh">{t("Waiting to sync")}</span>
+            </span>
+          )}
           <button type="button" className="drawer-close" aria-label={t("Close")} disabled={saving} onClick={requestClose}>×</button>
         </div>
         {confirmDiscard && (

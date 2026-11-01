@@ -146,6 +146,7 @@ function createNativeOffline({ email, getToken, api, timeoutMs, syncFactory }) {
     refreshOutbox(store.currentGeneration()); // r.pending can be stale when a write landed as the run finished
     internal.addDropped(r.dropped);
     if (r.queueLost) internal.reportLoss();
+    internal.setStuck(r.stoppedBy === 'error' && (r.pending || 0) > 0);
     if (r.storageError) internal.setError(store.lastStoreError() || new Error('offline storage failed'));
   }
 
