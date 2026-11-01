@@ -274,3 +274,5 @@ class BillingStatus(BaseModel):
     expires_at: Optional[datetime] = None
     auto_renewing: Optional[bool] = None
     account_token: str
+    # The Play subscription product ids on offer (empty when billing is off), so the app never hardcodes them.
+    product_ids: List[str] = []

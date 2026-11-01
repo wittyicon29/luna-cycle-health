@@ -1,7 +1,7 @@
 import { API_BASE } from './config';
 import { clearSession, getAccessToken, getRefreshToken, setTokens } from './tokenStore';
 import { getLanguage } from './i18n';
-import { translateServer, errorStatusMessage, connectionProblemMessage, consentRequiredMessage } from './serverMessages';
+import { translateServer, errorStatusMessage, connectionProblemMessage, consentRequiredMessage, planRequiredMessage } from './serverMessages';
 
 // Endpoints where a 401 means "wrong credentials", not "expired session".
 const NO_REFRESH_PREFIXES = [
@@ -33,7 +33,7 @@ export function rawMessageFromDetail(detail) {
   if (typeof detail === 'string' && detail) return detail;
   if (Array.isArray(detail) && detail[0] && detail[0].msg) return String(detail[0].msg);
   if (detail && typeof detail === 'object' && !Array.isArray(detail)) {
-    if (detail.code === 'consent_required') return undefined;
+    if (detail.code === 'consent_required' || detail.code === 'plan_required') return undefined;
     if (typeof detail.message === 'string') return detail.message;
   }
   return undefined;
@@ -42,7 +42,10 @@ export function rawMessageFromDetail(detail) {
 export function messageFromDetail(detail, status) {
   const raw = rawMessageFromDetail(detail);
   if (raw !== undefined) return translateServer(raw);
-  if (detail && typeof detail === 'object' && !Array.isArray(detail) && detail.code === 'consent_required') return consentRequiredMessage();
+  if (detail && typeof detail === 'object' && !Array.isArray(detail)) {
+    if (detail.code === 'consent_required') return consentRequiredMessage();
+    if (detail.code === 'plan_required') return planRequiredMessage();
+  }
   return errorStatusMessage(status);
 }
 
@@ -65,6 +68,8 @@ async function toApiError(res) {
   const error = new ApiError(messageFromDetail(detail, res.status), { status: res.status, detail, rawMessage: rawMessageFromDetail(detail) });
   if (res.status === 403 && error.code === 'consent_required') {
     emit('luna:consent-required', { purpose: detail.purpose });
+  } else if (res.status === 403 && error.code === 'plan_required') {
+    emit('luna:plan-required');
   }
   return error;
 }
@@ -197,6 +202,12 @@ export const API = {
   consents: {
     get: t => req('/consents', {}, t),
     set: (purpose, granted, t) => post('/consents', { purpose, granted }, t),
+  },
+  // Google Play billing. verify sends only the two fields the server reads; the purchase token is never stored.
+  billing: {
+    status: t => req('/billing/status', {}, t),
+    verify: ({ purchase_token, product_id }, t) => post('/billing/verify', { purchase_token, product_id }, t),
+    refresh: t => post('/billing/refresh', {}, t),
   },
   account: {
     export: t => req('/account/export', {}, t),

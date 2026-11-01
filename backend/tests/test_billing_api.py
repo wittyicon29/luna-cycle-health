@@ -308,7 +308,7 @@ def test_status_never_calls_the_verifier_and_never_returns_the_token(client, mak
     assert body == {
         "enabled": True, "active": True, "plan": "ai", "state": "SUBSCRIPTION_STATE_ACTIVE",
         "product_id": MONTHLY, "expires_at": (NOW + 2 * H).isoformat(), "auto_renewing": True,
-        "account_token": account_token(user.id),
+        "account_token": account_token(user.id), "product_ids": ["luna_ai_monthly", "luna_ai_yearly"],
     }
 
 
@@ -317,6 +317,22 @@ def test_status_without_a_plan(client, make_user, verifier):
     body = client.get(STATUS, headers=_h(user)).json()
     assert body["enabled"] is True and body["active"] is False and body["plan"] == "free"
     assert body["state"] is None and body["account_token"] == account_token(user.id)
+
+
+def test_status_lists_the_offered_product_ids_in_order(client, make_user, verifier):
+    user = make_user()
+    for path in (STATUS, REFRESH):
+        response = client.get(path, headers=_h(user)) if path == STATUS else client.post(path, headers=_h(user))
+        assert response.json()["product_ids"] == ["luna_ai_monthly", "luna_ai_yearly"]
+    verify_body = verify(client, user, make_token(user)).json()
+    assert verify_body["product_ids"] == ["luna_ai_monthly", "luna_ai_yearly"]
+
+
+def test_status_in_off_mode_lists_no_product_ids(client, make_user, monkeypatch):
+    monkeypatch.setattr(settings, "BILLING_PRODUCT_IDS", "luna_ai_monthly")
+    user = make_user()
+    for response in (client.get(STATUS, headers=_h(user)), client.post(REFRESH, headers=_h(user))):
+        assert response.json()["product_ids"] == []
 
 
 def test_refresh_reverifies_now(client, make_user, db, verifier):

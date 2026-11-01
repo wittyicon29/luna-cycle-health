@@ -9,6 +9,8 @@ export const translateServer = text => i18n.t(typeof text === 'string' ? text.re
 export const errorStatusMessage = status => t('Error {status}', { status });
 export const connectionProblemMessage = () => t('Connection problem. Please try again.');
 export const consentRequiredMessage = () => t('Please review and accept the required consent to continue.');
+// The server's plan_required text ("Luna AI plan required"); the app reacts to the code by opening the paywall.
+export const planRequiredMessage = () => t('Luna AI plan required');
 
 // The backend's fixed user-facing messages (backend/app/api/*.py). They are looked up dynamically through
 // translateServer, so the literals are listed here for `npm run i18n:check` and the review sheet.
@@ -77,5 +79,16 @@ export function serverMessageCatalog() {
     t('Only Gmail addresses are supported'),
     t('Google sign-in is temporarily unavailable'),
     t('Google sign-in is not configured'),
+    // billing: the plan_required error (backend/app/api/billing.py), shown via planRequiredMessage
+    t('Luna AI plan required'),
+    // billing (backend/app/services/billing/entitlement.py): /billing/verify rejections
+    // i18n-note: the purchase was made while signed in to a different Luna account
+    t('This purchase belongs to a different account'),
+    t('This purchase is already linked to another account'),
+    t('This purchase is not for a Luna AI plan'),
+    t('This subscription is not active'),
+    t('Could not confirm the purchase with Google Play. Try again.'),
+    t('Google Play is unavailable right now. Try again.'),
+    t('This purchase could not be verified'),
   ];
 }

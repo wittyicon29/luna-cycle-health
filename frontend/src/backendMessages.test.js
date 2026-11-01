@@ -4,7 +4,7 @@ const hi = require('./i18n/catalogs/hi.json');
 const { serverMessageCatalog } = require('./serverMessages');
 
 const APP_DIR = path.join(__dirname, '..', '..', 'backend', 'app');
-const DIRS = ['api', 'schemas', 'services'];
+const DIRS = ['api', 'schemas', 'services', 'services/billing'];
 
 // Messages deliberately left English, with the reason each is not shown to a person.
 const NOT_USER_FACING = {
@@ -14,9 +14,10 @@ const NOT_USER_FACING = {
   'Invalid user ID': 'malformed access token, treated as session expiry, the text is never rendered',
   'We need at least 2 completed cycles to make predictions. Continue tracking to build your pattern.': 'internal prediction-service result; the periods API drops it and returns an empty prediction',
   'Billing is not enabled': 'the app only calls /billing/verify when /billing/status says billing is enabled; the text is never rendered',
-  'Luna AI plan required': 'the app reacts to the plan_required error code by opening the paywall; the text is never rendered',
   'Period id is already in use': 'only the offline sync engine sends client period ids; it treats this as an id conflict and drops the queued item, the text is never rendered',
   'User not found': 'token for a deleted user, treated as session expiry, the text is never rendered',
+  'timestamp is not a string': 'internal Google Play response parsing error (services/billing/google.py); caught and turned into a verifier error, never sent to the app',
+  'timestamp has no offset': 'internal Google Play response parsing error (services/billing/google.py); caught and turned into a verifier error, never sent to the app',
 };
 
 const PY_ESCAPES = { n: '\n', t: '\t', '\\': '\\', '"': '"', "'": "'" };
@@ -69,8 +70,9 @@ function backendMessages() {
           if (value) found.set(value, `${dir}/${file}`);
         }
       });
-      // detail=SOME_CONSTANT -> the constant's literal value
-      const consts = /detail\s*=\s*([A-Z][A-Z0-9_]*)\b/g;
+      // detail=SOME_CONSTANT (or `return SOME_CONSTANT` from a helper whose result becomes a detail, as in
+      // services/billing/entitlement.py) -> the constant's literal value
+      const consts = /(?:detail\s*=\s*|\breturn\s+)([A-Z][A-Z0-9_]*)\b/g;
       let c;
       while ((c = consts.exec(src))) {
         const def = CONSTANT(c[1]).exec(src);
@@ -92,6 +94,11 @@ test('the extractor finds the backend messages', () => {
   expect(messages.has('Note must be at most 1000 characters')).toBe(true);
   expect(messages.has("You've reached today's chat limit. It resets at midnight IST.")).toBe(true);
   expect(messages.has('Log at least two periods (about a month apart) so Luna can find your pattern.')).toBe(true);
+  // billing: detail=CONSTANT and a constant returned by a helper (DIFFERENT_ACCOUNT via _mismatch)
+  expect(messages.has('Luna AI plan required')).toBe(true);
+  expect(messages.has('This purchase is already linked to another account')).toBe(true);
+  expect(messages.has('This purchase belongs to a different account')).toBe(true);
+  expect(messages.has('Google Play is unavailable right now. Try again.')).toBe(true);
 });
 
 test('every static backend message is translated or explicitly allow-listed', () => {

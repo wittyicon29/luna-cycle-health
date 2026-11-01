@@ -554,5 +554,34 @@
   "Syncing is paused. We'll keep trying.": "सिंक रुका हुआ है। हम कोशिश करते रहेंगे।",
   "Waiting to sync": "सिंक की प्रतीक्षा में",
   "{date}, waiting to sync": "{date}, सिंक की प्रतीक्षा में",
-  "Dismiss notice": "सूचना बंद करें"
+  "Dismiss notice": "सूचना बंद करें",
+  "Luna AI plan required": "Luna एआई प्लान ज़रूरी है",
+  "This purchase belongs to a different account": "यह खरीदारी किसी दूसरे खाते की है",
+  "This purchase is already linked to another account": "यह खरीदारी पहले से किसी दूसरे खाते से जुड़ी है",
+  "This purchase is not for a Luna AI plan": "यह खरीदारी Luna एआई प्लान के लिए नहीं है",
+  "This subscription is not active": "यह सदस्यता सक्रिय नहीं है",
+  "Could not confirm the purchase with Google Play. Try again.": "Google Play से खरीदारी की पुष्टि नहीं हो सकी। फिर से कोशिश करें।",
+  "Google Play is unavailable right now. Try again.": "Google Play अभी उपलब्ध नहीं है। फिर से कोशिश करें।",
+  "This purchase could not be verified": "इस खरीदारी को सत्यापित नहीं किया जा सका",
+  "day": "दिन",
+  "week": "हफ़्ता",
+  "month": "महीना",
+  "year": "साल",
+  "{count} week": {
+    "one": "{count} हफ़्ता",
+    "other": "{count} हफ़्ते"
+  },
+  "{count} month": {
+    "one": "{count} महीना",
+    "other": "{count} महीने"
+  },
+  "{count} year": {
+    "one": "{count} साल",
+    "other": "{count} साल"
+  },
+  "Free trial available": "मुफ़्त ट्रायल उपलब्ध है",
+  "{count}-day free trial": "{count} दिन का मुफ़्त ट्रायल",
+  "{count}-week free trial": "{count} हफ़्ते का मुफ़्त ट्रायल",
+  "{count}-month free trial": "{count} महीने का मुफ़्त ट्रायल",
+  "{count}-year free trial": "{count} साल का मुफ़्त ट्रायल"
 }

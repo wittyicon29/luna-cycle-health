@@ -43,7 +43,9 @@ def require_plan(feature: str = "ai"):
 
 def _status(user: User, ent: entitlement_service.Entitlement) -> BillingStatus:
     if settings.BILLING_MODE == "off":
-        return BillingStatus(enabled=False, active=False, plan="free", account_token=account_token(user.id))
+        return BillingStatus(
+            enabled=False, active=False, plan="free", account_token=account_token(user.id), product_ids=[]
+        )
     return BillingStatus(
         enabled=True,
         active=ent.active,
@@ -53,6 +55,7 @@ def _status(user: User, ent: entitlement_service.Entitlement) -> BillingStatus:
         expires_at=ent.expires_at,
         auto_renewing=ent.auto_renewing,
         account_token=account_token(user.id),
+        product_ids=settings.billing_product_ids,
     )
 
 
