@@ -628,6 +628,38 @@ describe('review fixes', () => {
     expect(status.getState().stuck).toBe(true);
   });
 
+  test('acknowledged paused notice returns after the next forced run stops on an error, not after a timer run', async () => {
+    let captured = null;
+    const fakeEngine = opts => {
+      captured = opts;
+      return { syncNow: async () => ({ synced: 0, dropped: [], stoppedBy: null, pending: 0, queueLost: false, storageError: false }), start() {}, stop() {}, reset() {} };
+    };
+    const { status } = make({ syncFactory: fakeEngine });
+    const run = extra => ({ synced: 0, dropped: [], stoppedBy: 'error', pending: 1, queueLost: false, storageError: false, forced: false, ...extra });
+    captured.onChange(run());
+    status.acknowledge('stuck');
+    captured.onChange(run()); // timer tick
+    expect(status.getState().stuck).toBe(false);
+    captured.onChange(run({ forced: true }));
+    expect(status.getState().stuck).toBe(true);
+  });
+
+  test('revision moves when a run synced or dropped something, not on an idle run', async () => {
+    let captured = null;
+    const fakeEngine = opts => {
+      captured = opts;
+      return { syncNow: async () => ({ synced: 0, dropped: [], stoppedBy: null, pending: 0, queueLost: false, storageError: false }), start() {}, stop() {}, reset() {} };
+    };
+    const { status } = make({ syncFactory: fakeEngine });
+    const run = extra => ({ synced: 0, dropped: [], stoppedBy: null, pending: 0, queueLost: false, storageError: false, ...extra });
+    captured.onChange(run());
+    expect(status.getState().revision).toBe(0);
+    captured.onChange(run({ synced: 1 }));
+    expect(status.getState().revision).toBe(1);
+    captured.onChange(run({ dropped: [{ kind: 'x' }] }));
+    expect(status.getState().revision).toBe(2);
+  });
+
   test('patchLog: a non-array list response is a bad response, nothing is written', async () => {
     server.api.logs.list = async () => ({});
     const { data } = make();

@@ -16,7 +16,7 @@ export function maxSelectableDay(now = new Date()) {
 // Earliest day the backend accepts for a daily log.
 export const MIN_LOG_DAY = "2000-01-01";
 
-export default function CalendarScreen({ token, periods, logsVersion, onClose, onOpenDay }) {
+export default function CalendarScreen({ token, periods, logsVersion, syncVersion = 0, onClose, onOpenDay }) {
   useLanguage();
   const data = useOfflineData();
   const [today, setToday] = useState(() => localDateString());
@@ -64,7 +64,7 @@ export default function CalendarScreen({ token, periods, logsVersion, onClose, o
       setLoadError(true);
     });
     return () => { reqId.current += 1; };
-  }, [from, to, token, logsVersion, retry, data]);
+  }, [from, to, token, logsVersion, syncVersion, retry, data]);
 
   const periodDays = useMemo(() => periodDaySet(periods, today), [periods, today]);
   const pendingPeriodDays = useMemo(() => periodDaySet((Array.isArray(periods) ? periods : []).filter(p => p && p.pending), today), [periods, today]);

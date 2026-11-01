@@ -35,7 +35,7 @@ import { addDays } from "./calendarGrid";
 import { localDateString, formatLongDate } from "./localDate";
 import { getAccessToken, getEmail, setSession, clearSession } from "./tokenStore";
 import OfflineProvider from "./offline/OfflineProvider";
-import { useOfflineData } from "./offline/useOffline";
+import { useOffline, useOfflineData } from "./offline/useOffline";
 import { clearOfflineData } from "./offline/store";
 
 // ─── PHASE CONFIG ─────────────────────────────────────────────────────────────
@@ -319,7 +319,9 @@ body{font-family:'Outfit','Noto Sans Devanagari',sans-serif;background:var(--bg)
 .st-lbl{font-size:.58rem;color:#7A5C90;text-transform:uppercase;letter-spacing:.1em;margin-top:2px;font-weight:500}
 .vh{position:absolute !important;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 .today-card{position:relative;flex-shrink:0;background:#120A22;border-top:1px solid var(--border);padding:4px 8px 2px;min-width:0}
-.today-sum{cursor:pointer;font-size:.68rem;color:var(--muted);height:16px;line-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.today-sum{cursor:pointer;display:flex;font-size:.68rem;color:var(--muted);height:16px;line-height:16px;white-space:nowrap;overflow:hidden}
+.today-sync{flex-shrink:0;white-space:pre}
+.today-sum-r{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .today-note{display:flex;align-items:center;gap:4px;min-width:0;font-size:.72rem;color:var(--cream)}
 .today-note-t{flex:1;min-width:0;line-height:1.25}
 .today-note-x{flex-shrink:0;min-width:44px;min-height:44px;background:transparent;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer}
@@ -1995,6 +1997,9 @@ function JourneyScreens({ token, email, onLogout }) {
   const [overlay, setOverlay] = useState(null);
   const [dayDate, setDayDate] = useState(null);
   const [logsVersion, setLogsVersion] = useState(0);
+  // Moves when a background sync sent or dropped changes: screens reload what they show (pending marks, periods)
+  // without the celebration and reminder replans that logsVersion triggers.
+  const [syncVersion, setSyncVersion] = useState(0);
   const [mapLogs, setMapLogs] = useState({});
   const [logsReady, setLogsReady] = useState(false);
   const [justLogged, setJustLogged] = useState(false);
@@ -2019,6 +2024,14 @@ function JourneyScreens({ token, email, onLogout }) {
     catch (e) { } finally { periodsLoaded.current = true; setLoading(false); }
   }, [token, data]);
   useEffect(() => { loadPeriods(); }, [loadPeriods]);
+  const { status: offlineStatus } = useOffline();
+  const seenRevision = useRef(offlineStatus.revision);
+  useEffect(() => {
+    if (seenRevision.current === offlineStatus.revision) return;
+    seenRevision.current = offlineStatus.revision;
+    loadPeriods();
+    setSyncVersion(v => v + 1);
+  }, [offlineStatus.revision, loadPeriods]);
   const [reminderPrefs, setReminderPrefs] = useState(loadPrefs);
   const [appearance, setAppearanceState] = useState("default");
   useEffect(() => {
@@ -2050,7 +2063,7 @@ function JourneyScreens({ token, email, onLogout }) {
         setLogsReady(false);
       }
     })();
-  }, [token, logsVersion, data]);
+  }, [token, logsVersion, syncVersion, data]);
   useEffect(() => () => { logsReq.current++; }, []);
 
   // Luna celebrates for a few seconds after a log is saved.
@@ -2207,8 +2220,8 @@ function JourneyScreens({ token, email, onLogout }) {
 
       {/* OVERLAYS */}
       {overlay === "log" && <LogModal token={token} onClose={() => setOverlay(null)} onSave={() => { setOverlay(null); loadPeriods(); setLogsVersion(v => v + 1); }} />}
-      {overlay === "calendar" && <CalendarScreen token={token} periods={periods} logsVersion={logsVersion} onClose={() => setOverlay(null)} onOpenDay={setDayDate} />}
-      {dayDate && <DaySheet token={token} date={dayDate} onClose={() => setDayDate(null)} onSaved={() => setLogsVersion(v => v + 1)} />}
+      {overlay === "calendar" && <CalendarScreen token={token} periods={periods} logsVersion={logsVersion} syncVersion={syncVersion} onClose={() => setOverlay(null)} onOpenDay={setDayDate} />}
+      {dayDate && <DaySheet token={token} date={dayDate} syncVersion={syncVersion} onClose={() => setDayDate(null)} onSaved={() => setLogsVersion(v => v + 1)} />}
       {overlay === "chat" && <ChatDrawer token={token} onClose={() => setOverlay(null)} />}
       {overlay === "analysis" && <AnalysisDrawer token={token} onClose={() => setOverlay(null)} />}
       {overlay === "profile" && <ProfileDrawer token={token} email={email} onClose={() => { setOverlay(null); setForceQuestionnaire(false); refreshProfileStatus(); }} onLogout={onLogout} consents={consents} onSetConsent={setConsent} reminderPrefs={reminderPrefs} onReminderPrefsChange={next => setReminderPrefs(savePrefs(next))} appearance={appearance} onAppearanceChange={setAppearanceState} initialView={forceQuestionnaire ? "questionnaire" : "main"} />}

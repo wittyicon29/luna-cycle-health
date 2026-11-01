@@ -33,14 +33,18 @@ export default function TodayCard({ token, logs, logsReady, onSaved, onAddDetail
   if (!status.online) syncParts.push(t("Offline"));
   if (status.pendingCount > 0) syncParts.push(tn(status.pendingCount, "{count} change waiting to sync", "{count} changes waiting to sync"));
   const syncText = syncParts.join(" · ");
-  const parts = syncText ? [syncText] : [];
+  const parts = [];
   if (cycleDay && typeof phaseName === "string" && phaseName) parts.push(t("Day {day} · {phase}", { day: cycleDay, phase: phaseName }));
   if (mood != null) parts.push(t("Today's sky: {label}", { label: moodLabel(mood - 1) }));
   if (Number.isFinite(daysToNext)) parts.push(`${t("Next in")} ${t("{days}d", { days: daysToNext })}`);
+  const rest = parts;
 
   return (
     <div className="today-card" data-open={open ? "true" : "false"} ref={root}>
-      <div className="today-sum" onClick={() => setOpen(true)}>{parts.join(" · ")}</div>
+      <div className="today-sum" onClick={() => setOpen(true)}>
+        {syncText && <span className="today-sync" aria-hidden="true">{syncText}{rest.length ? " · " : ""}</span>}
+        <span className="today-sum-r">{rest.join(" · ")}</span>
+      </div>
       <span className="vh" role="status" aria-live="polite">{syncText}</span>
       <StatusNotice />
       <div className="today-row">

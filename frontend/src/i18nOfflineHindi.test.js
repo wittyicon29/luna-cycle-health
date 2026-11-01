@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, act } from '@testing-library/react';
 
-jest.mock('./api', () => ({ API: { logs: { list: jest.fn(), put: jest.fn(), remove: jest.fn() }, medications: { list: jest.fn() } } }));
+jest.mock('./api', () => ({ API: { logs: { list: jest.fn(), put: jest.fn(), remove: jest.fn() }, medications: { list: jest.fn() }, periods: { prediction: jest.fn() } } }));
 
 const { API } = require('./api');
 const { setLanguage, tn } = require('./i18n');
@@ -10,6 +10,7 @@ const { makeHarness } = require('./offline/testing/statusHarness');
 const StatusNotice = require('./offline/StatusNotice').default;
 const TodayCard = require('./home/TodayCard').default;
 const DaySheet = require('./DaySheet').default;
+const CalendarScreen = require('./CalendarScreen').default;
 
 beforeEach(() => { act(() => { setLanguage('hi'); }); API.logs.list.mockResolvedValue([]); API.medications.list.mockResolvedValue([]); });
 afterEach(() => { act(() => { setLanguage('en'); }); });
@@ -52,5 +53,18 @@ test('DaySheet pending marker reads in Hindi', async () => {
   const { container } = render(<DaySheet token="t" date="2026-10-20" onClose={jest.fn()} onSaved={jest.fn()} />);
   await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
   expect(container.querySelector('[data-testid="pending-mark"]')).toHaveTextContent('सिंक की प्रतीक्षा में');
+  expect(findUntranslated(container, [], hidden)).toEqual([]);
+});
+
+test('calendar cell label for a waiting day reads in Hindi', async () => {
+  const { localDateString } = require('./localDate');
+  const today = localDateString();
+  API.periods.prediction.mockResolvedValue(null);
+  API.logs.list.mockResolvedValue([{ date: today, mood: 3, pending: true }]);
+  const { container } = render(<CalendarScreen token="t" periods={[]} logsVersion={0} onClose={jest.fn()} onOpenDay={jest.fn()} />);
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  const labels = [...container.querySelectorAll('button.cal-day')].map(b => b.getAttribute('aria-label')).filter(l => /सिंक की प्रतीक्षा में$/.test(l));
+  expect(labels).toHaveLength(1);
+  expect(labels[0]).not.toMatch(/waiting/);
   expect(findUntranslated(container, [], hidden)).toEqual([]);
 });

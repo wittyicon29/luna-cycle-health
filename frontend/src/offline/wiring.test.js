@@ -237,6 +237,40 @@ describe('offline writes', () => {
     expect(list).toHaveLength(2);
   });
 
+  test('after a background sync the pending marks and the pending period clear, with no duplicate and no celebration', async () => {
+    await seedCache();
+    server.setOffline(true);
+    renderApp();
+    await waitForMap();
+
+    fireEvent.click(screen.getByRole('button', { name: /Log period/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Save to Journey' }));
+    await waitForMap(2);
+    const sheet = await openToday();
+    fireEvent.change(within(sheet).getByLabelText('Note'), { target: { value: 'offline note' } });
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: /^Log for/ })).toBeNull());
+    const cal = screen.getByRole('dialog', { name: 'Calendar' });
+    await waitFor(() => expect(within(cal).getAllByTestId('pending-mark').length).toBeGreaterThan(0));
+    const byX = () => periodDots().sort((a, b) => parseFloat(a.style.left) - parseFloat(b.style.left));
+    fireEvent.click(byX()[1]);
+    expect(await screen.findByText('Pain: 3/10')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Delete this entry' })).toBeNull(); // still the pending one
+
+    await act(() => new Promise(r => realSetTimeout(r, 3300))); // the celebration of the offline save has ended
+    const Companion = require('../playful/Companion');
+    const spy = jest.spyOn(Companion, 'companionMood');
+    server.setOffline(false);
+    await act(async () => { await facade().sync.syncNow({ force: true }); });
+    await ticks();
+    await waitFor(() => expect(within(cal).queryAllByTestId('pending-mark')).toHaveLength(0));
+    expect(periodDots()).toHaveLength(2);
+    fireEvent.click(byX()[1]);
+    expect(await screen.findByRole('button', { name: 'Delete this entry' })).toBeInTheDocument(); // now the server's period
+    expect(server.periods.filter(p => p.start_date === TODAY)).toHaveLength(1);
+    expect(spy.mock.calls.some(([a]) => a && a.justLogged)).toBe(false);
+  }, 20000);
+
   test('day sheet save and check-in offline are visible at once; after sync the server has the merged day', async () => {
     await seedCache();
     server.setOffline(true);

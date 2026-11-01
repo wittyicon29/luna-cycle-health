@@ -36,7 +36,7 @@ export function onSignOut() {
 class SignedOut extends Error {}
 class BadResponse extends Error {}
 
-const emptyResult = () => ({ synced: 0, dropped: [], stoppedBy: null, pending: 0, queueLost: false, storageError: false });
+const emptyResult = () => ({ synced: 0, dropped: [], stoppedBy: null, pending: 0, queueLost: false, storageError: false, forced: false });
 const signedOutResult = (r = emptyResult()) => ({ ...r, stoppedBy: 'signed-out', pending: 0 });
 const isEmpty = payload => Object.keys(payload).length === 0;
 const validItem = i => (i.kind === 'period.create' ? typeof i.clientId === 'string' && i.clientId !== '' : typeof i.date === 'string' && i.date !== '');
@@ -244,7 +244,7 @@ export function createSync({
         const force = f.force;
         f.rerun = false;
         f.force = false;
-        if (force) await outbox.clearBackoff(email);
+        if (force) { await outbox.clearBackoff(email); total.forced = true; }
         last = await runner.pass(gen);
         total.synced += last.synced;
         total.dropped.push(...last.dropped);

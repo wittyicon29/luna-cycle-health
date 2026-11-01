@@ -91,7 +91,7 @@ function Stepper({ label, resetLabel, value, step, min, max, firstPlus, firstMin
   );
 }
 
-export default function DaySheet({ token, date, onClose, onSaved }) {
+export default function DaySheet({ token, date, syncVersion = 0, onClose, onSaved }) {
   useLanguage();
   const data = useOfflineData();
   const tooEarly = date < MIN_LOG_DAY;
@@ -189,6 +189,18 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
     loadMeds(true);
     return () => { alive = false; };
   }, [date, token, unavailable, retry, loadMeds, data]);
+
+  // A background sync finished: refresh only the "waiting to sync" flag, never the fields being edited.
+  useEffect(() => {
+    if (!syncVersion || unavailable) return undefined;
+    let alive = true;
+    data.listLogs(date, date, token).then(rows => {
+      if (!alive) return;
+      const row = Array.isArray(rows) ? rows.find(r => r && r.date === date) || rows[0] : null;
+      setPending(!!(row && row.pending));
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [syncVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const active = allMeds.filter(m => !m.archived);
   const known = new Set(allMeds.map(m => m.id));

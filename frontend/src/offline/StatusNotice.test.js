@@ -6,9 +6,21 @@ import { makeHarness } from './testing/statusHarness';
 
 const setup = () => { const h = makeHarness(); render(<h.Provider><StatusNotice /></h.Provider>); return h; };
 
-test('renders nothing when there is nothing to say', () => {
-  setup();
-  expect(screen.queryByRole('status')).toBeNull();
+const region = () => document.querySelector('[role="status"]');
+
+test('an empty polite live region is always mounted; the text arrives in it, the row and button sit outside', () => {
+  const h = setup();
+  const node = region();
+  expect(node).toHaveClass('vh');
+  expect(node).toHaveAttribute('aria-live', 'polite');
+  expect(node.textContent).toBe('');
+  expect(document.querySelector('.today-note')).toBeNull();
+  act(() => h.internal.setStuck(true));
+  expect(region()).toBe(node); // same node, so the change is announced
+  expect(node).toHaveTextContent("Syncing is paused. We'll keep trying.");
+  const row = document.querySelector('.today-note');
+  expect(node.contains(row)).toBe(false);
+  expect(node.contains(screen.getByRole('button', { name: 'Dismiss notice' }))).toBe(false);
 });
 
 test.each([
@@ -20,24 +32,29 @@ test.each([
 ])('%s', (_n, drive, text) => {
   const h = setup();
   act(() => drive(h));
-  expect(screen.getByRole('status')).toHaveTextContent(text);
+  expect(region()).toHaveTextContent(text);
 });
 
-test('the dismiss button is at least 44px, acknowledges, and the notice does not come back', async () => {
+test('dismissing acknowledges only the shown notice; the next one then appears', async () => {
   const h = setup();
-  act(() => { h.internal.setStuck(true); h.internal.reportLoss(); });
-  const btn = screen.getByRole('button', { name: 'Dismiss' });
-  await userEvent.click(btn);
-  expect(screen.queryByRole('status')).toBeNull();
-  act(() => { h.internal.setStuck(true); h.internal.reportLoss(); });
-  expect(screen.queryByRole('status')).toBeNull();
+  act(() => { h.internal.addDropped([{ kind: 'x' }]); h.internal.reportLoss(); h.internal.setStuck(true); });
+  expect(region()).toHaveTextContent("1 change couldn't be saved.");
+  await userEvent.click(screen.getByRole('button', { name: 'Dismiss notice' }));
+  expect(region()).toHaveTextContent(/were lost/);
+  expect(h.status.getState().stuck).toBe(true);
+  await userEvent.click(screen.getByRole('button', { name: 'Dismiss notice' }));
+  expect(region()).toHaveTextContent("Syncing is paused");
+  await userEvent.click(screen.getByRole('button', { name: 'Dismiss notice' }));
+  expect(region().textContent).toBe('');
+  expect(document.querySelector('.today-note')).toBeNull();
+  act(() => { h.internal.setStuck(true); h.internal.reportLoss(); }); // the same conditions do not come back
+  expect(region().textContent).toBe('');
 });
 
-test('queue lost wins over the paused notice; a new drop after acknowledge shows again', async () => {
+test('a new drop after acknowledging shows again', async () => {
   const h = setup();
-  act(() => { h.internal.setStuck(true); h.internal.reportLoss(); });
-  expect(screen.getByRole('status')).toHaveTextContent(/were lost/);
-  await userEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
   act(() => h.internal.addDropped([{ kind: 'x' }]));
-  expect(screen.getByRole('status')).toHaveTextContent("1 change couldn't be saved.");
+  await userEvent.click(screen.getByRole('button', { name: 'Dismiss notice' }));
+  act(() => h.internal.addDropped([{ kind: 'y' }]));
+  expect(region()).toHaveTextContent("1 change couldn't be saved.");
 });

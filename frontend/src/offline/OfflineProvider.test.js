@@ -241,8 +241,10 @@ describe('OfflineProvider lifecycle', () => {
     await ticks();
     expect(screen.getByTestId('pending')).toHaveTextContent('0');
     expect(await seen.p.pendingSummary()).toEqual({ count: 0 });
-    await expect(seen.p.data.listPeriods('tok')).rejects.toMatchObject({ status: 0 });
-    await expect(seen.p.data.listLogs(D1, D2, 'tok')).rejects.toMatchObject({ status: 0 });
+    await act(async () => {
+      await expect(seen.p.data.listPeriods('tok')).rejects.toMatchObject({ status: 0 });
+      await expect(seen.p.data.listLogs(D1, D2, 'tok')).rejects.toMatchObject({ status: 0 });
+    });
     expect(await snapshot.loadSnapshot(E)).toMatchObject({ periods: null });
   });
 });

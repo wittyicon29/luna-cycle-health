@@ -14,7 +14,7 @@ export function toContextValue(offline) {
   return {
     data: offline.data,
     status: offline.status,
-    acknowledge: () => offline.status.acknowledge(),
+    acknowledge: kind => offline.status.acknowledge(typeof kind === 'string' ? kind : undefined),
     syncNow: opts => offline.sync.syncNow(opts),
     wipe: () => offline.wipe(),
     pendingSummary: () => offline.pendingSummary(),

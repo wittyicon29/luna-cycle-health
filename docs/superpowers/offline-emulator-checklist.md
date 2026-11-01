@@ -13,7 +13,8 @@ What "good" looks like in the app:
   "N change(s) waiting to sync"; both show "Offline · 2 changes waiting to sync". Nothing extra when online and synced.
 - Notices: one dismissible line under the summary (see scenario 10). The close button is easy to tap.
 - Pending markers: a small clock icon next to the date in the day sheet, and a small mark on calendar days that are
-  waiting to sync. They disappear once synced.
+  waiting to sync. They disappear on their own once a background sync has finished (no need to reopen the screen);
+  a waiting period turns into the server's period without a second copy.
 
 ## 0. Setup
 
@@ -77,24 +78,55 @@ What "good" looks like in the app:
 
 ## 8. Wipe verification after sign-out
 
-After "Sign out anyway" (or a normal sign-out with nothing pending), check the device kept nothing readable:
+After "Sign out anyway" (or a normal sign-out with nothing pending), check the device kept nothing readable.
+Run the commands from your computer; `run-as` works only on debug builds.
+
+Primary check (DevTools on the debug WebView):
+
+1. Before signing out: open `chrome://inspect` in desktop Chrome, inspect the app's WebView, and run
+   `Object.keys(localStorage).filter(k => k.startsWith('luna_offline_'))`. Expect a list of keys (values are encrypted
+   blobs, never readable JSON).
+2. Sign out in the app, inspect the WebView again (reopen the inspector if needed) and run the same line.
+   Expect `[]`.
+
+Vault key check (the encryption key must be gone too):
 
 ```
-adb shell run-as <your app ID> ls -R app_webview/Default/"Local Storage"
-adb shell run-as <your app ID> sh -c 'strings app_webview/Default/"Local Storage"/leveldb/* | grep luna_offline_'
+adb shell "run-as <your app ID> ls shared_prefs"
 ```
 
-Expect: no `luna_offline_` keys remain for the signed-out user (the second command prints nothing). Before signing
-out the same command lists keys; their values are encrypted blobs, never readable JSON. Also confirm no email, note
-text or mood values appear in `strings` output. (`run-as` works only on debug builds.)
+Inspect the secure-storage preferences file listed there (`adb exec-out "run-as <your app ID> cat shared_prefs/<file>.xml"`).
+Before sign-out it holds the offline vault key entry; after sign-out that entry must be gone.
 
-## 9. 401 while replaying
+Secondary check (readable text only): LevelDB can keep removed keys in its `.log`/`.ldb` files until it compacts, so a
+leftover key name here is not by itself a failure. What must never appear is readable account data.
+
+```
+adb shell "run-as <your app ID> ls -R 'app_webview/Default/Local Storage'"
+adb exec-out "run-as <your app ID> sh -c 'cat app_webview/Default/Local\ Storage/leveldb/*'" | strings | grep luna_offline_
+```
+
+`strings` runs on your computer (the second command pipes the raw bytes out of the phone). Expect no email address, note
+text or mood values in the output, only opaque encrypted data under key names.
+
+## 9. Session problems while replaying
+
+Rejected refresh (401):
 
 1. Go offline, make two changes, go online.
-2. While the queue is being sent, make the server answer 401 for the refresh (revoke the session just before
-   reconnecting).
-3. Expect: the changes are kept (count unchanged), after a moment the "Syncing is paused. We'll keep trying." notice
-   may appear, and nothing is dropped. After signing in again as the same user the queue is replayed and clears.
+2. Revoke the session on the server just before reconnecting, so the token refresh is rejected.
+3. Expect: you land on the sign-in screen; nothing is dropped. Sign in again as the same user: the two changes are
+   replayed and the count clears, with no duplicates on the server.
+
+Paused sync (403 or a storage error):
+
+1. Go offline, make a change, then (on the server or another device) remove a required consent so replaying answers 403
+   (or fill the phone's storage so offline writes fail).
+2. Go online. Expect the change to stay queued (count unchanged, nothing dropped) and, after a moment, the notice
+   "Syncing is paused. We'll keep trying." (a storage failure shows "Couldn't save offline data on this phone.").
+3. Dismiss the notice. It must not return on the 60-second timer. It may return after the next forced retry (bring the
+   app back to the foreground or toggle airplane mode) if the sync stops on the error again.
+4. Fix the cause (restore the consent). The change syncs and the count clears.
 
 ## 10. Status line and notices
 
@@ -112,7 +144,9 @@ text or mood values appear in `strings` output. (`run-as` works only on debug bu
 Check each of these:
 
 1. The notice can be dismissed with the close button, and the close button is at least 44 px tall and wide.
-2. After dismissing, the same notice does not come back on its own (it can come back only for a new problem).
+2. Dismissing a notice acknowledges only that one: if several are active, the next one appears. A dismissed notice does
+   not come back on its own; "Syncing is paused" may come back only after a forced retry (foreground, reconnect) stops on
+   an error again, and the others only for a new problem.
 3. With a screen reader on, going offline or changing the waiting count is announced once, politely, and only the status
    part is read, not the whole summary line.
 4. In Hindi, the same lines are in Hindi and not cut off; the status text is always the first thing in the line.
