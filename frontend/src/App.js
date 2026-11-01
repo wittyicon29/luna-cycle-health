@@ -34,6 +34,7 @@ import { usePlayful } from "./playful/playfulPrefs";
 import { addDays } from "./calendarGrid";
 import { localDateString, formatLongDate } from "./localDate";
 import { getAccessToken, getEmail, setSession, clearSession } from "./tokenStore";
+import OfflineProvider from "./offline/OfflineProvider";
 
 // ─── PHASE CONFIG ─────────────────────────────────────────────────────────────
 const PHASES = {
@@ -1966,7 +1967,16 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
 }
 
 // ─── MAIN JOURNEY APP ─────────────────────────────────────────────────────────
-function JourneyApp({ token, email, onLogout }) {
+// One offline facade per signed-in session; `onOfflineRegister` hands { pendingSummary, wipe } to the root for sign-out.
+function JourneyApp({ token, email, onLogout, onOfflineRegister }) {
+  return (
+    <OfflineProvider email={email} token={token} onRegister={onOfflineRegister}>
+      <JourneyScreens token={token} email={email} onLogout={onLogout} />
+    </OfflineProvider>
+  );
+}
+
+function JourneyScreens({ token, email, onLogout }) {
   useLanguage();
   const [periods, setPeriods] = useState([]); const [loading, setLoading] = useState(true);
   const [overlay, setOverlay] = useState(null);
@@ -2196,6 +2206,22 @@ function JourneyApp({ token, email, onLogout }) {
   );
 }
 
+// ─── SIGN-OUT CONFIRM ───────────────────────────────────────────────────────────
+function SignOutConfirm({ count, onStay, onConfirm }) {
+  useLanguage();
+  const tall = { minHeight: 44 };
+  // i18n-note: "sync" is kept as सिंक (common loanword on Android); unsure whether a Hindi verb reads better
+  const body = tn(count, "{count} change hasn't synced yet and will be lost if you sign out.", "{count} changes haven't synced yet and will be lost if you sign out.");
+  return (
+    <Modal title={t("Sign out?")} onClose={onStay}
+      footer={<><button className="btn btn-g" style={tall} onClick={onStay}>{t("Stay signed in")}</button><button className="btn btn-p" style={tall} onClick={onConfirm}>{t("Sign out anyway")}</button></>}>
+      <p style={{ fontSize: ".85rem", lineHeight: 1.6, color: "var(--muted)" }}>
+        {body}
+      </p>
+    </Modal>
+  );
+}
+
 // ─── ROOT ─────────────────────────────────────────────────────────────────────
 export default function App() {
   injectStyles();
@@ -2255,6 +2281,15 @@ export default function App() {
     window.history.pushState({}, '', '/app');
   };
 
+  // The active session's offline facade ({ pendingSummary, wipe }), registered by JourneyApp's provider.
+  const offlineRef = useRef(null);
+  const registerOffline = useCallback(api => {
+    offlineRef.current = api;
+    return () => { if (offlineRef.current === api) offlineRef.current = null; };
+  }, []);
+  const [unsynced, setUnsynced] = useState(0);
+  const signingOut = useRef(false);
+
   const handleLogout = () => {
     teardownReminders();
     setToken(null);
@@ -2263,6 +2298,34 @@ export default function App() {
     
     // Redirect to login page after logout
     window.history.pushState({}, '', '/login');
+  };
+
+  // Manual sign-out wipes the offline cache and queue (session expiry does not), so it asks first when changes
+  // haven't synced yet.
+  const wipeAndLogout = async () => {
+    setUnsynced(0);
+    signingOut.current = true;
+    try {
+      const offline = offlineRef.current;
+      if (offline) await offline.wipe();
+    } catch (e) { /* the cache was cleared as far as possible; sign out regardless */ }
+    finally {
+      signingOut.current = false;
+      handleLogout();
+    }
+  };
+
+  const requestLogout = async () => {
+    if (signingOut.current) return;
+    signingOut.current = true;
+    let count = 0;
+    try {
+      const offline = offlineRef.current;
+      count = offline ? (await offline.pendingSummary()).count : 0;
+    } catch (e) { count = 0; }
+    signingOut.current = false;
+    if (count > 0) { setUnsynced(count); return; }
+    await wipeAndLogout();
   };
 
   const handleShowAuth = (mode = "login") => {
@@ -2278,7 +2341,12 @@ export default function App() {
     return <LandingPage onShowAuth={handleShowAuth} />;
   }
 
-  return <JourneyApp token={token} email={email} onLogout={handleLogout} />;
+  return (
+    <>
+      <JourneyApp token={token} email={email} onLogout={requestLogout} onOfflineRegister={registerOffline} />
+      {unsynced > 0 && <SignOutConfirm count={unsynced} onStay={() => setUnsynced(0)} onConfirm={wipeAndLogout} />}
+    </>
+  );
 }
 
 export { injectStyles, AuthScreen, JourneyApp, JourneyMap, ChatDrawer, LogModal, AnalysisDrawer };

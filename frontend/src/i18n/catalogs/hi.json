@@ -531,5 +531,12 @@
   "Show today's details": "आज का ब्यौरा दिखाएँ",
   "Hide today's details": "आज का ब्यौरा छिपाएँ",
   "Today's details": "आज का ब्यौरा",
-  "Profile incomplete": "प्रोफ़ाइल अधूरी है"
+  "Profile incomplete": "प्रोफ़ाइल अधूरी है",
+  "Sign out?": "साइन आउट करें?",
+  "{count} change hasn't synced yet and will be lost if you sign out.": {
+    "one": "{count} बदलाव अभी सिंक नहीं हुआ है। साइन आउट करने पर यह मिट जाएगा।",
+    "other": "{count} बदलाव अभी सिंक नहीं हुए हैं। साइन आउट करने पर ये मिट जाएँगे।"
+  },
+  "Sign out anyway": "फिर भी साइन आउट करें",
+  "Stay signed in": "साइन इन रहें"
 }

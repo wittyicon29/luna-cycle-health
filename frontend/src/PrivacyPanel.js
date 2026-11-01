@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { API } from './api';
 import { downloadJson } from './download';
 import { clearLocalUserData } from './session';
+import { useOffline } from './offline/useOffline';
 import { t, useLanguage } from './i18n';
 
 const section = { display: 'flex', flexDirection: 'column', gap: '.45rem' };
@@ -9,6 +10,7 @@ const title = { fontFamily: "'Cormorant Garamond','Noto Sans Devanagari',serif",
 
 export default function PrivacyPanel({ token, consents, onSetConsent, onAccountDeleted }) {
   useLanguage();
+  const offline = useOffline();
   const [busy, setBusy] = useState('');
   const [err, setErr] = useState(null); // { text }: server text is already translated; empty text shows the generic fallback
   const [saved, setSaved] = useState(false);
@@ -42,6 +44,8 @@ export default function PrivacyPanel({ token, consents, onSetConsent, onAccountD
   const deleteAccount = () =>
     run('delete', async () => {
       await API.account.delete(token);
+      // The offline cache and queue go first (a no-op without a provider), then everything else on the device.
+      try { await offline.wipe(); } catch (e) { /* clearLocalUserData() below clears the offline data too */ }
       clearLocalUserData();
       onAccountDeleted(); // only after the server confirmed
     });
