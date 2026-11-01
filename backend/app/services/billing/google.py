@@ -3,6 +3,7 @@
 The purchase token is only ever placed percent-encoded in a request path; it is never
 logged, never put in an exception message, and never part of repr().
 """
+import asyncio
 import json
 import logging
 import time
@@ -23,16 +24,58 @@ ANDROID_PUBLISHER_SCOPE = "https://www.googleapis.com/auth/androidpublisher"
 API_BASE = "https://androidpublisher.googleapis.com/androidpublisher/v3/applications"
 JWT_BEARER_GRANT = "urn:ietf:params:oauth:grant-type:jwt-bearer"
 HTTP_TIMEOUT_SECONDS = 10
+TOTAL_TIMEOUT_SECONDS = 12  # hard cap per request (incl. the OAuth token fetch), on top of httpx's own
 _ASSERTION_LIFETIME_SECONDS = 3600
 _REFRESH_MARGIN_SECONDS = 60
 ACKNOWLEDGED = "ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED"
 
 
+# httpx logs every request URL at INFO ("HTTP Request: GET https://..."), and the purchase
+# token is part of the Play API path. Drop those records at the source loggers (not by raising
+# the level app-wide); other hosts keep logging normally.
+GOOGLE_HOSTS = ("androidpublisher.googleapis.com", "oauth2.googleapis.com")
+FILTERED_LOGGERS = (
+    "httpx",
+    "httpcore.connection",
+    "httpcore.http11",
+    "httpcore.http2",
+    "httpcore.proxy",
+    "httpcore.socks",
+)
+
+
+class _GoogleRequestLogFilter(logging.Filter):
+    luna_google_filter = True  # marker so re-imports (reload) do not stack filters
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            message = record.getMessage()
+        except Exception:  # a malformed record: judge by its raw parts
+            message = f"{record.msg} {record.args}"
+        return not any(host in message for host in GOOGLE_HOSTS)
+
+
+def _install_log_filter() -> None:
+    for name in FILTERED_LOGGERS:
+        target = logging.getLogger(name)
+        if not any(getattr(f, "luna_google_filter", False) for f in target.filters):
+            target.addFilter(_GoogleRequestLogFilter())
+
+
+_install_log_filter()
+
+
 class HttpxTransport:
     """Default network seam: one short-lived httpx client per request, 10 s timeout."""
 
+    def __init__(self, transport: Optional[httpx.AsyncBaseTransport] = None):
+        self._transport = transport  # tests pass httpx.MockTransport
+
     async def request(self, method: str, url: str, *, headers=None, data=None, json=None):
-        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS) as client:
+        kwargs = {"timeout": httpx.Timeout(HTTP_TIMEOUT_SECONDS)}
+        if self._transport is not None:
+            kwargs["transport"] = self._transport
+        async with httpx.AsyncClient(**kwargs) as client:
             return await client.request(method, url, headers=headers, data=data, json=json)
 
 
@@ -68,8 +111,10 @@ class GoogleVerifier:
         package_name: Optional[str] = None,
         product_ids: Optional[list] = None,
         service_account_file: Optional[str] = None,
+        total_timeout: float = TOTAL_TIMEOUT_SECONDS,
     ):
         self._http = http or HttpxTransport()
+        self._total_timeout = total_timeout
         self._now = now
         self.package_name = package_name if package_name is not None else settings.GOOGLE_PLAY_PACKAGE_NAME
         self.product_ids = list(product_ids if product_ids is not None else settings.billing_product_ids)
@@ -86,8 +131,8 @@ class GoogleVerifier:
 
     async def _send(self, method: str, url: str, what: str, **kw):
         try:
-            return await self._http.request(method, url, **kw)
-        except (httpx.HTTPError, OSError, TimeoutError):
+            return await asyncio.wait_for(self._http.request(method, url, **kw), self._total_timeout)
+        except (httpx.HTTPError, OSError, TimeoutError):  # asyncio.TimeoutError is TimeoutError on 3.11
             # `from None`: httpx exceptions can carry the request URL (which holds the token).
             logger.warning("Google Play %s request failed (transport error)", what)
             raise VerifierError("network", f"could not reach Google Play ({what})") from None

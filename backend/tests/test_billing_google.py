@@ -505,4 +505,90 @@ def test_default_http_layer_uses_httpx_with_10s_timeout(monkeypatch, sa_file):
     http = google_module.HttpxTransport()
     response = run(http.request("POST", TOKEN_URL, data={"a": "b"}))
     assert response.status_code == 200
-    assert seen == {"timeout": 10, "method": "POST", "url": TOKEN_URL}
+    assert seen == {"timeout": httpx.Timeout(10), "method": "POST", "url": TOKEN_URL}
+
+
+# --- final-review fixes: httpx request logging and a hard total timeout ----------------------
+
+def _mock_google(request):
+    if request.url.host == "oauth2.googleapis.com":
+        return httpx.Response(200, json={"access_token": "access-x", "expires_in": 3600})
+    if request.url.path.endswith(":acknowledge"):
+        return httpx.Response(204)
+    return httpx.Response(200, json=sub())
+
+
+def test_httpx_request_logs_never_contain_the_token(sa_file, caplog):
+    from app.services.billing import google as google_module
+
+    logging.basicConfig(level=logging.INFO)
+    caplog.set_level(logging.DEBUG)
+    http = google_module.HttpxTransport(transport=httpx.MockTransport(_mock_google))
+    v = GoogleVerifier(http=http, package_name=PACKAGE, product_ids=PRODUCTS, service_account_file=sa_file)
+
+    assert run(v.get(TOKEN)).product_id == "luna_ai_monthly"
+    run(v.acknowledge(TOKEN, "luna_ai_monthly"))
+
+    for record in caplog.records:
+        message = record.getMessage()
+        assert TOKEN not in message and quote(TOKEN, safe="") not in message, record.name
+        assert "googleapis.com" not in message, record.name
+
+
+def test_httpx_logging_still_works_for_other_hosts(caplog):
+    """The filter only drops Google Play/OAuth records; it does not silence httpx for the app."""
+    from app.services.billing import google  # noqa: F401  (installs the filter)
+
+    caplog.set_level(logging.DEBUG)
+
+    async def call():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(200))) as client:
+            await client.get("https://example.test/ping")
+
+    run(call())
+    assert any("example.test/ping" in r.getMessage() for r in caplog.records if r.name == "httpx")
+
+
+def test_log_filter_is_installed_once(monkeypatch):
+    import importlib
+
+    from app.services.billing import google as google_module
+
+    importlib.reload(google_module)
+    importlib.reload(google_module)
+    for name in google_module.FILTERED_LOGGERS:
+        installed = [f for f in logging.getLogger(name).filters if getattr(f, "luna_google_filter", False)]
+        assert len(installed) == 1, name
+
+
+def test_slow_google_hits_the_total_timeout_as_network(sa_file):
+    class SlowHttp(FakeHttp):
+        async def request(self, method, url, **kw):
+            await asyncio.sleep(5)
+
+    v = GoogleVerifier(http=SlowHttp(), package_name=PACKAGE, product_ids=PRODUCTS,
+                       service_account_file=sa_file, total_timeout=0.05)
+    with pytest.raises(VerifierError) as err:
+        run(v.get(TOKEN))
+    assert err.value.kind == "network" and TOKEN not in str(err.value)
+
+
+def test_slow_api_call_after_the_token_fetch_hits_the_total_timeout(sa_file):
+    class SlowApi(FakeHttp):
+        async def request(self, method, url, **kw):
+            if url == TOKEN_URL:
+                return await super().request(method, url, **kw)
+            await asyncio.sleep(5)
+
+    v = GoogleVerifier(http=SlowApi(), package_name=PACKAGE, product_ids=PRODUCTS,
+                       service_account_file=sa_file, total_timeout=0.05)
+    with pytest.raises(VerifierError) as err:
+        run(v.acknowledge(TOKEN, "luna_ai_monthly"))
+    assert err.value.kind == "network"
+
+
+def test_default_total_timeout_is_12_seconds(sa_file):
+    from app.services.billing import google as google_module
+
+    assert google_module.TOTAL_TIMEOUT_SECONDS == 12
+    assert GoogleVerifier(http=FakeHttp(), service_account_file=sa_file)._total_timeout == 12
