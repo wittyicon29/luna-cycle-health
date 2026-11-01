@@ -3,6 +3,8 @@ import { API } from './api';
 import { downloadJson } from './download';
 import { clearLocalUserData } from './session';
 import { useOffline } from './offline/useOffline';
+import useBilling from './billing/useBilling';
+import { isNative } from './platform';
 import { t, useLanguage } from './i18n';
 
 const section = { display: 'flex', flexDirection: 'column', gap: '.45rem' };
@@ -11,11 +13,14 @@ const title = { fontFamily: "'Cormorant Garamond','Noto Sans Devanagari',serif",
 export default function PrivacyPanel({ token, consents, onSetConsent, onAccountDeleted }) {
   useLanguage();
   const offline = useOffline();
+  const billing = useBilling();
+  const [manageFailed, setManageFailed] = useState(null);
   const [busy, setBusy] = useState('');
   const [err, setErr] = useState(null); // { text }: server text is already translated; empty text shows the generic fallback
   const [saved, setSaved] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [typed, setTyped] = useState('');
+  const planActive = !!(billing.enabled && billing.status && billing.status.active);
   const aiOn = !!(consents && consents.ai_processing);
 
   async function run(name, action) {
@@ -66,6 +71,26 @@ export default function PrivacyPanel({ token, consents, onSetConsent, onAccountD
       <button className="btn btn-g" style={{ justifyContent: 'flex-start' }} onClick={exportData} disabled={!!busy}>
         {busy === 'export' ? t('Preparing…') : t('Download my data')}
       </button>
+
+      {/* i18n-note: legal-adjacent warning about the Google Play subscription; native reviewer to confirm "सदस्यता रद्द नहीं होती" and the imperative "रद्द करें" */}
+      {planActive && (
+        <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '.6rem .75rem' }}>
+          <div style={{ fontSize: '.75rem' }}>
+            {t('Deleting your account does not cancel your Google Play subscription. Cancel it in Google Play first.')}
+          </div>
+          {billing.hasPlan && isNative() && (
+            <button
+              type="button"
+              className="btn btn-g"
+              style={{ marginTop: '.5rem' }}
+              onClick={async () => { setManageFailed(null); setManageFailed(await billing.manage()); }}
+            >
+              {t('Manage subscription')}
+            </button>
+          )}
+          {manageFailed && <div className="err" role="alert">⚠ {manageFailed.text}</div>}
+        </div>
+      )}
 
       {!confirming ? (
         <button

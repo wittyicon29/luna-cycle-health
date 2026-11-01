@@ -39,6 +39,14 @@ export const PRIVACY_POLICY = {
       ],
     },
     {
+      heading: 'Luna AI plan purchases',
+      body: [
+        'The Luna AI plan is a paid subscription. Purchases are processed by Google Play, not by Luna. We do not receive your card or UPI details.',
+        'To unlock the AI features we store the purchase token Google Play gives us (encrypted) and the plan\'s dates and status. We use them only to check that your plan is active.',
+        'Deleting your account does not cancel your Google Play subscription. Cancel it in Google Play first. Refunds follow Google Play policy.',
+      ],
+    },
+    {
       heading: 'How we protect your data',
       body: [
         'Connections to Luna use encryption in transit. Your notes, chat messages, health profile and analysis text are also encrypted at rest.',
@@ -101,6 +109,14 @@ export const TERMS = {
       heading: 'AI features',
       body: [
         'AI replies are generated automatically and may be inaccurate or incomplete. They are available only if you allow AI features, and daily usage limits may apply.',
+      ],
+    },
+    {
+      heading: 'Luna AI plan',
+      body: [
+        'The Luna AI plan unlocks Insights and Chat. Cycle tracking stays free.',
+        'The plan is a subscription bought through Google Play. The price and billing period are shown in Google Play before you pay. It renews automatically until you cancel; you can cancel at any time in Google Play (Manage subscription), and refunds follow Google Play policy.',
+        'The plan does not change the fact that Luna is not medical advice (see above).',
       ],
     },
     {
