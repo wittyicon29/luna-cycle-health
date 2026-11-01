@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     BILLING_PRODUCT_IDS: str = ""  # comma-separated Play subscription product ids
     BILLING_REVERIFY_AFTER_HOURS: int = 6
     BILLING_OUTAGE_GRACE_HOURS: int = 24
+    # Key for account_token(); empty falls back to SECRET_KEY. Set it so a JWT SECRET_KEY
+    # rotation does not change every user's Play obfuscated account id.
+    BILLING_ACCOUNT_SECRET: str = ""
 
     # hide_input_in_errors keeps SECRET_KEY / ENCRYPTION_KEYS / DATABASE_URL out of validation errors.
     model_config = SettingsConfigDict(env_file=".env", hide_input_in_errors=True)

@@ -1,5 +1,9 @@
 from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from .core.database import engine, Base
@@ -21,6 +25,17 @@ app = FastAPI(
 # Rate limiting
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Billing request bodies carry purchase tokens; their 422s must not echo the input back.
+_REDACTED_422_PATHS = frozenset({"/api/v1/billing/verify", "/api/v1/billing/refresh"})
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(request: Request, exc: RequestValidationError):
+    if request.url.path.rstrip("/") not in _REDACTED_422_PATHS:
+        return await request_validation_exception_handler(request, exc)
+    errors = [{k: v for k, v in error.items() if k not in ("input", "ctx")} for error in exc.errors()]
+    return JSONResponse(status_code=422, content={"detail": jsonable_encoder(errors)})
 
 # CORS
 allowed_origins = settings.ALLOWED_ORIGINS.split(",")

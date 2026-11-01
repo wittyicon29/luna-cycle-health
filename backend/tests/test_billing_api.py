@@ -265,8 +265,29 @@ def test_malformed_test_token_is_rejected(client, make_user, db, verifier):
 
 def test_verify_validates_the_body(client, make_user, verifier):
     user = make_user()
-    assert client.post(VERIFY, json={"purchase_token": "", "product_id": MONTHLY}, headers=_h(user)).status_code == 422
-    assert client.post(VERIFY, json={"product_id": MONTHLY}, headers=_h(user)).status_code == 422
+    secret = "secret-purchase-token-Z9"
+    bodies = [
+        {"purchase_token": "", "product_id": MONTHLY},
+        {"product_id": MONTHLY},
+        {"purchase_token": secret},  # missing product: the whole body would be echoed as `input`
+        {"purchase_token": secret * 400, "product_id": MONTHLY},  # too long
+        {"purchase_token": secret, "product_id": ["x"]},
+    ]
+    for body in bodies:
+        response = client.post(VERIFY, json=body, headers=_h(user))
+        assert response.status_code == 422
+        assert secret not in response.text
+        for error in response.json()["detail"]:
+            assert "input" not in error and "ctx" not in error
+            assert {"loc", "msg", "type"} <= set(error)
+
+
+def test_other_routes_keep_the_default_422_body(client, make_user):
+    user = make_user()
+    response = client.post("/api/v1/medications/", json={"name": 5}, headers=_h(user))
+    assert response.status_code == 422
+    [error] = response.json()["detail"]
+    assert error["input"] == 5 and error["loc"] == ["body", "name"]
 
 
 # --- status and refresh ----------------------------------------------------------------------

@@ -114,3 +114,32 @@ def test_export_plan_inactive_when_expired_or_on_hold(client, db, make_user):
     row.state = "SUBSCRIPTION_STATE_ON_HOLD"
     db.commit()
     assert client.get("/api/v1/account/export", headers=_h(user)).json()["plan"]["active"] is False
+
+
+def test_account_token_uses_billing_account_secret_when_set(monkeypatch):
+    import hashlib
+    import hmac
+    import uuid
+
+    uid = uuid.uuid4()
+    monkeypatch.setattr(settings, "BILLING_ACCOUNT_SECRET", "")
+    fallback = account_token(uid)
+    assert fallback == hmac.new(settings.SECRET_KEY.encode(), f"billing:{uid}".encode(), hashlib.sha256).hexdigest()
+
+    monkeypatch.setattr(settings, "BILLING_ACCOUNT_SECRET", "a-dedicated-billing-secret")
+    dedicated = account_token(uid)
+    assert dedicated == hmac.new(b"a-dedicated-billing-secret", f"billing:{uid}".encode(), hashlib.sha256).hexdigest()
+    assert dedicated != fallback
+
+    monkeypatch.setattr(settings, "BILLING_ACCOUNT_SECRET", "another-billing-secret")
+    assert account_token(uid) != dedicated
+
+    monkeypatch.setattr(settings, "SECRET_KEY", "rotated-jwt-secret-key")
+    monkeypatch.setattr(settings, "BILLING_ACCOUNT_SECRET", "another-billing-secret")
+    assert account_token(uid) == account_token(uid)  # SECRET_KEY rotation does not move it
+
+
+def test_billing_account_secret_defaults_to_empty():
+    from app.core.config import Settings
+
+    assert Settings().BILLING_ACCOUNT_SECRET == ""
