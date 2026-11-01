@@ -167,6 +167,33 @@ test('A, B, A sends A then B and never a clearing PUT', async () => {
   expect(API.logs.put.mock.calls.map(c => c[1])).toEqual([{ mood: 4 }, { mood: 3 }]);
 });
 
+test('a repeat tap on the mood being cleared is dropped: one empty PUT, no set-back', async () => {
+  const d = deferred();
+  holdNextPut(d);
+  const { onSaved } = draw({ logs: { [TODAY]: { date: TODAY, mood: 3 } } });
+  fireEvent.click(radio('Okay'));
+  fireEvent.click(radio('Okay'));
+  await flush();
+  await act(async () => { d.resolve({}); await Promise.resolve(); });
+  await flush();
+  expect(API.logs.put.mock.calls.map(c => c[1])).toEqual([{}]);
+  expect(radio('Okay')).toHaveAttribute('aria-checked', 'false');
+  expect(onSaved).toHaveBeenCalledTimes(1);
+});
+
+test('a clear followed by a different mood sends the clear, then the new mood', async () => {
+  const d = deferred();
+  holdNextPut(d);
+  draw({ logs: { [TODAY]: { date: TODAY, mood: 3 } } });
+  fireEvent.click(radio('Okay'));
+  fireEvent.click(radio('Good'));
+  await flush();
+  await act(async () => { d.resolve({}); await Promise.resolve(); });
+  await flush();
+  expect(API.logs.put.mock.calls.map(c => c[1])).toEqual([{}, { mood: 4 }]);
+  expect(radio('Good')).toHaveAttribute('aria-checked', 'true');
+});
+
 test('A, A, B sends A then B', async () => {
   const d = deferred();
   holdNextPut(d);

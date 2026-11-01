@@ -23,7 +23,13 @@ export default function useConsents(token) {
 
   const setConsent = useCallback(
     async (purpose, granted) => {
-      const next = await API.consents.set(purpose, granted, token); // online only
+      let next;
+      try {
+        next = await API.consents.set(purpose, granted, token); // online only
+      } catch (e) {
+        await data.refreshConsents(undefined).catch(() => {}); // the outcome is unknown: drop the cached copy
+        throw e;
+      }
       await data.refreshConsents(next).catch(() => {}); // the cached copy must not keep the old answer
       setConsents(next);
       return next;

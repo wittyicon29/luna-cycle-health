@@ -634,6 +634,15 @@ describe('review fixes', () => {
     expect(server.names()).toEqual(['consents.get', 'consents.get']); // only the two offline reads
   });
 
+  test('refreshConsents drops the cached copy first: a failed save leaves nothing cached', async () => {
+    server.consents = { ai_processing: true };
+    const { data } = make();
+    await data.getConsents('tok');
+    jest.spyOn(snapshot, 'saveSlice').mockRejectedValue(new Error('disk full'));
+    await data.refreshConsents({ ai_processing: false });
+    expect((await snapshot.loadSnapshot(E)).consents).toBeNull();
+  });
+
   test('a later persisted write clears lastError', async () => {
     server.setOffline(true);
     const { data, status, sync } = make();

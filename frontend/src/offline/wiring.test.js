@@ -172,12 +172,23 @@ describe('offline cold start after one online session', () => {
     expect(screen.queryByText('Meet your Luna journey')).toBeNull();
   });
 
-  test('online, a non-network auth-status failure still opens the intro (behaviour as before)', async () => {
+  test('online, a non-network auth-status failure for a new user still opens the intro (behaviour as before)', async () => {
+    localStorage.removeItem(`luna_onboarding_done_${E}`);
     seedServer();
     server.failNext('auth.status', apiErr(500, 'boom'));
     renderApp();
     await waitForMap();
     expect(await screen.findByText('Meet your Luna journey')).toBeInTheDocument();
+  });
+
+  test('a 5xx auth-status failure for a returning user (intro already seen) does not reopen it', async () => {
+    seedServer();
+    server.failNext('auth.status', apiErr(503, 'down'));
+    renderApp();
+    await waitForMap();
+    await ticks();
+    expect(server.names()).toContain('auth.status');
+    expect(screen.queryByText('Meet your Luna journey')).toBeNull();
   });
 });
 
@@ -208,6 +219,15 @@ describe('offline writes', () => {
     await act(async () => { list = await facade().data.listPeriods('tok'); });
     expect(list.filter(p => p.pending)).toHaveLength(1);
     expect(list.find(p => p.pending).start_date).toBe(TODAY);
+
+    // The pending marker (client id the server may not know yet) offers no delete; the synced one still does.
+    const byX = () => periodDots().sort((a, b) => parseFloat(a.style.left) - parseFloat(b.style.left));
+    fireEvent.click(byX()[1]); // today's (pending) period
+    expect(await screen.findByText('Pain: 3/10')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Delete this entry' })).toBeNull();
+    fireEvent.click(byX()[0]); // the synced one, 10 days ago
+    expect(await screen.findByText('Pain: 2/10')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Delete this entry' })).toBeInTheDocument();
 
     server.setOffline(false);
     await act(async () => { await facade().sync.syncNow({ force: true }); });
@@ -298,6 +318,23 @@ describe('consents', () => {
     renderApp();
     await waitForMap();
     expect(screen.queryByRole('button', { name: 'Continue' })).toBeNull();
+  });
+});
+
+describe('consents: failed set', () => {
+  test('a failed consents.set drops the cached copy (nothing stale is served offline)', async () => {
+    seedServer();
+    server.consents = { ...ALL, terms_privacy: false };
+    mockApi.consents.set.mockImplementation(async () => { throw apiErr(500, 'boom'); });
+    renderApp();
+    const boxes = await screen.findAllByRole('checkbox');
+    await waitFor(async () => expect((await snapshot.loadSnapshot(E)).consents).toMatchObject({ terms_privacy: false }));
+    boxes.forEach(b => { if (!b.checked) fireEvent.click(b); });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(mockApi.consents.set).toHaveBeenCalled());
+    await ticks();
+    await store.__flush();
+    expect((await snapshot.loadSnapshot(E)).consents).toBeNull();
   });
 });
 

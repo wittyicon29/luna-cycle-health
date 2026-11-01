@@ -1108,7 +1108,8 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
                       {d.loggedPeriod.flow_intensity && <div style={{ marginTop: ".45rem" }}><span className="badge b-r">{flowLabel(d.loggedPeriod.flow_intensity)}</span></div>}
                       {d.loggedPeriod.pain_level != null && <div style={{ fontSize: ".7rem", color: "var(--muted)", marginTop: ".35rem", fontFamily: "'Fira Code','Noto Sans Devanagari',monospace" }}>{t("Pain: {level}/10", { level: d.loggedPeriod.pain_level })}</div>}
                       {(d.loggedPeriod.symptoms || []).length > 0 && <div style={{ marginTop: ".5rem", display: "flex", flexWrap: "wrap", gap: ".22rem" }}>{d.loggedPeriod.symptoms.slice(0, 4).map(s => <span key={s} className="badge b-m">{symptomLabel(s)}</span>)}</div>}
-                      <PeriodDelete period={d.loggedPeriod} token={token} onDeleted={onPeriodDeleted} />
+                      {/* A pending (unsynced) period has a client id the server may not know yet: no delete until it syncs. */}
+                      {!d.loggedPeriod.pending && <PeriodDelete period={d.loggedPeriod} token={token} onDeleted={onPeriodDeleted} />}
                     </>
                   ) : <div className="mk-card-head" style={{ fontSize: ".77rem", color: "var(--muted)" }}>{t("Predicted period start")}</div>}
                 </div>
@@ -2072,9 +2073,10 @@ function JourneyScreens({ token, email, onLogout }) {
 
   useEffect(() => {
     const checkUserStatus = async () => {
+      let seen = null;
       try {
         // Check onboarding status (keep localStorage for this since it's one-time)
-        const seen = window.localStorage.getItem(email ? `luna_onboarding_done_${email}` : "luna_onboarding_done");
+        seen = window.localStorage.getItem(email ? `luna_onboarding_done_${email}` : "luna_onboarding_done");
         if (!seen) setShowIntro(true);
         
         // Check questionnaire status via API
@@ -2083,9 +2085,9 @@ function JourneyScreens({ token, email, onLogout }) {
           setProfileIncomplete(!userStatus.has_completed_questionnaire);
         }
       } catch (error) {
-        // Offline (network error, nothing cached) the intro follows the "seen" flag above only; other failures show
-        // it as before.
-        if (!isNetworkError(error)) setShowIntro(true);
+        // The intro follows the "seen" flag above. A failure opens it only when nothing is known: not offline
+        // (network error, nothing cached) and not for a returning user who has already seen it.
+        if (!seen && !isNetworkError(error)) setShowIntro(true);
       }
     };
     

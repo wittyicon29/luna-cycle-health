@@ -43,7 +43,7 @@ export default function SkyCheckIn({ token, logs, logsReady, onSaved, onAddDetai
     if (!patch) return;
     const target = patch.set.mood ?? null;
     inFlight.current = true;
-    flying.current = target;
+    flying.current = value; // the button being sent: a repeat tap of it is dropped (set or clear)
     const day = localDateString();
     let saved = false;
     setError(false);

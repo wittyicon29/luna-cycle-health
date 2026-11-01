@@ -330,12 +330,13 @@ function createNativeOffline({ email, getToken, api, timeoutMs, syncFactory }) {
     getAuthStatus(token) { return cachedValue('authStatus', () => net.auth.status(token), () => web.getAuthStatus(token)); },
 
     // `value` is the consents map the server returned from consents.set: it replaces the cached copy. Anything else
-    // drops the cached copy, so a stale one is never served offline.
+    // (e.g. undefined after a failed set) only drops the cached copy, so a stale one is never served offline.
     async refreshConsents(value) {
       if (retired()) return;
       const gen = store.currentGeneration();
+      // Drop first, then store: a failed save leaves nothing cached (never the old answer).
+      await update(gen, 'consents', () => null);
       if (value && typeof value === 'object' && !Array.isArray(value)) await cache(gen, 'consents', value);
-      else await update(gen, 'consents', () => null);
     },
 
     createPeriod(payload, token) {
