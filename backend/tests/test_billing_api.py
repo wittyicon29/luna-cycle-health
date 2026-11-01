@@ -358,3 +358,83 @@ def test_export_has_plan_status_and_no_token(client, make_user, verifier):
     response = client.get("/api/v1/account/export", headers=_h(user))
     assert response.json()["plan"]["product_id"] == MONTHLY
     assert token not in response.text
+
+
+# --- final-review fix: concurrent verify (double tap, restore flow) --------------------------
+
+def _race(db, monkeypatch, insert):
+    """On the first commit of `db`, commit `insert(other_session)` first: a concurrent request won."""
+    from app.core.database import SessionLocal
+
+    real_commit = db.commit
+    state = {"raced": False}
+
+    def commit():
+        if not state["raced"]:
+            state["raced"] = True
+            other = SessionLocal()
+            try:
+                insert(other)
+                other.commit()
+            finally:
+                other.close()
+        real_commit()
+
+    monkeypatch.setattr(db, "commit", commit)
+    return state
+
+
+def _row(user_id, token, *, expiry=NOW + 30 * 24 * H):
+    return Subscription(
+        user_id=user_id, product_id=MONTHLY, purchase_token=token, token_hash=token_hash(token),
+        state="SUBSCRIPTION_STATE_ACTIVE", expiry_time=expiry, auto_renewing=True, acknowledged=True,
+        last_verified_at=NOW,
+    )
+
+
+def _verify_service(db, user, token, verifier):
+    import asyncio
+
+    return asyncio.run(entitlement_module.verify_and_store(db, user, token, MONTHLY, verifier=verifier, now=NOW))
+
+
+def test_concurrent_verify_of_the_same_token_by_the_same_user_is_idempotent(make_user, db, monkeypatch, verifier):
+    user = make_user()
+    token = make_token(user)
+    state = _race(db, monkeypatch, lambda other: other.add(_row(user.id, token)))
+
+    ent = _verify_service(db, user, token, verifier)
+
+    assert state["raced"] and ent.active is True and ent.source == "verified"
+    [sub] = rows(db)
+    assert sub.user_id == user.id and sub.token_hash == token_hash(token)
+
+
+def test_concurrent_verify_of_another_token_by_the_same_user_updates_that_row(make_user, db, monkeypatch, verifier):
+    user = make_user()
+    mine = make_token(user, product="luna_ai_monthly", expiry=NOW + 40 * 24 * H)
+    other_token = make_token(user, expiry=NOW + 5 * 24 * H)
+    state = _race(db, monkeypatch, lambda other: other.add(_row(user.id, other_token, expiry=NOW + 5 * 24 * H)))
+
+    ent = _verify_service(db, user, mine, verifier)
+
+    assert state["raced"] and ent.active is True
+    [sub] = rows(db)
+    assert sub.user_id == user.id and sub.token_hash == token_hash(mine) and sub.purchase_token == mine
+    assert sub.expiry_time == NOW + 40 * 24 * H
+
+
+def test_concurrent_link_by_a_different_user_is_already_linked(make_user, db, monkeypatch, verifier):
+    from fastapi import HTTPException
+
+    alice, bob = make_user("alice@gmail.com"), make_user("bob@gmail.com")
+    token = make_token(bob)
+    _race(db, monkeypatch, lambda other: other.add(_row(alice.id, token)))
+
+    with pytest.raises(HTTPException) as err:
+        _verify_service(db, bob, token, verifier)
+
+    assert err.value.status_code == 409
+    assert err.value.detail == "This purchase is already linked to another account"
+    [sub] = rows(db)
+    assert sub.user_id == alice.id

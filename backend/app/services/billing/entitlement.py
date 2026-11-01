@@ -254,10 +254,41 @@ async def verify_and_store(
             raise HTTPException(status_code=502, detail=ACK_FAILED) from None
 
     # Insert, or replace the user's single row in place (user_id is unique), in one commit.
+    sub = _apply(db, user, sub, token, digest, info, now)
+    try:
+        db.commit()
+    except IntegrityError:
+        # A concurrent request won the race (double tap, restore flow, or another account).
+        db.rollback()
+        owner = db.query(Subscription.user_id).filter(Subscription.token_hash == digest).first()
+        if owner is not None and owner.user_id != user.id:
+            raise HTTPException(status_code=409, detail=ALREADY_LINKED) from None
+        sub = get_subscription(db, user)
+        if sub is not None and sub.token_hash == digest:
+            return _from_row(sub, is_active(sub.state, sub.expiry_time, now), "verified")
+        sub = _apply(db, user, sub, token, digest, info, now)
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            raise HTTPException(status_code=409, detail=ALREADY_LINKED) from None
+    return _from_row(sub, True, "verified")
+
+
+def _apply(
+    db: Session,
+    user: User,
+    sub: Optional[Subscription],
+    token: str,
+    digest: str,
+    info: SubscriptionInfo,
+    now: datetime,
+) -> Subscription:
+    """Write a verified, acknowledged purchase onto the user's row (created if missing)."""
     if sub is None:
         sub = Subscription(user_id=user.id)
         db.add(sub)
-    if not same_token:
+    if sub.token_hash != digest:
         sub.purchase_token = token
         sub.token_hash = digest
         sub.created_at = now
@@ -267,10 +298,4 @@ async def verify_and_store(
     sub.auto_renewing = info.auto_renewing
     sub.acknowledged = True
     sub.last_verified_at = now
-    try:
-        db.commit()
-    except IntegrityError:
-        # Another account linked the same token concurrently.
-        db.rollback()
-        raise HTTPException(status_code=409, detail=ALREADY_LINKED) from None
-    return _from_row(sub, True, "verified")
+    return sub
