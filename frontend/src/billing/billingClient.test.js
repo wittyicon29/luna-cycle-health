@@ -159,7 +159,8 @@ describe('native client: products', () => {
     expect(plan.trial).toEqual({ text: 'Free trial available' });
   });
 
-  test('a paid intro offer is not shown as a trial and an offer without its base plan is dropped', async () => {
+  // Play charges by the FIRST offer of the base plan (purchaseProduct takes the offers in getProducts order).
+  test('a paid intro offer listed first drops the plan (its first charge could not be shown truthfully); an offer without its base plan is dropped', async () => {
     mockPlugin.getProducts.mockResolvedValue({
       products: [
         androidOffer('luna_ai_monthly', 'monthly', { offerId: 'intro', price: 99, priceString: '₹99.00' }),
@@ -170,8 +171,39 @@ describe('native client: products', () => {
 
     const plans = await nativeClient.getProducts(IDS);
 
-    expect(plans).toHaveLength(1);
+    expect(plans).toEqual([]);
+  });
+
+  test('the base plan listed first is what Play charges: no trial line even when a free offer follows; a later paid offer is ignored', async () => {
+    mockPlugin.getProducts.mockResolvedValue({
+      products: [
+        androidOffer('luna_ai_monthly', 'monthly'),
+        androidOffer('luna_ai_monthly', 'monthly', { offerId: 'free-trial', price: 0, priceString: 'Free' }),
+        androidOffer('luna_ai_yearly', 'yearly', { price: 1499, priceString: '₹1,499.00' }),
+        androidOffer('luna_ai_yearly', 'yearly', { offerId: 'intro', price: 999, priceString: '₹999.00' }),
+      ],
+    });
+
+    const plans = await nativeClient.getProducts(IDS);
+
+    expect(plans).toHaveLength(2);
     expect(plans[0]).toMatchObject({ id: 'luna_ai_monthly', priceString: '₹199.00', trial: null });
+    expect(plans[1]).toMatchObject({ id: 'luna_ai_yearly', priceString: '₹1,499.00', trial: null });
+  });
+
+  test('a free offer listed first after another free offer still shows one trial line with the regular price', async () => {
+    mockPlugin.getProducts.mockResolvedValue({
+      products: [
+        androidOffer('luna_ai_monthly', 'monthly', { offerId: 'free-trial', price: 0, priceString: 'Free' }),
+        androidOffer('luna_ai_monthly', 'monthly', { offerId: 'intro', price: 99, priceString: '₹99.00' }),
+        androidOffer('luna_ai_monthly', 'monthly'),
+      ],
+    });
+
+    const plans = await nativeClient.getProducts(IDS);
+
+    expect(plans).toHaveLength(1);
+    expect(plans[0]).toMatchObject({ priceString: '₹199.00', trial: { text: 'Free trial available' } });
   });
 
   test('ignores products the server did not offer', async () => {

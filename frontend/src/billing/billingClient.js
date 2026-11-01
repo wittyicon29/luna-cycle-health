@@ -98,8 +98,12 @@ function trialFromIntro(intro) {
 // --- product mapping ------------------------------------------------------------------------------
 
 // The plugin returns one Android entry per subscription offer: the base plan (offerId null, price = the
-// recurring price) plus each developer offer (a free trial's first phase is price 0, "Free"). Entries are
-// grouped per product + base plan; the base plan supplies the price, a free offer only adds a trial line.
+// recurring price) plus each developer offer (a free trial's first phase is price 0, "Free"). Entries are grouped
+// per product + base plan. purchaseProduct buys the FIRST Play offer of the base plan, in the same order as these
+// entries, so the first entry decides what the paywall may show:
+//   base plan first   -> its price, no trial line (Play will not apply a later free offer);
+//   free offer first  -> "Free trial available" plus the base plan's regular price;
+//   paid offer first  -> dropped: Play would charge an intro price this paywall does not show.
 export function toPlans(products, ids) {
   const wanted = new Set(ids);
   const groups = new Map();
@@ -109,18 +113,17 @@ export function toPlans(products, ids) {
     if (!wanted.has(id)) return;
     const planId = raw.planIdentifier ? raw.identifier : undefined;
     const key = `${id}\u0000${planId || ''}`;
-    if (!groups.has(key)) groups.set(key, { id, planId, base: null, freeOffer: false });
+    if (!groups.has(key)) groups.set(key, { id, planId, first: raw, base: null });
     const group = groups.get(key);
-    if (raw.offerId) {
-      if (raw.price === 0) group.freeOffer = true;
-    } else if (!group.base) {
-      group.base = raw;
-    }
+    if (!raw.offerId && !group.base) group.base = raw;
   });
 
   const plans = [];
-  groups.forEach(({ id, planId, base, freeOffer }) => {
+  groups.forEach(({ id, planId, first, base }) => {
     if (!base) return; // an offer without its base plan has no recurring price to show
+    const freeFirst = !!first.offerId && first.price === 0;
+    if (first.offerId && !freeFirst) return; // a paid intro offer would be charged first
+    const freeOffer = freeFirst;
     // Android: the base plan id only (one product can hold base plans of different lengths, so the product
     // id is no guide). Other stores: the product id.
     const period = fromSubscriptionPeriod(base.subscriptionPeriod) || fromIdentifier(planId !== undefined ? planId : id);
