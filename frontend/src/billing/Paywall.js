@@ -61,7 +61,7 @@ function PlanCards({ plans, selected, onSelect, disabled }) {
 
 // The Luna AI plan paywall. `onUnlocked` runs once the SERVER says access is allowed (billing off, or the plan is
 // active, e.g. right after a verified purchase); nothing here unlocks on the client's word.
-export default function Paywall({ onClose, onUnlocked }) {
+export default function Paywall({ onClose, onUnlocked, returnFocus }) {
   useLanguage();
   const billing = useBilling();
   const { status, statusState, checking, products, productsState, available, busy, slow, notice, online, hasPlan, canPurchase } = billing;
@@ -136,7 +136,7 @@ export default function Paywall({ onClose, onUnlocked }) {
 
   const storeShown = !!status && status.enabled && !status.active && available === true;
   return (
-    <Modal dialog title={t('Luna AI plan')} onClose={close}
+    <Modal dialog returnFocus={returnFocus} title={t('Luna AI plan')} onClose={close}
       footer={<button type="button" className="btn btn-g pay-btn" onClick={close}>{t('Not now')}</button>}>
       <div className="pay">
         <p className="pay-lead">{t('Get more from Luna with Insights and Chat. Cycle tracking stays free.')}</p>

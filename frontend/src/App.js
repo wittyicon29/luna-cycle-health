@@ -477,7 +477,7 @@ body{font-family:'Outfit','Noto Sans Devanagari',sans-serif;background:var(--bg)
 .pay-btn{min-height:44px;white-space:normal;text-align:center;max-width:100%}
 .pay-actions{display:flex;flex-wrap:wrap;gap:.5rem}
 .pay-legal{display:flex;flex-wrap:wrap;gap:.4rem 1rem;font-size:.75rem}
-.pay-legal a{display:inline-flex;align-items:center;min-height:44px}
+.pay-legal a{display:inline-flex;align-items:center;justify-content:center;min-height:44px;min-width:44px;padding:0 .5rem}
 .plan-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.6rem;min-width:0}
 .plan-row-text{display:flex;flex-direction:column;gap:.2rem;min-width:0;flex:1 1 10rem;overflow-wrap:anywhere}
 .plan-row-status{font-size:.8rem;color:var(--cream)}
@@ -2030,6 +2030,8 @@ function JourneyScreens({ token, email, onLogout }) {
   const billing = useBilling();
   // The AI screen the paywall continues to once the server says the plan is active ("" from Profile: just close).
   const [paywallTarget, setPaywallTarget] = useState("");
+  const [paywallFrom, setPaywallFrom] = useState(""); // "profile": the drawer closed, so focus returns to the dock tab
+  const profileTabRef = useRef(null);
   // An AI tap made while the plan status is still loading waits for it (no paywall flash); the button shows busy.
   const [aiWaiting, setAiWaiting] = useState(null);
   const gateSeq = useRef(0);
@@ -2174,28 +2176,32 @@ function JourneyScreens({ token, email, onLogout }) {
     );
   }
 
-  const openPaywall = target => { setPaywallTarget(target || ""); setOverlay("paywall"); };
+  const openPaywall = (target, from = "") => { setPaywallTarget(target || ""); setPaywallFrom(from); setOverlay("paywall"); };
 
-  // After consent: the plan gate. Billing off or an active plan opens the AI screen as before.
-  const gateAi = target => {
+  // The existing AI-consent step, then the AI screen.
+  const continueAi = target => {
+    if (!target) { setOverlay(null); return; }
+    if (consents.ai_processing) { setOverlay(target); return; }
+    setPendingAi(target);
+    setOverlay("ai-consent");
+  };
+
+  // The plan gate comes first: a free user (billing on, no active plan) cannot use AI, so the paywall shows before
+  // the AI-consent step; once the server says the plan is active the consent step follows. Billing off or an active
+  // plan: straight to the consent step / AI screen, as before.
+  const openAi = target => {
+    planPromptArmed.current = true;
     const now = billing.access();
-    if (now === "open") { setOverlay(target); return; }
+    if (now === "open") { continueAi(target); return; }
     if (now === "paywall") { openPaywall(target); return; }
     const seq = ++gateSeq.current;
     setAiWaiting(target);
     billing.checkAccess().then(result => {
       if (seq !== gateSeq.current) return;
       setAiWaiting(null);
-      if (result === "open") setOverlay(target);
+      if (result === "open") continueAi(target);
       else openPaywall(target);
     });
-  };
-
-  const openAi = target => {
-    planPromptArmed.current = true;
-    if (consents.ai_processing) { gateAi(target); return; }
-    setPendingAi(target);
-    setOverlay("ai-consent");
   };
 
   const sorted = [...periods].sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
@@ -2272,7 +2278,7 @@ function JourneyScreens({ token, email, onLogout }) {
         <button className="dk" onClick={() => setOverlay("calendar")}><span className="di"><DockIcon name="calendar" size={24} /></span><span className="dl vh">{t("Calendar")}</span></button>
         <button className="dk" aria-busy={aiWaiting === "analysis" || undefined} onClick={() => openAi("analysis")}><span className="di"><DockIcon name="insights" size={24} /></span><span className="dl vh">{t("Insights")}</span></button>
         <button className="dk" aria-busy={aiWaiting === "chat" || undefined} onClick={() => openAi("chat")}><span className="di"><DockIcon name="chat" size={24} /></span><span className="dl vh">{t("Chat")}</span></button>
-        <button className="dk" onClick={() => setOverlay("profile")}><span className="di"><DockIcon name="profile" size={24} /></span><span className="dl vh">{t("Profile")}</span></button>
+        <button className="dk" ref={profileTabRef} onClick={() => setOverlay("profile")}><span className="di"><DockIcon name="profile" size={24} /></span><span className="dl vh">{t("Profile")}</span></button>
       </div>
 
       {/* OVERLAYS */}
@@ -2281,17 +2287,18 @@ function JourneyScreens({ token, email, onLogout }) {
       {dayDate && <DaySheet token={token} date={dayDate} syncVersion={syncVersion} onClose={() => setDayDate(null)} onSaved={() => setLogsVersion(v => v + 1)} />}
       {overlay === "chat" && <ChatDrawer token={token} onClose={() => setOverlay(null)} />}
       {overlay === "analysis" && <AnalysisDrawer token={token} onClose={() => setOverlay(null)} />}
-      {overlay === "profile" && <ProfileDrawer token={token} email={email} onClose={() => { setOverlay(null); setForceQuestionnaire(false); refreshProfileStatus(); }} onLogout={onLogout} consents={consents} onSetConsent={setConsent} reminderPrefs={reminderPrefs} onReminderPrefsChange={next => setReminderPrefs(savePrefs(next))} appearance={appearance} onAppearanceChange={setAppearanceState} initialView={forceQuestionnaire ? "questionnaire" : "main"} onOpenPlan={() => { setForceQuestionnaire(false); openPaywall(""); }} />}
+      {overlay === "profile" && <ProfileDrawer token={token} email={email} onClose={() => { setOverlay(null); setForceQuestionnaire(false); refreshProfileStatus(); }} onLogout={onLogout} consents={consents} onSetConsent={setConsent} reminderPrefs={reminderPrefs} onReminderPrefsChange={next => setReminderPrefs(savePrefs(next))} appearance={appearance} onAppearanceChange={setAppearanceState} initialView={forceQuestionnaire ? "questionnaire" : "main"} onOpenPlan={() => { setForceQuestionnaire(false); openPaywall("", "profile"); }} />}
       {overlay === "ai-consent" && (
         <AiConsentModal
           onClose={() => { setOverlay(null); setPendingAi(null); }}
-          onGrant={async () => { await setConsent("ai_processing", true); const target = pendingAi; setPendingAi(null); setOverlay(null); gateAi(target); }}
+          onGrant={async () => { await setConsent("ai_processing", true); setOverlay(pendingAi); setPendingAi(null); }}
         />
       )}
       {overlay === "paywall" && (
         <Paywall
           onClose={() => setOverlay(null)}
-          onUnlocked={() => setOverlay(paywallTarget || null)}
+          onUnlocked={() => continueAi(paywallTarget)}
+          returnFocus={paywallFrom === "profile" ? () => profileTabRef.current : undefined}
         />
       )}
       {showIntro && <Onboarding email={email} onClose={() => setShowIntro(false)} />}

@@ -8,8 +8,14 @@ secrets or addresses are stored in this repo: wherever you see `<your app ID>`, 
 
 1. The Android plugin reports no billing period. The app guesses the period from the Play **base plan ID**, so name base
    plans `monthly` / `yearly` (or `p1m` / `p1y`). A plan whose id the app cannot map is NOT offered.
-2. The plugin buys the first Play offer for the base plan and cannot choose an offer token. For a free trial, create a
-   single new-customer-eligible trial offer on the base plan, and test which offer Play applies.
+2. The plugin buys the first Play offer for the base plan and cannot choose an offer token. The offers come back in
+   the same order Play uses for the purchase, so the app reads the **first** entry of each base plan:
+   - the base plan first: its regular price is shown, with no trial line (a later free offer would not be applied);
+   - a free-trial offer first: "Free trial available" plus the regular price;
+   - a paid introductory offer first: the plan is dropped from the paywall (not offered), because the app cannot
+     show the intro price truthfully.
+   For a free trial, create a single new-customer-eligible trial offer on the base plan, and test which offer Play
+   applies.
 3. The app never acknowledges purchases itself. The server acknowledges within 3 days, or Google refunds the purchase.
 4. A user cancel and a Play failure look identical to the app: it shows the neutral "The purchase wasn't completed."
 5. minSdk is now 24 (Android 7.0). Phones older than that cannot install the app.
@@ -68,10 +74,57 @@ the original expiry. Record the result here and decide whether to change the ser
 - [ ] The paywall shows the price and billing period from Play (it does) and says the plan renews automatically until
       cancelled.
 - [ ] It says how to cancel (Google Play, Manage subscription).
-- [ ] Free-trial length and the price after the trial are shown when a trial exists.
+- [ ] When the first Play offer of the base plan is the free trial, the paywall shows "Free trial available" and the
+      regular price. It cannot show the trial length (the plugin does not report it); Play's own purchase sheet shows
+      the binding trial terms before payment. If the base plan is listed first, no trial line is shown. A plan whose
+      first offer is a paid introductory offer is not offered at all (see section 0, item 2).
 - [ ] Cycle tracking is free and works without the plan; the plan only adds Insights and Chat.
 - [ ] Privacy Policy and Terms mention the plan (they do) and are linked in the store listing.
 - [ ] The Play listing description does not promise features the plan does not include.
+
+### Release build: strip the plugin's token logs (REQUIRED before uploading a release)
+
+The billing plugin (`ee.forgr.nativepurchases.NativePurchasesPlugin`, 7.19.3) writes purchase tokens to logcat with
+`Log.d` / `Log.i`, and the release build currently has `minifyEnabled false`, so those calls ship. This was NOT changed
+in the repo because no Android SDK was available to build and test a minified release. Before the first release:
+
+1. In `frontend/android/app/build.gradle`, in `buildTypes { release { ... } }`, set:
+
+   ```gradle
+   minifyEnabled true
+   proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+   ```
+
+   Use `proguard-android-optimize.txt`, not `proguard-android.txt`: the plain file disables optimisation, and
+   `-assumenosideeffects` then has no effect.
+2. Append to `frontend/android/app/proguard-rules.pro`:
+
+   ```proguard
+   # Strip debug/info/verbose logging (the billing plugin logs purchase tokens).
+   -assumenosideeffects class android.util.Log {
+       public static int d(...);
+       public static int i(...);
+       public static int v(...);
+   }
+
+   # Capacitor bridge and plugins (Capacitor also ships consumer rules; these are belt and braces).
+   -keep public class * extends com.getcapacitor.Plugin
+   -keep @com.getcapacitor.annotation.CapacitorPlugin public class * {
+       @com.getcapacitor.annotation.PluginMethod public <methods>;
+       @com.getcapacitor.PluginMethod public <methods>;
+   }
+   -keep class com.getcapacitor.** { *; }
+   -keepclassmembers class * {
+       @android.webkit.JavascriptInterface <methods>;
+   }
+
+   # The billing plugin (called by name from the bridge).
+   -keep class ee.forgr.nativepurchases.** { *; }
+   ```
+3. Build the release (`./gradlew assembleRelease` or the bundle) and, on a license-tester phone with
+   `adb logcat | grep -i NativePurchases`, buy and restore: no purchase token may appear. Then run the manual test
+   script in section 6 on that minified build (sign-in with Google, reminders, offline sync, billing), because R8 can
+   break reflection-based code that is not kept.
 
 ### Data safety form
 

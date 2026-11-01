@@ -5,12 +5,14 @@ const FOCUSABLE = 'a[href], button, input, textarea, select, summary, [tabindex]
 
 // The app's centred modal. `dialog` opts in to dialog semantics: role="dialog" labelled by the title, focus moves in
 // on open and returns on close, Tab stays inside, Escape closes. Existing callers leave it off and render as before.
-export default function Modal({ title, onClose, children, footer, dialog = false }) {
+export default function Modal({ title, onClose, children, footer, dialog = false, returnFocus }) {
   useLanguage();
   const titleId = useId();
   const boxRef = useRef(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+  const returnRef = useRef(returnFocus);
+  returnRef.current = returnFocus;
 
   useEffect(() => {
     if (!dialog) return undefined;
@@ -20,7 +22,11 @@ export default function Modal({ title, onClose, children, footer, dialog = false
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("keydown", onKey);
-      if (prev && prev.focus && document.contains(prev)) prev.focus();
+      // Back to the opener; when it is gone (its drawer closed), to `returnFocus()` if given.
+      if (prev && prev !== document.body && prev.focus && document.contains(prev)) { prev.focus(); return; }
+      const fallback = returnRef.current && returnRef.current();
+      if (fallback && fallback.focus && document.contains(fallback)) fallback.focus();
+      else if (prev && prev.focus && document.contains(prev)) prev.focus();
     };
   }, [dialog]);
 

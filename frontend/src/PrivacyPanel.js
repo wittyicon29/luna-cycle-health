@@ -20,7 +20,8 @@ export default function PrivacyPanel({ token, consents, onSetConsent, onAccountD
   const [saved, setSaved] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [typed, setTyped] = useState('');
-  const planActive = !!(billing.enabled && billing.status && billing.status.active);
+  // Any plan Play may still bill or resume (active, grace, on hold, paused, cancelled but paid through); not expired.
+  const planActive = !!(billing.enabled && billing.hasPlan && billing.status && billing.status.state !== 'SUBSCRIPTION_STATE_EXPIRED');
   const aiOn = !!(consents && consents.ai_processing);
 
   async function run(name, action) {

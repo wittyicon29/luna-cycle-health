@@ -167,13 +167,13 @@ describe('billing off: the app behaves as today', () => {
 describe('enabled, free plan: purchase flow', () => {
   beforeEach(() => { API.billing.status.mockResolvedValue(FREE); });
 
-  test('consent first, then the paywall; Subscribe buys with the account token, the server verifies, Insights opens', async () => {
+  test('a free user sees the paywall before the AI consent; Subscribe buys with the account token, the server verifies, then consent, then Insights', async () => {
     API.consents.get.mockResolvedValue({ ...ALL, ai_processing: false });
     renderJourney();
     userEvent.click(await insights());
-    userEvent.click(await screen.findByRole('button', { name: /allow ai features/i }));
 
     const dialog = await findPaywall();
+    expect(screen.queryByText('Allow AI features?')).toBeNull();
     expect(API.analysis.list).not.toHaveBeenCalled();
     const yearly = await within(dialog).findByRole('radio', { name: '₹1,499.00 per year' });
     expect(within(dialog).getByRole('radio', { name: /₹199.00 per month/ })).toHaveAttribute('aria-checked', 'true');
@@ -181,6 +181,12 @@ describe('enabled, free plan: purchase flow', () => {
     expect(yearly).toHaveAttribute('aria-checked', 'true');
     userEvent.click(within(dialog).getByRole('button', { name: 'Subscribe' }));
 
+    // Unlocked by the server: the paywall closes and the existing consent step comes next.
+    expect(await screen.findByText('Allow AI features?')).toBeInTheDocument();
+    expect(queryPaywall()).toBeNull();
+    expect(API.analysis.list).not.toHaveBeenCalled();
+    userEvent.click(screen.getByRole('button', { name: /allow ai features/i }));
+    await waitFor(() => expect(API.consents.set).toHaveBeenCalledWith('ai_processing', true, 'tok'));
     await waitFor(() => expect(API.analysis.list).toHaveBeenCalled());
     expect(mockClient.calls.purchase).toHaveLength(1);
     expect(mockClient.calls.purchase[0].plan.id).toBe('luna_ai_yearly');
@@ -240,7 +246,8 @@ describe('enabled, free plan: purchase flow', () => {
   });
 
   test('a pending payment shows the pending line and is re-checked when the app comes back', async () => {
-    mockClient = fakeClient({ products: plans(), purchase: { pending: true }, purchases: [{ purchaseToken: 'tok-paid', productId: 'luna_ai_monthly' }] });
+    const owned = [];
+    mockClient = fakeClient({ products: plans(), purchase: { pending: true }, purchases: owned });
     renderJourney();
     userEvent.click(await chat());
     const dialog = await findPaywall();
@@ -249,6 +256,7 @@ describe('enabled, free plan: purchase flow', () => {
     expect(API.billing.verify).not.toHaveBeenCalled();
     expect(API.chat.history).not.toHaveBeenCalled();
 
+    owned.push({ purchaseToken: 'tok-paid', productId: 'luna_ai_monthly' });
     act(() => { document.dispatchEvent(new Event('visibilitychange')); });
     await waitFor(() => expect(API.billing.verify).toHaveBeenCalledWith({ purchase_token: 'tok-paid', product_id: 'luna_ai_monthly' }, 'tok'));
     await waitFor(() => expect(API.chat.history).toHaveBeenCalled());
@@ -262,16 +270,20 @@ describe('enabled, free plan: purchase flow', () => {
     [503, 'Google Play is unavailable right now. Try again.'],
   ])('verify %i "%s": the message shows, nothing unlocks, and Restore finishes it later', async (code, raw) => {
     API.billing.verify.mockRejectedValueOnce(apiError(code, raw));
-    mockClient = fakeClient({ products: plans(), purchases: [{ purchaseToken: 'fake-token-1', productId: 'luna_ai_monthly' }] });
+    const owned = [];
+    mockClient = fakeClient({ products: plans(), purchases: owned });
     renderJourney();
     userEvent.click(await chat());
     const dialog = await findPaywall();
     userEvent.click(await within(dialog).findByRole('button', { name: 'Subscribe' }));
 
     expect(await within(dialog).findByRole('alert')).toHaveTextContent(raw);
-    expect(within(dialog).getByText('Your purchase is kept. Tap Restore purchases to try again.')).toBeInTheDocument();
+    const hint = within(dialog).queryByText('Your purchase is kept. Tap Restore purchases to try again.');
+    if (code === 409) expect(hint).toBeNull(); // linked elsewhere / not active: Restore will not change that
+    else expect(hint).toBeInTheDocument();
     expect(API.chat.history).not.toHaveBeenCalled();
 
+    owned.push({ purchaseToken: 'fake-token-1', productId: 'luna_ai_monthly' });
     userEvent.click(within(dialog).getByRole('button', { name: 'Restore purchases' }));
     await waitFor(() => expect(API.chat.history).toHaveBeenCalled());
     expect(API.billing.verify).toHaveBeenLastCalledWith({ purchase_token: 'fake-token-1', product_id: 'luna_ai_monthly' }, 'tok');
@@ -319,11 +331,15 @@ describe('enabled, free plan: purchase flow', () => {
       running -= 1;
       throw apiError(409, DIFFERENT);
     });
-    mockClient = fakeClient({ products: plans(), purchases: [{ purchaseToken: 'a', productId: 'luna_ai_monthly' }, { purchaseToken: 'b', productId: 'luna_ai_yearly' }] });
+    const owned = [];
+    mockClient = fakeClient({ products: plans(), purchases: owned });
     renderJourney();
     userEvent.click(await chat());
     const dialog = await findPaywall();
-    userEvent.click(await within(dialog).findByRole('button', { name: 'Restore purchases' }));
+    const restoreButton = await within(dialog).findByRole('button', { name: 'Restore purchases' });
+    await waitFor(() => expect(mockClient.calls.restore).toBe(1)); // the quiet check on open found nothing
+    owned.push({ purchaseToken: 'a', productId: 'luna_ai_monthly' }, { purchaseToken: 'b', productId: 'luna_ai_yearly' });
+    userEvent.click(restoreButton);
     expect(await within(dialog).findByRole('alert')).toHaveTextContent(DIFFERENT);
     expect(API.billing.verify).toHaveBeenCalledTimes(2);
     expect(maxRunning).toBe(1);
@@ -776,5 +792,225 @@ describe('Hindi', () => {
     await screen.findByRole('button', { name: t('Manage subscription') });
     expect(container.querySelector('.plan-row-status').textContent).toMatch(/2026/);
     noEnglish(container);
+  });
+});
+
+describe('final review fixes', () => {
+  const HINT = 'Your purchase is kept. Tap Restore purchases to try again.';
+  const OFFLINE_AFTER_PAY = "Your purchase went through, but Luna couldn't confirm it yet. We'll finish this when you're back online.";
+  const setVisibility = value => Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => value });
+  afterEach(() => { setVisibility('visible'); });
+
+  test('killed mid-purchase: Play owns it, the status is free; opening the paywall verifies it quietly and unlocks', async () => {
+    API.billing.status.mockResolvedValue(FREE);
+    mockClient = fakeClient({ products: plans(), purchases: [{ purchaseToken: 'paid-before-kill', productId: 'luna_ai_monthly' }] });
+    renderJourney();
+    userEvent.click(await chat());
+    await waitFor(() => expect(API.billing.verify).toHaveBeenCalledWith({ purchase_token: 'paid-before-kill', product_id: 'luna_ai_monthly' }, 'tok'));
+    await waitFor(() => expect(API.chat.history).toHaveBeenCalled());
+    expect(queryPaywall()).toBeNull();
+    expect(mockClient.calls.purchase).toHaveLength(0);
+  });
+
+  test('the quiet check runs once per session, reports nothing when nothing is owned, and never reports another account', async () => {
+    API.billing.status.mockResolvedValue(FREE);
+    API.billing.verify.mockRejectedValue(apiError(409, DIFFERENT));
+    mockClient = fakeClient({ products: plans(), purchases: [{ purchaseToken: 'foreign', productId: 'luna_ai_monthly' }] });
+    renderPaywall();
+    await subscribe();
+    await waitFor(() => expect(API.billing.verify).toHaveBeenCalledTimes(1));
+    await flush();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.queryByRole('status')).toBeNull();
+    userEvent.click(screen.getByRole('button', { name: 'Not now' }));
+    userEvent.click(screen.getByRole('button', { name: 'Open paywall' }));
+    await subscribe();
+    await flush();
+    expect(mockClient.calls.restore).toBe(1);
+  });
+
+  test('a cancelled purchase (also how "already owned" looks) runs the quiet check and unlocks an owned plan', async () => {
+    API.billing.status.mockResolvedValue(FREE);
+    const owned = [];
+    mockClient = fakeClient({ products: plans(), purchase: () => { owned.push({ purchaseToken: 'owned', productId: 'luna_ai_monthly' }); return { cancelled: true }; }, purchases: owned });
+    const { onUnlocked } = renderPaywall();
+    userEvent.click(await subscribe());
+    await waitFor(() => expect(API.billing.verify).toHaveBeenCalledWith({ purchase_token: 'owned', product_id: 'luna_ai_monthly' }, 'tok'));
+    await waitFor(() => expect(onUnlocked).toHaveBeenCalledTimes(1));
+    expect(mockClient.calls.restore).toBe(2);
+  });
+
+  test.each([
+    ['SUBSCRIPTION_STATE_ON_HOLD', 'Payment on hold'],
+    ['SUBSCRIPTION_STATE_PAUSED', 'Paused'],
+  ])('PlanRow for %s shows "%s" and Manage instead of Upgrade', async (state, line) => {
+    isNative.mockReturnValue(true);
+    const status = { ...FREE, state, product_id: 'luna_ai_monthly' };
+    API.billing.status.mockResolvedValue(status);
+    API.billing.refresh.mockResolvedValue(status);
+    renderPaywall({ startOpen: false });
+    expect(await screen.findByText(line)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Manage subscription' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Upgrade' })).toBeNull();
+  });
+
+  test('a renewing user: while the startup refresh runs, an AI tap waits for it instead of flashing the paywall', async () => {
+    const lapsed = { ...FREE, state: 'SUBSCRIPTION_STATE_ACTIVE', product_id: 'luna_ai_monthly', expires_at: '2026-10-31T10:00:00Z' };
+    API.billing.status.mockResolvedValue(lapsed);
+    const refreshed = deferred();
+    API.billing.refresh.mockReturnValueOnce(refreshed.promise);
+    renderJourney();
+    const button = await chat();
+    await waitFor(() => expect(API.billing.refresh).toHaveBeenCalledTimes(1));
+    userEvent.click(button);
+    await flush();
+    expect(queryPaywall()).toBeNull();
+    expect(button).toHaveAttribute('aria-busy', 'true');
+    await act(async () => { refreshed.resolve(ACTIVE); });
+    await waitFor(() => expect(API.chat.history).toHaveBeenCalled());
+    expect(queryPaywall()).toBeNull();
+  });
+
+  test('a renewing user whose refresh says free gets the paywall after it', async () => {
+    const lapsed = { ...FREE, state: 'SUBSCRIPTION_STATE_EXPIRED', product_id: 'luna_ai_monthly' };
+    API.billing.status.mockResolvedValue(lapsed);
+    const refreshed = deferred();
+    API.billing.refresh.mockReturnValueOnce(refreshed.promise);
+    renderJourney();
+    const button = await chat();
+    await waitFor(() => expect(API.billing.refresh).toHaveBeenCalledTimes(1));
+    userEvent.click(button);
+    await flush();
+    expect(queryPaywall()).toBeNull();
+    await act(async () => { refreshed.resolve(lapsed); });
+    expect(await findPaywall()).toBeInTheDocument();
+  });
+
+  test('no resume check while a purchase is in flight, and none while the app is hidden', async () => {
+    API.billing.status.mockResolvedValue(FREE);
+    const pending = deferred();
+    mockClient = fakeClient({ products: plans(), purchase: [undefined, () => pending.promise], purchases: [] });
+    API.billing.verify.mockRejectedValueOnce(networkError()); // leaves the first purchase unverified: a recheck has work
+    const store = offlineStore(true);
+    renderPaywall({ store });
+    userEvent.click(await subscribe());
+    await screen.findByText(OFFLINE_AFTER_PAY);
+    await waitFor(() => expect(mockClient.calls.restore).toBe(1)); // the quiet check on open
+
+    // A second purchase is in flight: neither resume nor reconnect may touch Play.
+    userEvent.click(screen.getByRole('button', { name: 'Subscribe' }));
+    await screen.findByRole('button', { name: 'Opening Google Play…' });
+    act(() => { document.dispatchEvent(new Event('visibilitychange')); });
+    act(() => store.setOnline(false));
+    act(() => store.setOnline(true));
+    await flush();
+    expect(mockClient.calls.restore).toBe(1);
+
+    await act(async () => { pending.resolve({ pending: true }); });
+    await screen.findByText("Your payment is pending. We'll unlock the plan when it completes.");
+    // Hidden (the app is in the background): no restore on reconnect.
+    setVisibility('hidden');
+    act(() => store.setOnline(false));
+    act(() => store.setOnline(true));
+    await flush();
+    expect(mockClient.calls.restore).toBe(1);
+    setVisibility('visible');
+    act(() => { document.dispatchEvent(new Event('visibilitychange')); });
+    await waitFor(() => expect(mockClient.calls.restore).toBe(2));
+  });
+
+  test('a late Restore result does not appear in a later paywall', async () => {
+    API.billing.status.mockResolvedValue(FREE);
+    const base = fakeClient({ products: plans(), purchases: [] });
+    const slow = deferred();
+    let restores = 0;
+    const client = { ...base, restore: () => { restores += 1; return restores === 1 ? Promise.resolve([]) : slow.promise; } };
+    renderPaywall({ client });
+    userEvent.click(await screen.findByRole('button', { name: 'Restore purchases' }));
+    expect(await screen.findByRole('button', { name: 'Restoring…' })).toBeInTheDocument();
+    userEvent.click(screen.getByRole('button', { name: 'Not now' }));
+    userEvent.click(screen.getByRole('button', { name: 'Open paywall' }));
+    await subscribe();
+    await act(async () => { slow.resolve([]); });
+    await flush();
+    expect(screen.queryByText('No purchases to restore on this Google Play account.')).toBeNull();
+  });
+
+  test('a non-API verify failure (bad JSON) is treated as a dropped connection: kept and retried, no raw text', async () => {
+    API.billing.status.mockResolvedValue(FREE);
+    API.billing.verify.mockRejectedValueOnce(new SyntaxError('Unexpected token < in JSON at position 0'));
+    renderPaywall();
+    userEvent.click(await subscribe());
+    expect(await screen.findByText(OFFLINE_AFTER_PAY)).toHaveAttribute('role', 'status');
+    expect(screen.queryByText(/Unexpected token/)).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+    userEvent.click(screen.getByRole('button', { name: 'Restore purchases' }));
+    await waitFor(() => expect(API.billing.verify).toHaveBeenCalledTimes(2));
+    expect(API.billing.verify).toHaveBeenLastCalledWith({ purchase_token: 'fake-token-1', product_id: 'luna_ai_monthly' }, 'tok');
+  });
+
+  test('409 "not active" shows the message without the "kept" hint; a 502 keeps the hint', async () => {
+    API.billing.status.mockResolvedValue(FREE);
+    API.billing.verify
+      .mockRejectedValueOnce(apiError(409, 'This subscription is not active'))
+      .mockRejectedValueOnce(apiError(502, 'Could not confirm the purchase with Google Play. Try again.'));
+    renderPaywall();
+    userEvent.click(await subscribe());
+    expect(await screen.findByRole('alert')).toHaveTextContent('This subscription is not active');
+    expect(screen.queryByText(HINT)).toBeNull();
+    userEvent.click(screen.getByRole('button', { name: 'Subscribe' }));
+    expect(await screen.findByText(/Could not confirm the purchase/)).toBeInTheDocument();
+    expect(screen.getByText(HINT)).toBeInTheDocument();
+  });
+
+  test('an active plan without AI consent: consent first, as before (no paywall)', async () => {
+    API.consents.get.mockResolvedValue({ ...ALL, ai_processing: false });
+    API.billing.status.mockResolvedValue(ACTIVE);
+    API.billing.refresh.mockResolvedValue(ACTIVE);
+    renderJourney();
+    userEvent.click(await chat());
+    expect(await screen.findByText('Allow AI features?')).toBeInTheDocument();
+    expect(queryPaywall()).toBeNull();
+  });
+
+  test('billing off without AI consent: consent first, as before', async () => {
+    API.consents.get.mockResolvedValue({ ...ALL, ai_processing: false });
+    renderJourney();
+    userEvent.click(await chat());
+    expect(await screen.findByText('Allow AI features?')).toBeInTheDocument();
+    expect(queryPaywall()).toBeNull();
+  });
+
+  test('Profile > Upgrade > Not now: focus goes to the dock Profile tab (the drawer is closed)', async () => {
+    API.billing.status.mockResolvedValue(FREE);
+    renderJourney();
+    userEvent.click(await screen.findByRole('button', { name: 'Profile' }));
+    userEvent.click(await screen.findByRole('button', { name: 'Upgrade' }));
+    const dialog = await findPaywall();
+    userEvent.click(within(dialog).getByRole('button', { name: 'Not now' }));
+    expect(queryPaywall()).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Profile' }));
+  });
+
+  test('the Terms and Privacy links are 44px targets in both directions', () => {
+    const source = require('fs').readFileSync(require('path').join(__dirname, '..', 'App.js'), 'utf8');
+    const rule = source.split('\n').find(l => l.startsWith('.pay-legal a{'));
+    expect(rule).toMatch(/min-height:44px/);
+    expect(rule).toMatch(/min-width:44px/);
+    expect(rule).toMatch(/padding:[^;]*[1-9]/);
+    expect(rule).toMatch(/justify-content:center/);
+  });
+
+  test('Hindi: the on-hold and paused lines are translated', async () => {
+    act(() => { setLanguage('hi'); });
+    isNative.mockReturnValue(true);
+    const status = { ...FREE, state: 'SUBSCRIPTION_STATE_PAUSED', product_id: 'luna_ai_monthly' };
+    API.billing.status.mockResolvedValue(status);
+    API.billing.refresh.mockResolvedValue(status);
+    const { container } = renderPaywall({ startOpen: false });
+    await screen.findByRole('button', { name: t('Manage subscription') });
+    expect(findUntranslated(container, ['Luna'])).toEqual([]);
+    expect(t('Payment on hold')).not.toBe('Payment on hold');
+    expect(t('Paused')).not.toBe('Paused');
   });
 });

@@ -54,10 +54,12 @@ const notices = {
   active: () => ({ kind: 'success', text: t('Your Luna AI plan is active.') }),
   nothingToRestore: () => ({ kind: 'neutral', text: t('No purchases to restore on this Google Play account.') }),
   noneActive: () => ({ kind: 'neutral', text: t('No active Luna AI plan was found to restore.') }),
+  // Only an ApiError's message is shown (it is the server's translated text). A 409 (linked to another account, not
+  // active, wrong product) will not change by restoring, so it carries no "kept" hint.
   rejected: error => ({
     kind: 'error',
-    text: (error && error.message) || t('This purchase could not be verified'),
-    hint: t('Your purchase is kept. Tap Restore purchases to try again.'),
+    text: (isApiError(error) && error.message) || t('This purchase could not be verified'),
+    hint: isApiError(error) && error.status === 409 ? undefined : t('Your purchase is kept. Tap Restore purchases to try again.'),
   }),
 };
 
@@ -106,6 +108,9 @@ function BillingState({ token, client: clientProp, slowMs = PURCHASE_SLOW_MS, ch
   const pendingPurchase = useRef(false);
   const manageOpened = useRef(false);
   const rechecking = useRef(false);
+  const startupRefresh = useRef(null); // the authoritative refresh at start, while it runs (a plan is on record)
+  const quietChecked = useRef(false); // owned purchases are verified quietly once per session, when the paywall loads
+  const quietRestoreRef = useRef(null);
 
   const setStatusState = useCallback(value => { statusStateRef.current = value; setStatusStateValue(value); }, []);
   const setProductsState = useCallback(value => { productsStateRef.current = value; setProductsStateValue(value); }, []);
@@ -130,6 +135,8 @@ function BillingState({ token, client: clientProp, slowMs = PURCHASE_SLOW_MS, ch
       } catch (e) {
         // A cached status stays in force; without one, an HTTP error keeps the gate closed (retry), and anything
         // else (offline, DNS, timeout) means unknown: AI opens and the server enforces the plan.
+        // Fail open: no HTTP answer => open; the server enforces plan_required (which opens the paywall). This also
+        // keeps old test mocks without API.billing working.
         if (alive.current && !statusRef.current) setStatusState(serverAnswered(e) ? 'error' : 'unreachable');
         return null;
       } finally {
@@ -162,7 +169,11 @@ function BillingState({ token, client: clientProp, slowMs = PURCHASE_SLOW_MS, ch
     alive.current = true;
     (async () => {
       const s = await fetchStatus();
-      if (alive.current && s && hasStoredPlan(normalise(s))) refresh();
+      if (alive.current && s && hasStoredPlan(normalise(s))) {
+        const run = refresh();
+        startupRefresh.current = run;
+        run.finally(() => { if (startupRefresh.current === run) startupRefresh.current = null; });
+      }
     })();
     return () => { alive.current = false; };
   }, [fetchStatus, refresh]);
@@ -185,8 +196,11 @@ function BillingState({ token, client: clientProp, slowMs = PURCHASE_SLOW_MS, ch
     return () => window.removeEventListener('luna:plan-required', onPlanRequired);
   }, [applyStatus, refresh]);
 
-  const access = useCallback(() => {
+  // `waitForRefresh`: a renewing user's cached status may say "not active" until the startup refresh answers, so
+  // while it runs the answer is 'loading' (the tap waits) instead of a paywall flash.
+  const access = useCallback((waitForRefresh = true) => {
     const s = statusRef.current;
+    if (s && waitForRefresh && !s.active && s.enabled && hasStoredPlan(s) && startupRefresh.current) return 'loading';
     if (s) return !s.enabled || s.active ? 'open' : 'paywall';
     const state = statusStateRef.current;
     if (state === 'unreachable') return 'open';
@@ -197,8 +211,9 @@ function BillingState({ token, client: clientProp, slowMs = PURCHASE_SLOW_MS, ch
   const checkAccess = useCallback(async () => {
     const now = access();
     if (now === 'open' || now === 'paywall') return now;
-    await withTimeout(statusPromise.current || fetchStatus(), STATUS_WAIT_MS);
-    const after = access();
+    const waitFor = statusRef.current && startupRefresh.current ? startupRefresh.current : statusPromise.current || fetchStatus();
+    await withTimeout(waitFor, STATUS_WAIT_MS);
+    const after = access(false);
     return after === 'loading' ? 'open' : after;
   }, [access, fetchStatus]);
 
@@ -215,6 +230,11 @@ function BillingState({ token, client: clientProp, slowMs = PURCHASE_SLOW_MS, ch
     if (!alive.current) return;
     setAvailable(ok);
     if (!ok) { setProducts([]); setProductsState('ready'); return; }
+    // A purchase paid before the app was killed (or whose verify never reached the server) is finished here.
+    if (!quietChecked.current && quietRestoreRef.current) {
+      quietChecked.current = true;
+      quietRestoreRef.current();
+    }
     try {
       const plans = await client.getProducts(s.product_ids);
       if (!alive.current) return;
@@ -236,7 +256,8 @@ function BillingState({ token, client: clientProp, slowMs = PURCHASE_SLOW_MS, ch
       applyStatus(s);
       return { status: normalise(s || {}) };
     } catch (e) {
-      if (isNetwork(e)) {
+      // No usable answer (offline, or a non-API failure such as a non-JSON 200): keep it and retry later.
+      if (isNetwork(e) || !isApiError(e)) {
         if (!unverified.current.some(p => p.purchaseToken === purchase.purchaseToken)) {
           unverified.current = [...unverified.current, { purchaseToken: purchase.purchaseToken, productId: purchase.productId }];
         }
@@ -284,6 +305,14 @@ function BillingState({ token, client: clientProp, slowMs = PURCHASE_SLOW_MS, ch
     return notices.noneActive();
   }, [client, verify]);
 
+  // Verifies owned purchases without reporting anything but success (no "nothing owned", no other-account line).
+  const quietRestore = useCallback(async () => {
+    const result = await restoreOwned({ quiet: true });
+    if (result && result.kind === 'success') pendingPurchase.current = false;
+    return result;
+  }, [restoreOwned]);
+  quietRestoreRef.current = quietRestore;
+
   const finishRun = useCallback((mine, timer) => {
     if (timer) clearTimeout(timer);
     if (gen.current !== mine) return;
@@ -310,7 +339,12 @@ function BillingState({ token, client: clientProp, slowMs = PURCHASE_SLOW_MS, ch
         return;
       }
       if (!result) return;
-      if (result.cancelled) { if (current()) setNotice(notices.cancelled()); return; }
+      if (result.cancelled) {
+        if (current()) setNotice(notices.cancelled());
+        // "Already owned" and other Play failures look like a cancel: check what this account owns.
+        await quietRestore();
+        return;
+      }
       if (result.pending) { pendingPurchase.current = true; if (current()) setNotice(notices.pending()); return; }
       if (!result.purchaseToken) return;
       // Paid: always finish with the server, even when the user closed the paywall meanwhile.
@@ -322,7 +356,7 @@ function BillingState({ token, client: clientProp, slowMs = PURCHASE_SLOW_MS, ch
     } finally {
       finishRun(mine, timer);
     }
-  }, [client, slowMs, verify, finishRun]);
+  }, [client, slowMs, verify, finishRun, quietRestore]);
 
   const restore = useCallback(async () => {
     const s = statusRef.current;
@@ -333,7 +367,7 @@ function BillingState({ token, client: clientProp, slowMs = PURCHASE_SLOW_MS, ch
     setNotice(null);
     try {
       const result = await restoreOwned();
-      if (alive.current) setNotice(result);
+      if (alive.current && gen.current === mine) setNotice(result);
     } finally {
       finishRun(mine, null);
     }
@@ -366,12 +400,12 @@ function BillingState({ token, client: clientProp, slowMs = PURCHASE_SLOW_MS, ch
 
   // Unfinished work picks up when the connection or the app comes back.
   const recheck = useCallback(async () => {
-    if (rechecking.current || !onlineRef.current || !statusRef.current || !statusRef.current.enabled) return;
+    if (rechecking.current || inFlight.current || !onlineRef.current || !statusRef.current || !statusRef.current.enabled) return;
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
     rechecking.current = true;
     try {
       if (pendingPurchase.current || unverified.current.length) {
-        const result = await restoreOwned({ quiet: true });
-        if (result && result.kind === 'success') pendingPurchase.current = false;
+        const result = await quietRestore();
         if (result && alive.current) setNotice(result);
       }
       if (manageOpened.current) {
@@ -381,7 +415,7 @@ function BillingState({ token, client: clientProp, slowMs = PURCHASE_SLOW_MS, ch
     } finally {
       rechecking.current = false;
     }
-  }, [restoreOwned, refresh]);
+  }, [quietRestore, refresh]);
 
   const wasOnline = useRef(online);
   useEffect(() => {

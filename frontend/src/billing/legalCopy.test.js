@@ -94,6 +94,25 @@ describe('delete-account subscription notice', () => {
     expect(screen.queryByRole('button', { name: 'Manage subscription' })).not.toBeInTheDocument();
   });
 
+  // A plan that can still bill or resume (on hold, paused, cancelled but paid through) gets the notice too.
+  test.each([
+    ['on hold', 'SUBSCRIPTION_STATE_ON_HOLD'],
+    ['paused', 'SUBSCRIPTION_STATE_PAUSED'],
+    ['cancelled but paid through', 'SUBSCRIPTION_STATE_CANCELED'],
+    ['in grace period', 'SUBSCRIPTION_STATE_IN_GRACE_PERIOD'],
+  ])('shown for a plan %s, even when not active', (name, state) => {
+    setup({ enabled: true, status: { ...FREE, product_id: 'luna_ai_monthly', state }, hasPlan: true });
+
+    expect(screen.getByText(NOTICE)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Manage subscription' })).toBeInTheDocument();
+  });
+
+  test('hidden for an expired plan', () => {
+    setup({ enabled: true, status: { ...FREE, product_id: 'luna_ai_monthly', state: 'SUBSCRIPTION_STATE_EXPIRED' }, hasPlan: true });
+
+    expect(screen.queryByText(NOTICE)).not.toBeInTheDocument();
+  });
+
   test('on the web the notice shows but there is no Play button', () => {
     isNative.mockReturnValue(false);
     setup({ enabled: true, status: ACTIVE, hasPlan: true });
@@ -114,6 +133,27 @@ describe('delete-account subscription notice', () => {
 
 describe('owner checklist', () => {
   const file = path.join(__dirname, '../../../docs/superpowers/billing-owner-checklist.md');
+
+  test('documents what the paywall really shows for a trial, and the first-offer rule', () => {
+    const text = fs.readFileSync(file, 'utf8');
+    expect(text).not.toContain('Free-trial length and the price after the trial are shown');
+    expect(text).toContain('"Free trial available"');
+    expect(text).toMatch(/first Play offer/i);
+    expect(text).toMatch(/paid introductory offer .*not offered|dropped/i);
+  });
+
+  test('makes stripping the plugin\'s token logs a required release step', () => {
+    const text = fs.readFileSync(file, 'utf8');
+    expect(text).toMatch(/REQUIRED/);
+    expect(text).toContain('minifyEnabled true');
+    expect(text).toContain("proguard-android-optimize.txt");
+    expect(text).toContain('-assumenosideeffects class android.util.Log');
+    expect(text).toContain('public static int d(...);');
+    expect(text).toContain('public static int i(...);');
+    expect(text).toContain('public static int v(...);');
+    expect(text).toContain('-keep public class * extends com.getcapacitor.Plugin');
+    expect(text).toContain('ee.forgr.nativepurchases');
+  });
 
   test('exists and covers the required sections', () => {
     expect(fs.existsSync(file)).toBe(true);
