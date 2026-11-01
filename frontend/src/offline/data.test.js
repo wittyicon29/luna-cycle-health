@@ -102,7 +102,9 @@ describe('online happy path', () => {
     server.calls = [];
     server.logs = { [D2]: entry(D2, { mood: 2 }) };
     expect(await data.patchLog(D2, { clear: ['mood'] }, 'tok')).toEqual({ date: D2, deleted: true });
-    expect(server.names()).toEqual(['logs.list', 'logs.remove']);
+    // An empty PUT (the request SkyCheckIn always sent) deletes the day on the server.
+    expect(server.names()).toEqual(['logs.list', 'logs.put']);
+    expect(server.calls[1].args).toEqual([D2, {}]);
     expect(server.logs[D2]).toBeUndefined();
     expect((await snapshot.loadSnapshot(E)).logs[D2]).toBeUndefined();
   });
@@ -614,6 +616,22 @@ describe('review fixes', () => {
     await expect(data.patchLog(D1, { set: { mood: 2 } }, 'tok')).rejects.toThrow();
     expect(server.names()).not.toContain('logs.put');
     expect(await items()).toEqual([]);
+  });
+
+  test('refreshConsents: the server answer replaces the cached copy, anything else drops it; no request is sent', async () => {
+    server.consents = { ai_processing: true, terms_privacy: true };
+    const { data } = make();
+    await data.getConsents('tok');
+    server.calls = [];
+    await data.refreshConsents({ ai_processing: false, terms_privacy: true });
+    expect((await snapshot.loadSnapshot(E)).consents).toEqual({ ai_processing: false, terms_privacy: true });
+    server.setOffline(true);
+    expect(await data.getConsents('tok')).toEqual({ ai_processing: false, terms_privacy: true });
+
+    await data.refreshConsents(undefined);
+    expect((await snapshot.loadSnapshot(E)).consents).toBeNull();
+    await expect(data.getConsents('tok')).rejects.toMatchObject({ status: 0 });
+    expect(server.names()).toEqual(['consents.get', 'consents.get']); // only the two offline reads
   });
 
   test('a later persisted write clears lastError', async () => {

@@ -1,19 +1,21 @@
 import { useCallback, useEffect, useState } from 'react';
 import { API } from './api';
+import { useOfflineData } from './offline/useOffline';
 import { t } from './i18n';
 
 export default function useConsents(token) {
+  const data = useOfflineData();
   const [consents, setConsents] = useState(null); // null = still loading
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
     setError('');
     try {
-      setConsents(await API.consents.get(token));
+      setConsents(await data.getConsents(token)); // offline: the cached server answer, never a made-up one
     } catch (e) {
       setError(e.message || t('Could not load your privacy settings'));
     }
-  }, [token]);
+  }, [token, data]);
 
   useEffect(() => {
     load();
@@ -21,11 +23,12 @@ export default function useConsents(token) {
 
   const setConsent = useCallback(
     async (purpose, granted) => {
-      const next = await API.consents.set(purpose, granted, token);
+      const next = await API.consents.set(purpose, granted, token); // online only
+      await data.refreshConsents(next).catch(() => {}); // the cached copy must not keep the old answer
       setConsents(next);
       return next;
     },
-    [token]
+    [token, data]
   );
 
   return { consents, error, reload: load, setConsent };

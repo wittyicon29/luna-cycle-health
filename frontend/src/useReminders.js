@@ -6,6 +6,7 @@ import { localDateString } from './localDate';
 import { anyEnabled } from './reminderPrefs';
 import { cancelAllReminders, rebuildReminders } from './reminderScheduler';
 import { useLanguage } from './i18n';
+import { useOfflineData } from './offline/useOffline';
 
 const DEBOUNCE_MS = 500;
 const safeRemove = h => { try { Promise.resolve(h.remove()).catch(() => {}); } catch (e) { /* already gone */ } };
@@ -28,6 +29,7 @@ function summarize(periods) {
 export function useReminders({ token, periods, prefs, appearance, logsVersion }) {
   // A language change re-plans the reminders so their wording follows it.
   const language = useLanguage();
+  const data = useOfflineData();
   const lastPrediction = useRef(null);
   const [resumeTick, setResumeTick] = useState(0);
 
@@ -61,7 +63,7 @@ export function useReminders({ token, periods, prefs, appearance, logsVersion })
       const today = localDateString();
       let loggedToday = false;
       try {
-        const rows = await API.logs.list(today, today, token);
+        const rows = await data.listLogs(today, today, token); // offline: cached logs plus queued changes
         loggedToday = Array.isArray(rows) && rows.length > 0;
       } catch (e) { /* fall back to the period-based rule */ }
       if (cancelled || !getAccessToken()) return;
@@ -69,5 +71,5 @@ export function useReminders({ token, periods, prefs, appearance, logsVersion })
       await rebuildReminders({ prefs, prediction: lastPrediction.current, ...summary, lastLoggedOn: loggedToday ? today : summary.lastLoggedOn });
     }, DEBOUNCE_MS);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [token, periods, prefs, appearance, resumeTick, logsVersion, language]);
+  }, [token, periods, prefs, appearance, resumeTick, logsVersion, language, data]);
 }

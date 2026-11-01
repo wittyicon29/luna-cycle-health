@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { API } from "./api";
+import { useOfflineData } from "./offline/useOffline";
 import { formatLongDate } from "./localDate";
 import { SYMPTOMS_LIST, symptomLabel, flowWord } from "./symptoms";
 import { t, useLanguage } from "./i18n";
@@ -93,6 +93,7 @@ function Stepper({ label, resetLabel, value, step, min, max, firstPlus, firstMin
 
 export default function DaySheet({ token, date, onClose, onSaved }) {
   useLanguage();
+  const data = useOfflineData();
   const tooEarly = date < MIN_LOG_DAY;
   const tooFar = date > maxSelectableDay();
   const unavailable = tooFar || tooEarly;
@@ -158,7 +159,7 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
   const loadMeds = useCallback(async (initial) => {
     const my = ++medSeq.current;
     try {
-      const meds = await API.medications.list(token, true);
+      const meds = await data.listMedications(token, true);
       if (my !== medSeq.current || !mounted.current) return;
       setAllMeds(Array.isArray(meds) ? meds : []);
       medsLoadedRef.current = true; setMedsLoaded(true); setMedsError(false);
@@ -166,14 +167,14 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
       if (my !== medSeq.current || !mounted.current) return;
       if (initial && !medsLoadedRef.current) setMedsError(true);
     }
-  }, [token]);
+  }, [token, data]);
 
   useEffect(() => {
     if (unavailable) return undefined;
     let alive = true;
     setLoading(true); setLoadError(false); setMedsError(false);
     medsLoadedRef.current = false; setMedsLoaded(false);
-    API.logs.list(date, date, token).then(rows => {
+    data.listLogs(date, date, token).then(rows => {
       if (!alive) return;
       const row = Array.isArray(rows) ? rows.find(r => r && r.date === date) || rows[0] : null;
       const loaded = row ? fromRow(row) : EMPTY;
@@ -185,7 +186,7 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
     }).catch(() => { if (alive) { setLoadError(true); setLoading(false); } });
     loadMeds(true);
     return () => { alive = false; };
-  }, [date, token, unavailable, retry, loadMeds]);
+  }, [date, token, unavailable, retry, loadMeds, data]);
 
   const active = allMeds.filter(m => !m.archived);
   const known = new Set(allMeds.map(m => m.id));
@@ -230,7 +231,8 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
     const forDate = date;
     savingRef.current = true; setSaving(true); setMessage(null); setConfirmDiscard(false);
     try {
-      await API.logs.put(forDate, buildPayload(effective), token);
+      // Offline the facade queues it and resolves with the day as it will be (shown at once, synced later).
+      await data.saveLog(forDate, buildPayload(effective), token);
       if (mounted.current) setMessage("saved");
       finish(forDate);
     } catch (e) {
@@ -243,7 +245,7 @@ export default function DaySheet({ token, date, onClose, onSaved }) {
     const forDate = date;
     savingRef.current = true; setSaving(true); setMessage(null);
     try {
-      await API.logs.remove(forDate, token);
+      await data.removeLog(forDate, token);
       finish(forDate);
     } catch (e) {
       if (mounted.current) setMessage("clearFail");

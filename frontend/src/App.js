@@ -35,6 +35,7 @@ import { addDays } from "./calendarGrid";
 import { localDateString, formatLongDate } from "./localDate";
 import { getAccessToken, getEmail, setSession, clearSession } from "./tokenStore";
 import OfflineProvider from "./offline/OfflineProvider";
+import { useOfflineData } from "./offline/useOffline";
 import { clearOfflineData } from "./offline/store";
 
 // ─── PHASE CONFIG ─────────────────────────────────────────────────────────────
@@ -1124,6 +1125,7 @@ function JourneyMap({ periods, avgCycle, selectedInfo, onSelectMarker, onDismiss
 // ─── LOG PERIOD MODAL ─────────────────────────────────────────────────────────
 function LogModal({ token, onClose, onSave }) {
   useLanguage();
+  const offline = useOfflineData();
   const today = localDateString();
   const [startDate, setStartDate] = useState(today); const [endDate, setEndDate] = useState("");
   const [flow, setFlow] = useState("medium"); const [pain, setPain] = useState(3);
@@ -1138,7 +1140,7 @@ function LogModal({ token, onClose, onSave }) {
       setStatsLoading(true);
       setStatsErr("");
       try {
-        const data = await API.periods.list(token);
+        const data = await offline.listPeriods(token);
         if (!cancelled) {
           const st = computePeriodStats(Array.isArray(data) ? data : []);
           setStats(st);
@@ -1150,14 +1152,15 @@ function LogModal({ token, onClose, onSave }) {
       }
     })();
     return () => { cancelled = true; };
-  }, [token]);
+  }, [token, offline]);
   async function save() {
     if (!startDate) { setErr(t("Start date required")); return; }
     const todayNow = localDateString();
     if (endDate && endDate < startDate) { setErr(t("The end date can't be before the start date.")); return; }
     if (startDate > todayNow || (endDate && endDate > todayNow)) { setErr(t("Dates can't be in the future.")); return; }
     setSaving(true); setErr("");
-    try { await API.periods.create({ start_date: startDate, end_date: endDate || null, flow_intensity: flow, pain_level: pain, symptoms, notes }, token); onSave(); }
+    // Offline the period is queued (pending) and the map shows it right away; it syncs later.
+    try { await offline.createPeriod({ start_date: startDate, end_date: endDate || null, flow_intensity: flow, pain_level: pain, symptoms, notes }, token); onSave(); }
     catch (e) { setErr(e.message); } finally { setSaving(false); }
   }
   return (
@@ -1967,6 +1970,8 @@ function ProfileDrawer({ token, onClose, email, onLogout, consents, onSetConsent
   );
 }
 
+const isNetworkError = e => !!e && e.name === "ApiError" && e.status === 0;
+
 // ─── MAIN JOURNEY APP ─────────────────────────────────────────────────────────
 // One offline facade per signed-in session; `onOfflineRegister` hands { pendingSummary, wipe } to the root for sign-out.
 function JourneyApp({ token, email, onLogout, onOfflineRegister }) {
@@ -1979,6 +1984,7 @@ function JourneyApp({ token, email, onLogout, onOfflineRegister }) {
 
 function JourneyScreens({ token, email, onLogout }) {
   useLanguage();
+  const data = useOfflineData();
   const [periods, setPeriods] = useState([]); const [loading, setLoading] = useState(true);
   const [overlay, setOverlay] = useState(null);
   const [dayDate, setDayDate] = useState(null);
@@ -2002,9 +2008,10 @@ function JourneyScreens({ token, email, onLogout }) {
   const periodsLoaded = useRef(false);
   const loadPeriods = useCallback(async () => {
     if (!periodsLoaded.current) setLoading(true); // only the first load blanks the screen; reloads keep the map mounted
-    try { const d = await API.periods.list(token); setPeriods(Array.isArray(d) ? d.sort((a, b) => new Date(b.start_date) - new Date(a.start_date)) : []); }
+    // Offline: the cached list plus queued periods (pending: true), which render like any other period.
+    try { const d = await data.listPeriods(token); setPeriods(Array.isArray(d) ? d.sort((a, b) => new Date(b.start_date) - new Date(a.start_date)) : []); }
     catch (e) { } finally { periodsLoaded.current = true; setLoading(false); }
-  }, [token]);
+  }, [token, data]);
   useEffect(() => { loadPeriods(); }, [loadPeriods]);
   const [reminderPrefs, setReminderPrefs] = useState(loadPrefs);
   const [appearance, setAppearanceState] = useState("default");
@@ -2023,7 +2030,7 @@ function JourneyScreens({ token, email, onLogout }) {
     const from = addDays(to, -90);
     (async () => {
       try {
-        const rows = await API.logs.list(from, to, token);
+        const rows = await data.listLogs(from, to, token);
         if (id !== logsReq.current) return;
         const map = {};
         (Array.isArray(rows) ? rows : []).forEach(r => { if (r && r.date) map[r.date] = r; });
@@ -2037,7 +2044,7 @@ function JourneyScreens({ token, email, onLogout }) {
         setLogsReady(false);
       }
     })();
-  }, [token, logsVersion]);
+  }, [token, logsVersion, data]);
   useEffect(() => () => { logsReq.current++; }, []);
 
   // Luna celebrates for a few seconds after a log is saved.
@@ -2058,10 +2065,10 @@ function JourneyScreens({ token, email, onLogout }) {
   const refreshProfileStatus = useCallback(async () => {
     if (!token) return;
     try {
-      const userStatus = await API.auth.status(token);
+      const userStatus = await data.getAuthStatus(token);
       setProfileIncomplete(!userStatus.has_completed_questionnaire);
     } catch (e) { /* keep the current banner state */ }
-  }, [token]);
+  }, [token, data]);
 
   useEffect(() => {
     const checkUserStatus = async () => {
@@ -2072,16 +2079,18 @@ function JourneyScreens({ token, email, onLogout }) {
         
         // Check questionnaire status via API
         if (token) {
-          const userStatus = await API.auth.status(token);
+          const userStatus = await data.getAuthStatus(token); // offline: the cached answer when there is one
           setProfileIncomplete(!userStatus.has_completed_questionnaire);
         }
       } catch (error) {
-        setShowIntro(true);
+        // Offline (network error, nothing cached) the intro follows the "seen" flag above only; other failures show
+        // it as before.
+        if (!isNetworkError(error)) setShowIntro(true);
       }
     };
     
     checkUserStatus();
-  }, [token, email]);
+  }, [token, email, data]);
 
   if (consentError) {
     return (
