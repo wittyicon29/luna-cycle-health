@@ -38,6 +38,9 @@
 	handle {
 		reverse_proxy api:8000 {
 			header_down -Server
+			# The API sees plain HTTP from Caddy, so its own redirects (e.g. trailing
+			# slash) would point at http://; rewrite them to https://.
+			header_down Location "^http://" "https://"
 		}
 	}
 

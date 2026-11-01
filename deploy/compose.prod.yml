@@ -81,6 +81,14 @@ services:
       WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
     expose:
       - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+      # Poll quickly while starting so the proxy comes up sooner (Docker Engine 25+).
+      start_interval: 2s
     # BILLING_MODE=google needs the Play service-account JSON inside the container, e.g.:
     # volumes:
     #   - ./secrets/play-service-account.json:/run/secrets/play-service-account.json:ro
@@ -96,10 +104,12 @@ services:
   proxy:
     image: caddy:2
     restart: unless-stopped
+    # IPv4 only: the compose network has no IPv6, so an IPv6 client would arrive through
+    # docker-proxy with the gateway address and all IPv6 clients would share one rate-limit key.
     ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
+      - "0.0.0.0:80:80"
+      - "0.0.0.0:443:443"
+      - "0.0.0.0:443:443/udp"
     environment:
       API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN in deploy/.env}
       ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in deploy/.env}

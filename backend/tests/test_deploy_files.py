@@ -82,6 +82,20 @@ def test_only_the_proxy_publishes_ports(services):
         assert container_port in {"80", "443"}
 
 
+def test_published_ports_bind_ipv4_only(services):
+    # The compose network is IPv4-only: an IPv6 client would reach Caddy through
+    # docker-proxy with the gateway address, so every client would share one rate-limit key.
+    for port in services["proxy"]["ports"]:
+        assert str(port).startswith("0.0.0.0:"), port
+
+
+def test_api_healthcheck_polls_fast_during_start(services):
+    health = services["api"]["healthcheck"]
+    assert "urllib" in str(health["test"]) and ":8000/health" in str(health["test"])
+    assert health["start_interval"] == "2s"
+    assert health["start_period"]
+
+
 def test_no_host_networking_or_privileged_services(services):
     for name, svc in services.items():
         assert svc.get("network_mode") is None, name
@@ -225,6 +239,8 @@ def test_dockerfile_env_healthcheck_and_cmd():
     assert "${WEB_CONCURRENCY:-2}" in cmd[0] and "sh" in cmd[0] and "exec gunicorn" in cmd[0]
     assert "0.0.0.0:8000" in cmd[0]
     assert "--forwarded-allow-ips 127.0.0.1" in cmd[0]
+    assert "--worker-tmp-dir /dev/shm" in cmd[0]
+    assert "uvicorn-worker" in text  # note about the deprecated uvicorn.workers module
     assert any(line.startswith("ENV ") and "WEB_CONCURRENCY=2" in line for line in _dockerfile_instructions())
 
 
@@ -256,6 +272,13 @@ def test_caddyfile_site_proxy_and_hardening():
     assert re.search(r"max_size\s+2MB", text)
     assert re.search(r"format\s+filter", text) and "wrap json" in text
     assert "output stdout" in text
+
+
+def test_caddy_rewrites_http_redirects_from_the_api_to_https():
+    text = _caddy_without_comments()
+    block = re.search(r"reverse_proxy\s+api:8000\s*\{([^}]*)\}", text).group(1)
+    assert 'header_down Location "^http://" "https://"' in block
+    assert "header_down -Server" in block
 
 
 def test_caddyfile_blocks_api_docs():
@@ -290,6 +313,31 @@ def test_env_template_documents_compose_variables_and_key_generation():
     assert "Fernet.generate_key()" in text
     assert "openssl rand -hex" in text
     assert "REQUIRED" in text
+
+
+REQUIRED_ENV = ("API_DOMAIN", "ACME_EMAIL", "POSTGRES_PASSWORD", "REDIS_PASSWORD", "SECRET_KEY",
+                "ENCRYPTION_KEYS", "SMTP_SERVER", "SMTP_USER", "SMTP_PASSWORD", "SUPPORT_EMAIL")
+
+
+def test_env_template_leaves_required_values_empty():
+    # An untouched template must trip the compose ${VAR:?} guards and the Settings checks.
+    lines = _read(ENV_EXAMPLE).splitlines()
+    marked = set()
+    for index, line in enumerate(lines):
+        match = re.match(r"^([A-Z][A-Z0-9_]*)=(.*)$", line)
+        if not match:
+            continue
+        comments = []
+        for previous in reversed(lines[:index]):
+            if not previous.startswith("#"):
+                break
+            comments.append(previous)
+        if any("REQUIRED" in c for c in comments):
+            marked.add(match.group(1))
+            assert match.group(2) == "", line
+    assert set(REQUIRED_ENV) <= marked
+    for name in REQUIRED_ENV:
+        assert re.search(rf"(?m)^{name}=$", _read(ENV_EXAMPLE)), name
 
 
 def test_env_template_every_variable_has_a_comment():
@@ -343,6 +391,34 @@ def test_deploy_readme_has_backup_warning_and_steps():
     assert "deploy/README.md" in _read(REPO / "README.md")
 
 
+def test_deploy_readme_is_ipv4_only():
+    text = _read(DEPLOY_README)
+    # The only allowed mention is the warning not to add one.
+    assert "AAAA" not in re.sub(r"(?i)do not add an AAAA record", "", text)
+    assert "IPv4 only" in text
+    assert "TRUSTED_PROXY_IPS" in text
+
+
+def test_deploy_readme_compose_commands_use_the_env_file():
+    text = _read(DEPLOY_README)
+    commands = re.findall(r"docker compose[^`\n]*", text)
+    assert commands
+    for command in commands:
+        assert "-f deploy/compose.prod.yml --env-file deploy/.env" in command, command
+
+
+def test_deploy_readme_first_deploy_verification_list():
+    text = _read(DEPLOY_README)
+    section = text.split("## First deploy: things to verify", 1)[1].split("\n## ", 1)[0]
+    items = re.findall(r"(?m)^(\d+)\. ", section)
+    assert items == [str(n) for n in range(1, 10)]
+    for needle in ("config", "caddy validate", "remote_ip", "172.28.0.1", "gethostbyname('proxy')",
+                   "172.28.0.10", "arm64", "bootstrapped", "upgraded", "308", "ALTER USER", "10001"):
+        assert needle in section, needle
+    assert re.search(r"(?i)atomic", text)
+    assert "docker inspect" in text
+
+
 DEPLOY_FILES = [COMPOSE, CADDYFILE, ENV_EXAMPLE, SMOKE, DEPLOY_README, DOCKERFILE, DOCKERIGNORE]
 ALLOWED_HOST_SUFFIXES = ("example.com", "example.org", "example.net", "caddyserver.com", "docs.docker.com")
 
@@ -370,6 +446,7 @@ def test_gitignore_tracks_deploy_files_but_not_the_real_env():
         return subprocess.run(["git", "check-ignore", "-q", rel], cwd=REPO).returncode == 0
 
     assert ignored("deploy/.env")
+    assert ignored("deploy/secrets/play-service-account.json")
     for rel in ("deploy/.env.example", "deploy/compose.prod.yml", "deploy/Caddyfile", "deploy/smoke.sh",
                 "deploy/README.md", "backend/Dockerfile", "backend/.dockerignore"):
         assert not ignored(rel), rel

@@ -48,4 +48,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
 # whom to trust from TRUSTED_PROXY_IPS (compose sets it to the Caddy container only).
 # Never set this to '*' or export FORWARDED_ALLOW_IPS: that would bypass that check.
 # `sh -c` lets WEB_CONCURRENCY expand; `exec` makes gunicorn PID 1 so it gets SIGTERM.
-CMD ["sh", "-c", "exec gunicorn app.main:app -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000 --workers ${WEB_CONCURRENCY:-2} --timeout 90 --graceful-timeout 30 --forwarded-allow-ips 127.0.0.1"]
+# --worker-tmp-dir /dev/shm keeps the worker heartbeat files off the container's overlay disk.
+# Note: newer uvicorn releases deprecate uvicorn.workers in favour of the separate
+# `uvicorn-worker` package (uvicorn_worker.UvicornWorker); switch when upgrading uvicorn.
+CMD ["sh", "-c", "exec gunicorn app.main:app -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000 --workers ${WEB_CONCURRENCY:-2} --timeout 90 --graceful-timeout 30 --worker-tmp-dir /dev/shm --forwarded-allow-ips 127.0.0.1"]

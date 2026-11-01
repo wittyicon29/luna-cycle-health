@@ -12,6 +12,7 @@ ENV/
 !.env.example
 # Production deploy files are tracked; the real deploy/.env never is.
 deploy/.env
+deploy/secrets/
 !deploy/
 !deploy/.env.example
 !deploy/compose.prod.yml
