@@ -35,6 +35,7 @@ class User(Base):
     consents = relationship("ConsentRecord", back_populates="user", cascade="all, delete-orphan")
     medications = relationship("Medication", back_populates="user", cascade="all, delete-orphan")
     daily_logs = relationship("DailyLog", back_populates="user", cascade="all, delete-orphan")
+    subscription = relationship("Subscription", back_populates="user", cascade="all, delete-orphan", uselist=False)
 
 class Period(Base):
     __tablename__ = "periods"
@@ -62,6 +63,25 @@ class Medication(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="medications")
+
+
+class Subscription(Base):
+    __tablename__ = "subscriptions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    product_id = Column(String, nullable=False)
+    purchase_token = Column(EncryptedText, nullable=False)
+    token_hash = Column(String(64), nullable=False, unique=True, index=True)
+    state = Column(String, nullable=False)
+    expiry_time = Column(DateTime, nullable=False)  # naive UTC
+    auto_renewing = Column(Boolean, default=False, nullable=False)
+    acknowledged = Column(Boolean, default=False, nullable=False)
+    last_verified_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User", back_populates="subscription")
 
 
 class DailyLog(Base):
