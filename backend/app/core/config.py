@@ -1,17 +1,29 @@
 import base64
 import hashlib
+import ipaddress
 import os
-from typing import List, Literal, Optional
+from typing import List, Literal, Optional, Union
 
 from cryptography.fernet import Fernet
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_SECRET_KEY = "your-secret-key-change-in-production"
 
+IPNetwork = Union[ipaddress.IPv4Network, ipaddress.IPv6Network]
+
+
+def parse_networks(raw: str) -> List[IPNetwork]:
+    """Comma-separated IPs/CIDRs -> networks; raises ValueError on a malformed entry."""
+    return [ipaddress.ip_network(entry.strip(), strict=False) for entry in raw.split(",") if entry.strip()]
+
 
 class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql://luna:lunapass@localhost:5432/luna_db"
+    # Connection pool (ignored for SQLite). Per process: size * gunicorn workers must fit max_connections.
+    DB_POOL_SIZE: int = 10
+    DB_MAX_OVERFLOW: int = 20
+    DB_POOL_RECYCLE_SECONDS: int = 1800
     SECRET_KEY: str = DEFAULT_SECRET_KEY
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
@@ -35,6 +47,10 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:3000"
     ENCRYPTION_KEYS: str = ""  # comma-separated Fernet keys, newest first
     RATE_LIMIT_ENABLED: bool = True
+    # Unset/empty -> "memory" in development/testing, "redis" everywhere else (see validator).
+    RATE_LIMIT_STORAGE: Optional[Literal["memory", "redis"]] = None
+    # Comma-separated IPs/CIDRs of reverse proxies whose X-Forwarded-For is honoured. Empty = nobody.
+    TRUSTED_PROXY_IPS: str = ""
     AUTH_RATE_LIMIT: str = "10/minute"
     CHAT_RATE_LIMIT: str = "10/minute"
     CHAT_DAILY_LIMIT: int = 20
@@ -74,6 +90,24 @@ class Settings(BaseSettings):
         for key in self._split_keys():
             Fernet(key)  # raises ValueError for malformed keys
         return self
+
+    @field_validator("RATE_LIMIT_STORAGE", mode="before")
+    @classmethod
+    def _blank_storage_is_unset(cls, value):
+        return None if isinstance(value, str) and not value.strip() else value
+
+    @model_validator(mode="after")
+    def _check_rate_limit_settings(self):
+        if self.RATE_LIMIT_STORAGE is None:
+            self.RATE_LIMIT_STORAGE = "memory" if self.APP_ENV in ("development", "testing") else "redis"
+        if self.RATE_LIMIT_STORAGE == "redis" and not self.REDIS_URL:
+            raise ValueError("REDIS_URL must be set when RATE_LIMIT_STORAGE=redis")
+        parse_networks(self.TRUSTED_PROXY_IPS)  # raises ValueError for malformed entries
+        return self
+
+    @property
+    def trusted_proxies(self) -> List[IPNetwork]:
+        return parse_networks(self.TRUSTED_PROXY_IPS)
 
     @property
     def billing_product_ids(self) -> List[str]:

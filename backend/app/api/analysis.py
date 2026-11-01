@@ -5,7 +5,6 @@ import json
 from ..core.config import settings
 from ..core.database import get_db
 from ..core.limiter import limiter
-from ..core.redis import redis_client
 from ..models.models import User, Analysis, Period, Questionnaire
 from ..schemas.schemas import AnalysisRequest, AnalysisResponse
 from ..services.llm_service import llm_service

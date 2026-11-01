@@ -1,0 +1,141 @@
+# Luna Health production stack. Run from the repository root:
+#   docker compose -f deploy/compose.prod.yml --env-file deploy/.env up -d --build
+# Compose reads deploy/.env (copy deploy/.env.example) for the ${...} values below and
+# passes the same file to the api/migrate containers. Required values use ${VAR:?...}
+# so a missing secret stops `up` instead of starting with an empty one.
+#
+# Exposure: only `proxy` publishes ports (80/443). db, redis and api are reachable only on
+# the private `luna` network.
+
+name: luna
+
+x-backend: &backend
+  build:
+    context: ../backend
+    dockerfile: Dockerfile
+  image: luna-api:local
+  env_file: .env
+  environment: &backend-env
+    APP_ENV: production
+    # Use hex/alphanumeric passwords (openssl rand -hex 24): they are embedded in URLs unencoded.
+    DATABASE_URL: postgresql://luna:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}@db:5432/luna
+    REDIS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD in deploy/.env}@redis:6379/0
+    RATE_LIMIT_STORAGE: redis
+    # Only the Caddy container (fixed address below) may supply X-Forwarded-For.
+    TRUSTED_PROXY_IPS: 172.28.0.10
+  networks:
+    - luna
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: luna
+      POSTGRES_DB: luna
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U luna -d luna"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - luna
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?set REDIS_PASSWORD in deploy/.env}", "--appendonly", "yes"]
+    environment:
+      # Lets the healthcheck's redis-cli authenticate without putting the password on its command line.
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?set REDIS_PASSWORD in deploy/.env}
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - luna
+
+  # One-shot: bootstrap an empty database or upgrade it to the current Alembic head.
+  migrate:
+    <<: *backend
+    command: ["python", "scripts/migrate.py"]
+    restart: "no"
+    healthcheck:
+      disable: true
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    <<: *backend
+    restart: unless-stopped
+    environment:
+      <<: *backend-env
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+      # Poll quickly while starting so the proxy comes up sooner (Docker Engine 25+).
+      start_interval: 2s
+    # BILLING_MODE=google needs the Play service-account JSON inside the container, e.g.:
+    # volumes:
+    #   - ./secrets/play-service-account.json:/run/secrets/play-service-account.json:ro
+    # and GOOGLE_PLAY_SERVICE_ACCOUNT_FILE=/run/secrets/play-service-account.json in deploy/.env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  proxy:
+    image: caddy:2
+    restart: unless-stopped
+    # IPv4 only: the compose network has no IPv6, so an IPv6 client would arrive through
+    # docker-proxy with the gateway address and all IPv6 clients would share one rate-limit key.
+    ports:
+      - "0.0.0.0:80:80"
+      - "0.0.0.0:443:443"
+      - "0.0.0.0:443:443/udp"
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN in deploy/.env}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in deploy/.env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      luna:
+        # Fixed and outside ip_range, so no other container can be given this address.
+        ipv4_address: 172.28.0.10
+
+networks:
+  luna:
+    driver: bridge
+    ipam:
+      config:
+        # Change both (and TRUSTED_PROXY_IPS / ipv4_address) if this collides with a host network.
+        - subnet: 172.28.0.0/24
+          ip_range: 172.28.0.128/25
+
+volumes:
+  pgdata:
+  redisdata:
+  caddy_data:
+  caddy_config:

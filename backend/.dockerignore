@@ -1,0 +1,20 @@
+# Allow-list: only what the Dockerfile copies is sent to the build.
+*
+!app
+!alembic
+!alembic.ini
+!scripts
+!requirements.txt
+
+# Never send these, even from inside the allowed directories.
+.env
+**/.env
+**/.env.*
+.git
+tests/
+test.db
+**/*.db
+**/__pycache__
+**/*.py[cod]
+.venv/
+**/.pytest_cache
