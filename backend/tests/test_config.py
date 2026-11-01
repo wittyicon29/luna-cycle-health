@@ -94,3 +94,24 @@ def test_verification_email_uses_frontend_url(monkeypatch):
 
     assert "https://app.example.in/verify-email?token=tok123" in body
     assert "localhost" not in body
+
+
+def test_db_pool_defaults():
+    s = Settings(_env_file=None, APP_ENV="testing")
+    assert (s.DB_POOL_SIZE, s.DB_MAX_OVERFLOW, s.DB_POOL_RECYCLE_SECONDS) == (10, 20, 1800)
+
+
+def test_engine_options_pass_pool_settings_to_postgres():
+    from app.core.database import engine_options
+
+    s = Settings(_env_file=None, APP_ENV="testing", DB_POOL_SIZE=3, DB_MAX_OVERFLOW=4,
+                 DB_POOL_RECYCLE_SECONDS=60)
+    options = engine_options("postgresql://user:pw@db.example.com/luna", s)
+    assert options == {"pool_pre_ping": True, "pool_size": 3, "max_overflow": 4, "pool_recycle": 60}
+
+
+@pytest.mark.parametrize("url", ["sqlite:///./test.db", "sqlite://"])
+def test_engine_options_skip_pool_settings_for_sqlite(url):
+    from app.core.database import engine_options
+
+    assert engine_options(url, Settings(_env_file=None, APP_ENV="testing")) == {"pool_pre_ping": True}

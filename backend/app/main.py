@@ -1,3 +1,7 @@
+import logging
+from typing import Optional
+
+import redis as redis_sync
 from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exception_handlers import request_validation_exception_handler
@@ -6,10 +10,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from sqlalchemy import text
+from . import db_migrate
 from .core.database import engine, Base
 from .core.config import settings
 from .core.limiter import limiter
 from .api import auth, periods, questionnaire, analysis, chat, email_verification, consents, account, legal, medications, daily_logs, billing
+
+logger = logging.getLogger(__name__)
 
 # Create tables (use Alembic in production)
 if settings.APP_ENV == "development":
@@ -67,3 +75,44 @@ def root():
 @app.get("/health")
 def health_check():
     return {"status": "healthy"}
+
+
+def _redis_ping() -> None:
+    client = redis_sync.Redis.from_url(settings.REDIS_URL, socket_connect_timeout=2, socket_timeout=2)
+    try:
+        client.ping()
+    finally:
+        client.close()
+
+
+def _readiness_failure() -> Optional[str]:
+    """Return a short reason for the log when not ready (never sent to the client)."""
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+            current = db_migrate.current_revision(conn)
+    except Exception as exc:
+        return f"database check failed ({type(exc).__name__})"
+    if settings.REDIS_URL and settings.APP_ENV != "testing":
+        try:
+            _redis_ping()
+        except Exception as exc:
+            return f"redis check failed ({type(exc).__name__})"
+    if current is None and settings.APP_ENV in ("development", "testing"):
+        return None  # create_all database without Alembic history
+    try:
+        head = db_migrate.head_revision()
+    except Exception as exc:
+        return f"revision check failed ({type(exc).__name__})"
+    if current != head:
+        return "database revision is not at head"
+    return None
+
+
+@app.get("/ready")
+def readiness_check():
+    failure = _readiness_failure()
+    if failure:
+        logger.warning("Not ready: %s", failure)
+        return JSONResponse(status_code=503, content={"status": "unavailable"})
+    return {"status": "ready"}

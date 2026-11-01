@@ -12,6 +12,10 @@ DEFAULT_SECRET_KEY = "your-secret-key-change-in-production"
 
 class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql://luna:lunapass@localhost:5432/luna_db"
+    # Connection pool (ignored for SQLite). Per process: size * gunicorn workers must fit max_connections.
+    DB_POOL_SIZE: int = 10
+    DB_MAX_OVERFLOW: int = 20
+    DB_POOL_RECYCLE_SECONDS: int = 1800
     SECRET_KEY: str = DEFAULT_SECRET_KEY
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
