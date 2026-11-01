@@ -21,6 +21,7 @@ docs/*
 !docs/superpowers/
 docs/superpowers/*
 !docs/superpowers/offline-emulator-checklist.md
+!docs/superpowers/billing-owner-checklist.md
 node_modules/
 frontend/node_modules/
 frontend/build/
