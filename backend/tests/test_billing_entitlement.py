@@ -6,7 +6,8 @@ import pytest
 from app.core.config import settings
 from app.models.models import Subscription
 from app.services.billing.account_token import account_token, token_hash
-from app.services.billing.entitlement import current_entitlement, is_active
+from app.services.billing import entitlement as entitlement_module
+from app.services.billing.entitlement import REVERIFY_MIN_INTERVAL, current_entitlement, is_active
 from app.services.billing.verifier import SubscriptionInfo, TestVerifier, VerifierError, set_verifier_for_tests
 
 NOW = datetime(2026, 11, 1, 12, 0, 0)
@@ -43,8 +44,10 @@ def billing_test_mode(monkeypatch):
     monkeypatch.setattr(settings, "BILLING_MODE", "test")
     monkeypatch.setattr(settings, "BILLING_PRODUCT_IDS", "luna_ai_monthly,luna_ai_yearly")
     set_verifier_for_tests(None)
+    entitlement_module.reset_cooldowns()
     yield
     set_verifier_for_tests(None)
+    entitlement_module.reset_cooldowns()
 
 
 def store(db, user, *, state="SUBSCRIPTION_STATE_ACTIVE", expiry=NOW + 10 * 24 * H, verified=NOW - H, token="tok-1"):
@@ -136,7 +139,7 @@ async def test_on_hold_row_is_inactive(db, make_user):
 
 async def test_expiry_within_24h_triggers_reverify(db, make_user):
     user = make_user()
-    store(db, user, expiry=NOW + 24 * H - S, verified=NOW)
+    store(db, user, expiry=NOW + 24 * H - S, verified=NOW - REVERIFY_MIN_INTERVAL)
     verifier = ScriptedVerifier(info=info_for(user, expiry=NOW + 31 * 24 * H))
     ent = await current_entitlement(db, user, now=NOW, verifier=verifier)
     assert verifier.get_calls == 1
@@ -155,7 +158,7 @@ async def test_expiry_exactly_24h_ahead_does_not_reverify(db, make_user):
 
 async def test_expired_row_triggers_reverify_and_renewal_reactivates(db, make_user):
     user = make_user()
-    store(db, user, expiry=NOW, verified=NOW)
+    store(db, user, expiry=NOW, verified=NOW - S)  # last verified before it lapsed
     verifier = ScriptedVerifier(info=info_for(user))
     ent = await current_entitlement(db, user, now=NOW, verifier=verifier)
     assert verifier.get_calls == 1 and ent.active is True
@@ -281,3 +284,133 @@ async def test_canceled_with_past_expiry_is_inactive_after_reverify(db, make_use
     store(db, user, verified=NOW - 7 * H)
     verifier = ScriptedVerifier(info=info_for(user, state="SUBSCRIPTION_STATE_CANCELED", expiry=NOW - H))
     assert (await current_entitlement(db, user, now=NOW, verifier=verifier)).active is False
+
+
+# --- final-review fix: re-verify back-off and cool-downs -------------------------------------
+
+M = timedelta(minutes=1)
+
+
+def test_min_interval_is_15_minutes():
+    assert REVERIFY_MIN_INTERVAL == timedelta(minutes=15)
+    assert entitlement_module.EXPIRY_REVERIFY_WINDOW == timedelta(hours=24)
+
+
+async def test_lapsed_plan_is_rechecked_at_most_every_15_minutes(db, make_user):
+    user = make_user()
+    store(db, user, expiry=NOW - 2 * H, verified=NOW - 3 * H)
+    verifier = ScriptedVerifier(info=info_for(user, state="SUBSCRIPTION_STATE_EXPIRED", expiry=NOW - 2 * H))
+
+    assert (await current_entitlement(db, user, now=NOW, verifier=verifier)).active is False
+    assert verifier.get_calls == 1
+    assert (await current_entitlement(db, user, now=NOW + 14 * M, verifier=verifier)).active is False
+    assert verifier.get_calls == 1  # backed off
+    await current_entitlement(db, user, now=NOW + 15 * M, verifier=verifier)
+    assert verifier.get_calls == 2
+
+
+async def test_renewal_is_seen_on_the_first_call_after_expiry(db, make_user):
+    user = make_user()
+    store(db, user, expiry=NOW - S, verified=NOW - 5 * M)  # verified 5 min ago, but before expiry
+    verifier = ScriptedVerifier(info=info_for(user, expiry=NOW + 30 * 24 * H))
+    ent = await current_entitlement(db, user, now=NOW, verifier=verifier)
+    assert verifier.get_calls == 1 and ent.active is True
+
+
+async def test_revoked_row_backs_off(db, make_user):
+    user = make_user()
+    store(db, user, verified=NOW - 7 * H)
+    verifier = ScriptedVerifier(error="revoked")
+    await current_entitlement(db, user, now=NOW, verifier=verifier)
+    assert (await current_entitlement(db, user, now=NOW + M, verifier=verifier)).active is False
+    assert verifier.get_calls == 1
+    await current_entitlement(db, user, now=NOW + 15 * M, verifier=verifier)
+    assert verifier.get_calls == 2
+
+
+async def test_refund_inside_the_24h_window_is_seen_within_15_minutes(db, make_user):
+    user = make_user()
+    store(db, user, expiry=NOW + 10 * H, verified=NOW - 14 * M)
+    refunded = ScriptedVerifier(info=info_for(user, state="SUBSCRIPTION_STATE_EXPIRED", expiry=NOW - M))
+
+    assert (await current_entitlement(db, user, now=NOW, verifier=refunded)).active is True
+    assert refunded.get_calls == 0
+    assert (await current_entitlement(db, user, now=NOW + M, verifier=refunded)).active is False
+    assert refunded.get_calls == 1
+
+
+async def test_force_always_calls_the_verifier(db, make_user):
+    user = make_user()
+    store(db, user, expiry=NOW - H, verified=NOW)
+    verifier = ScriptedVerifier(info=info_for(user, state="SUBSCRIPTION_STATE_EXPIRED", expiry=NOW - H))
+    for _ in range(3):
+        await current_entitlement(db, user, now=NOW, verifier=verifier, force=True)
+    assert verifier.get_calls == 3
+
+
+async def test_network_failure_starts_a_short_cool_down(db, make_user):
+    user = make_user()
+    store(db, user, expiry=NOW - H, verified=NOW - 2 * H)
+    verifier = ScriptedVerifier(error="network")
+
+    first = await current_entitlement(db, user, now=NOW, verifier=verifier)
+    assert first.active is True and first.source == "grace" and verifier.get_calls == 1
+
+    during = await current_entitlement(db, user, now=NOW + 29 * S, verifier=verifier)
+    assert during.active is True and during.source == "grace" and verifier.get_calls == 1
+
+    await current_entitlement(db, user, now=NOW + 30 * S, verifier=verifier)
+    assert verifier.get_calls == 2
+
+
+async def test_cool_down_never_extends_the_outage_grace(db, make_user):
+    user = make_user()
+    store(db, user, expiry=NOW - 24 * H + 10 * S, verified=NOW - 30 * H)
+    verifier = ScriptedVerifier(error="network")
+    assert (await current_entitlement(db, user, now=NOW, verifier=verifier)).active is True
+    assert (await current_entitlement(db, user, now=NOW + 11 * S, verifier=verifier)).active is False
+
+
+async def test_force_ignores_the_network_cool_down(db, make_user):
+    user = make_user()
+    store(db, user, expiry=NOW - H, verified=NOW - 2 * H)
+    verifier = ScriptedVerifier(error="network")
+    await current_entitlement(db, user, now=NOW, verifier=verifier)
+    await current_entitlement(db, user, now=NOW + S, verifier=verifier, force=True)
+    assert verifier.get_calls == 2
+
+
+async def test_success_clears_the_cool_down(db, make_user):
+    user = make_user()
+    store(db, user, expiry=NOW - H, verified=NOW - 2 * H)
+    verifier = ScriptedVerifier(error="network")
+    await current_entitlement(db, user, now=NOW, verifier=verifier)
+    verifier.error, verifier.info = None, info_for(user)
+    assert (await current_entitlement(db, user, now=NOW + S, verifier=verifier, force=True)).source == "verified"
+    assert entitlement_module._cooldowns == {}
+
+
+@pytest.mark.parametrize("case", ["mismatch", "invalid"])
+async def test_mismatch_and_invalid_answers_back_off_and_stay_inactive(db, make_user, case):
+    user = make_user()
+    store(db, user, expiry=NOW + 10 * 24 * H, verified=NOW - 7 * H)
+    if case == "mismatch":
+        verifier = ScriptedVerifier(info=info_for(user, account="f" * 64))
+    else:
+        verifier = ScriptedVerifier(error="invalid")
+
+    assert (await current_entitlement(db, user, now=NOW, verifier=verifier)).active is False
+    during = await current_entitlement(db, user, now=NOW + 14 * M, verifier=verifier)
+    assert during.active is False and verifier.get_calls == 1  # no call, and never active from the stored row
+    await current_entitlement(db, user, now=NOW + 15 * M, verifier=verifier)
+    assert verifier.get_calls == 2
+
+
+async def test_cool_downs_are_per_user(db, make_user):
+    a, b = make_user("a@gmail.com"), make_user("b@gmail.com")
+    store(db, a, expiry=NOW - H, verified=NOW - 2 * H, token="tok-a")
+    store(db, b, expiry=NOW - H, verified=NOW - 2 * H, token="tok-b")
+    verifier = ScriptedVerifier(error="network")
+    await current_entitlement(db, a, now=NOW, verifier=verifier)
+    await current_entitlement(db, b, now=NOW + S, verifier=verifier)
+    assert verifier.get_calls == 2

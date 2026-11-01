@@ -38,8 +38,10 @@ def billing_on(monkeypatch):
     monkeypatch.setattr(entitlement_module, "utcnow", lambda: NOW)
     fake = TestVerifier()
     set_verifier_for_tests(fake)
+    entitlement_module.reset_cooldowns()
     yield fake
     set_verifier_for_tests(None)
+    entitlement_module.reset_cooldowns()
 
 
 def consent(client, user):

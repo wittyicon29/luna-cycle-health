@@ -1,10 +1,14 @@
 """The single answer to "may this user use Luna AI?" plus purchase verification.
 
 Rules (plan Global Constraints): active iff the stored state is in ACTIVE_STATES and
-expiry_time > now. Re-verify with the verifier when expiry is less than 24 h away (or
-past), when the row was last verified more than BILLING_REVERIFY_AFTER_HOURS ago, or
-on demand (force). A verifier network error keeps the stored answer, but never past
-expiry_time + BILLING_OUTAGE_GRACE_HOURS. All datetimes are naive UTC.
+expiry_time > now. Re-verify with the verifier when the row was last verified more than
+BILLING_REVERIFY_AFTER_HOURS ago, or (backed off to once per REVERIFY_MIN_INTERVAL) when
+expiry is less than 24 h away or past; a lapsed row last verified before it lapsed is
+re-checked at once so a renewal is seen on the first call. `force` (refresh) always asks.
+A verifier network error keeps the stored answer, but never past expiry_time +
+BILLING_OUTAGE_GRACE_HOURS, and starts a short in-process cool-down so an outage does not
+slow every gated call; a mismatched or malformed answer is inactive and backs off for
+REVERIFY_MIN_INTERVAL. All datetimes are naive UTC.
 
 The purchase token is never logged, returned or put in an exception message.
 """
@@ -27,6 +31,8 @@ logger = logging.getLogger(__name__)
 
 EXPIRED_STATE = "SUBSCRIPTION_STATE_EXPIRED"
 EXPIRY_REVERIFY_WINDOW = timedelta(hours=24)
+REVERIFY_MIN_INTERVAL = timedelta(minutes=15)
+NETWORK_COOLDOWN = timedelta(seconds=30)
 
 DIFFERENT_ACCOUNT = "This purchase belongs to a different account"
 ALREADY_LINKED = "This purchase is already linked to another account"
@@ -84,9 +90,48 @@ def stored_entitlement(db: Session, user: User, *, now: Optional[datetime] = Non
 
 
 def _needs_reverify(sub: Subscription, now: datetime) -> bool:
-    if sub.expiry_time - now < EXPIRY_REVERIFY_WINDOW:  # also covers expiry_time <= now
+    since = now - sub.last_verified_at
+    if since > timedelta(hours=settings.BILLING_REVERIFY_AFTER_HOURS):
         return True
-    return now - sub.last_verified_at > timedelta(hours=settings.BILLING_REVERIFY_AFTER_HOURS)
+    if sub.expiry_time <= now:  # lapsed
+        return sub.last_verified_at < sub.expiry_time or since >= REVERIFY_MIN_INTERVAL
+    if sub.expiry_time - now < EXPIRY_REVERIFY_WINDOW:
+        return since >= REVERIFY_MIN_INTERVAL
+    return False
+
+
+# In-process cool-downs per user id: (until, kind). kind "network" answers from the stored
+# row + outage grace; kind "deny" (mismatched or malformed answer) answers inactive. Each
+# worker keeps its own; that only means a few extra Google calls behind several workers.
+_cooldowns: dict = {}
+
+
+def reset_cooldowns() -> None:
+    _cooldowns.clear()
+
+
+def _start_cooldown(user: User, now: datetime, length: timedelta, kind: str) -> None:
+    for key in [k for k, (until, _) in _cooldowns.items() if until <= now]:
+        del _cooldowns[key]  # prune expired entries so the map stays small
+    _cooldowns[user.id] = (now + length, kind)
+
+
+def _active_cooldown(user: User, now: datetime) -> Optional[str]:
+    entry = _cooldowns.get(user.id)
+    if entry is None:
+        return None
+    until, kind = entry
+    if now >= until:
+        del _cooldowns[user.id]
+        return None
+    return kind
+
+
+def _outage_answer(sub: Subscription, now: datetime) -> Entitlement:
+    grace_end = sub.expiry_time + timedelta(hours=settings.BILLING_OUTAGE_GRACE_HOURS)
+    active = sub.state in ACTIVE_STATES and now < grace_end
+    source = "stored" if is_active(sub.state, sub.expiry_time, now) else "grace"
+    return _from_row(sub, active, source)
 
 
 def _mismatch(info: SubscriptionInfo, user: User) -> Optional[str]:
@@ -114,30 +159,41 @@ async def current_entitlement(
     sub = get_subscription(db, user)
     if sub is None:
         return NO_PLAN
-    if not (force or _needs_reverify(sub, now)):
-        return _from_row(sub, is_active(sub.state, sub.expiry_time, now), "stored")
+    if not force:
+        if not _needs_reverify(sub, now):
+            return _from_row(sub, is_active(sub.state, sub.expiry_time, now), "stored")
+        cooling = _active_cooldown(user, now)
+        if cooling == "network":
+            return _outage_answer(sub, now)
+        if cooling == "deny":
+            return _from_row(sub, False, "stored")
 
     verifier = verifier or get_verifier()
     try:
         info = await verifier.get(sub.purchase_token)
     except VerifierError as exc:
         if exc.kind == "network":
-            grace_end = sub.expiry_time + timedelta(hours=settings.BILLING_OUTAGE_GRACE_HOURS)
-            active = sub.state in ACTIVE_STATES and now < grace_end
-            source = "stored" if is_active(sub.state, sub.expiry_time, now) else "grace"
             logger.warning("Billing re-verify unavailable; using stored entitlement")
-            return _from_row(sub, active, source)
+            _start_cooldown(user, now, NETWORK_COOLDOWN, "network")
+            return _outage_answer(sub, now)
+        _cooldowns.pop(user.id, None)
         if exc.kind == "revoked":
             sub.state, sub.expiry_time, sub.auto_renewing, sub.last_verified_at = EXPIRED_STATE, now, False, now
             db.commit()
             return _from_row(sub, False, "verified")
-        # invalid: a malformed answer is an error, never a grant; keep the row and retry next time.
+        # invalid: a malformed answer is an error, never a grant; keep the row, back off, retry later.
         logger.warning("Billing re-verify returned an invalid response")
+        _start_cooldown(user, now, REVERIFY_MIN_INTERVAL, "deny")
         return _from_row(sub, False, "stored")
 
     if _mismatch(info, user):
+        # Not stored (and last_verified_at not bumped, which would make the row look fresh and
+        # active); the cool-down keeps this from calling Google on every request.
         logger.warning("Billing re-verify returned a purchase that does not match the stored plan")
+        _start_cooldown(user, now, REVERIFY_MIN_INTERVAL, "deny")
         return _from_row(sub, False, "stored")
+
+    _cooldowns.pop(user.id, None)
 
     sub.product_id = info.product_id
     sub.state = info.state

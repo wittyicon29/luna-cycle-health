@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from typing import List
 import json
+from ..core.config import settings
 from ..core.database import get_db
+from ..core.limiter import limiter
 from ..core.redis import redis_client
 from ..models.models import User, Analysis, Period, Questionnaire
 from ..schemas.schemas import AnalysisRequest, AnalysisResponse
@@ -26,10 +28,11 @@ async def invalidate_analysis(user_id: str):
     pass  # Redis disabled
 
 @router.post("/", response_model=AnalysisResponse)
-async def create_analysis(request: AnalysisRequest, current_user: User = Depends(require_plan("ai")), db: Session = Depends(get_db)):
+@limiter.limit(settings.CHAT_RATE_LIMIT)
+async def create_analysis(request: Request, payload: AnalysisRequest, current_user: User = Depends(require_plan("ai")), db: Session = Depends(get_db)):
     # Check cache first
     cached = await get_cached_analysis(str(current_user.id))
-    if cached and request.analysis_type == "cycle_health":
+    if cached and payload.analysis_type == "cycle_health":
         return cached
     
     periods = db.query(Period).filter(Period.user_id == current_user.id).order_by(Period.start_date.desc()).limit(12).all()
@@ -58,8 +61,8 @@ async def create_analysis(request: AnalysisRequest, current_user: User = Depends
         raise HTTPException(status_code=400, detail=INSUFFICIENT_DATA)
     stats = get_cycle_summary(periods)
 
-    if request.analysis_type == "cycle_health":
-        llm_result = await llm_service.analyze_cycle_health(period_data, questionnaire_data, stats, prediction, language=request.language)
+    if payload.analysis_type == "cycle_health":
+        llm_result = await llm_service.analyze_cycle_health(period_data, questionnaire_data, stats, prediction, language=payload.language)
         
         # Parse the complete LLM result
         medical_analysis = llm_result.get("medical_analysis", {})
@@ -75,7 +78,7 @@ async def create_analysis(request: AnalysisRequest, current_user: User = Depends
         
         analysis = Analysis(
             user_id=current_user.id,
-            analysis_type=request.analysis_type,
+            analysis_type=payload.analysis_type,
             input_data={"periods": period_data, "questionnaire": questionnaire_data},
             llm_response=json.dumps(llm_result),
             predictions=prediction,
@@ -86,10 +89,10 @@ async def create_analysis(request: AnalysisRequest, current_user: User = Depends
             avg_cycle_length=int(stats.get("avg_cycle_length", 0)) if stats.get("avg_cycle_length") else None,
             cycle_std_deviation=int(stats.get("std_deviation", 0)) if stats.get("std_deviation") else None,
         )
-    elif request.analysis_type == "prediction":
+    elif payload.analysis_type == "prediction":
         analysis = Analysis(
             user_id=current_user.id,
-            analysis_type=request.analysis_type,
+            analysis_type=payload.analysis_type,
             input_data={"periods": period_data},
             llm_response=f"Next period predicted for {prediction.get('predicted_next_period')}",
             predictions=prediction,
@@ -118,7 +121,7 @@ async def create_analysis(request: AnalysisRequest, current_user: User = Depends
     })
     
     # Add parsed analysis to response for cycle_health analysis
-    if request.analysis_type == "cycle_health" and 'medical_analysis' in locals():
+    if payload.analysis_type == "cycle_health" and 'medical_analysis' in locals():
         analysis.medical_analysis = medical_analysis
         analysis.user_report = user_report
     
