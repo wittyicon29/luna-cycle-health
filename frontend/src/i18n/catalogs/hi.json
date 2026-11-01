@@ -538,5 +538,6 @@
     "other": "{count} बदलाव अभी सिंक नहीं हुए हैं। साइन आउट करने पर ये मिट जाएँगे।"
   },
   "Sign out anyway": "फिर भी साइन आउट करें",
-  "Stay signed in": "साइन इन रहें"
+  "Stay signed in": "साइन इन रहें",
+  "Some changes may not have synced. Sign out anyway?": "हो सकता है कुछ बदलाव अभी सिंक न हुए हों। फिर भी साइन आउट करें?"
 }

@@ -50,6 +50,7 @@ let server;
 let onlineAdds;
 let realCreate;
 let createSpy;
+let tweakFacade; // lets a test make the facade's pendingSummary()/wipe() fail
 
 // Captures the hook values so tests can call the facade from outside React.
 const seen = {};
@@ -81,6 +82,7 @@ function installApi() {
     analysis: { list: jest.fn(async () => []), latest: jest.fn(async () => null) },
     chat: { history: jest.fn(async () => []) },
     account: { delete: jest.fn(async () => ({})), export: jest.fn(async () => ({})) },
+    auth: { ...server.api.auth, login: jest.fn(async () => ({ access_token: 'tok2', refresh_token: 'ref2' })) },
   });
 }
 
@@ -106,10 +108,14 @@ beforeEach(async () => {
   server = makeServer();
   installApi();
   realCreate = realCreate || offlineIndex.createOffline;
+  tweakFacade = null;
   createSpy = jest.spyOn(offlineIndex, 'createOffline').mockImplementation(opts => {
     const f = realCreate(opts);
     jest.spyOn(f, 'startSync');
     jest.spyOn(f, 'stopSync');
+    jest.spyOn(f, 'wipe');
+    jest.spyOn(f, 'pendingSummary');
+    if (tweakFacade) tweakFacade(f);
     return f;
   });
   onlineAdds = 0;
@@ -159,6 +165,25 @@ describe('OfflineProvider lifecycle', () => {
     expect(liveHandles()).toHaveLength(0);
   });
 
+  test('unmounting before addListener resolves still removes the handle', async () => {
+    let resolveAdd;
+    const late = { event: 'appStateChange', removed: false };
+    late.remove = async () => { late.removed = true; };
+    require('@capacitor/app').App.addListener.mockImplementation((event, fn) => {
+      late.fn = fn;
+      mockAppHandles.push(late);
+      return new Promise(r => { resolveAdd = () => r(late); });
+    });
+    const { unmount } = render(withProvider());
+    await waitFor(() => expect(resolveAdd).toBeDefined());
+    unmount();
+    await ticks();
+    expect(late.removed).toBe(false);
+    await act(async () => { resolveAdd(); });
+    await ticks();
+    expect(late.removed).toBe(true);
+  });
+
   test('appStateChange isActive:true forces a sync of a queued change; isActive:false does nothing', async () => {
     server.setOffline(true);
     render(withProvider());
@@ -194,7 +219,7 @@ describe('OfflineProvider lifecycle', () => {
   test('wipe() leaves no luna_offline_* keys and no vault key; the next user sees nothing of the first', async () => {
     server.periods = [{ id: 'p1', start_date: '2026-02-01', end_date: null }];
     server.logs = { [D2]: { date: D2, mood: 4 } };
-    const first = render(withProvider());
+    const view = render(withProvider());
     await ticks();
     await act(async () => {
       await seen.p.data.listPeriods('tok');
@@ -209,7 +234,7 @@ describe('OfflineProvider lifecycle', () => {
     await act(async () => { await seen.p.wipe(); });
     expect(offlineKeys()).toHaveLength(0);
     expect(mockData.size).toBe(0);
-    first.unmount();
+    view.unmount();
     await ticks();
 
     render(withProvider(B));
@@ -380,6 +405,71 @@ describe('sign-out from the app root', () => {
     expect(screen.getByText(body.other.replace('{count}', '2'))).toBeInTheDocument();
     expect(screen.getByRole('button', { name: hi['Sign out anyway'] })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: hi['Stay signed in'] })).toBeInTheDocument();
+  });
+
+  test('pendingSummary() failing still asks first with a generic message; "Stay signed in" keeps everything', async () => {
+    await queue(1);
+    tweakFacade = f => { f.pendingSummary.mockRejectedValue(new Error('storage broke')); };
+    fireEvent.click(await signedIn());
+    expect(await screen.findByText('Sign out?')).toBeInTheDocument();
+    expect(screen.getByText('Some changes may not have synced. Sign out anyway?')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Stay signed in' }));
+    await ticks();
+    expect(screen.queryByText('Sign out?')).not.toBeInTheDocument();
+    expect(tokenStore.getAccessToken()).toBe('tok');
+    expect(await outbox.loadOutbox(E)).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Sign out anyway' }));
+    expect(await screen.findByText('LANDING')).toBeInTheDocument();
+    await ticks();
+    expect(offlineKeys()).toHaveLength(0);
+    expect(tokenStore.getAccessToken()).toBeNull();
+  });
+
+  test('wipe() failing still signs out and clears the offline data as a fallback', async () => {
+    await queue(1);
+    const fallback = jest.spyOn(store, 'clearOfflineData');
+    tweakFacade = f => { f.wipe.mockRejectedValue(new Error('wipe broke')); };
+    fireEvent.click(await signedIn());
+    fireEvent.click(await screen.findByRole('button', { name: 'Sign out anyway' }));
+    expect(await screen.findByText('LANDING')).toBeInTheDocument();
+    await ticks();
+    expect(fallback).toHaveBeenCalled();
+    expect(offlineKeys()).toHaveLength(0);
+    expect(mockData.has('luna_vault_key')).toBe(false);
+    expect(tokenStore.getAccessToken()).toBeNull();
+  });
+
+  test('a double tap on "Sign out anyway" wipes once', async () => {
+    await queue(1);
+    fireEvent.click(await signedIn());
+    const confirm = await screen.findByRole('button', { name: 'Sign out anyway' });
+    act(() => { confirm.click(); confirm.click(); }); // both taps land before React re-renders
+    expect(await screen.findByText('LANDING')).toBeInTheDocument();
+    await ticks();
+    const wipes = createSpy.mock.results.filter(r => r.value && r.value.wipe).reduce((n, r) => n + r.value.wipe.mock.calls.length, 0);
+    expect(wipes).toBe(1);
+  });
+
+  test('a confirm left open when the session expires does not come back after signing in again', async () => {
+    await queue(1);
+    fireEvent.click(await signedIn());
+    expect(await screen.findByText('Sign out?')).toBeInTheDocument();
+    act(() => { window.dispatchEvent(new Event('luna:session-expired')); });
+    await ticks();
+    expect(screen.queryByText('Sign out?')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText('your@gmail.com'), { target: { value: E } });
+    fireEvent.change(screen.getByPlaceholderText('•••••••'), { target: { value: 'pw' } });
+    fireEvent.submit(screen.getByPlaceholderText('•••••••').closest('form')); // eslint-disable-line testing-library/no-node-access
+    await waitFor(() => expect(mockApi.auth.login).toHaveBeenCalled());
+    expect(await screen.findByRole('button', { name: 'Sign out' })).toBeInTheDocument();
+    await ticks();
+    expect(screen.queryByText('Sign out?')).not.toBeInTheDocument();
+    // Signing out again still works and asks again (the queue survived the expiry).
+    fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
+    expect(await screen.findByText('Sign out?')).toBeInTheDocument();
   });
 
   test('session expiry keeps the cache and queue; the same email re-mounting replays the queue', async () => {

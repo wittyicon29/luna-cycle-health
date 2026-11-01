@@ -35,6 +35,7 @@ import { addDays } from "./calendarGrid";
 import { localDateString, formatLongDate } from "./localDate";
 import { getAccessToken, getEmail, setSession, clearSession } from "./tokenStore";
 import OfflineProvider from "./offline/OfflineProvider";
+import { clearOfflineData } from "./offline/store";
 
 // ─── PHASE CONFIG ─────────────────────────────────────────────────────────────
 const PHASES = {
@@ -2207,11 +2208,16 @@ function JourneyScreens({ token, email, onLogout }) {
 }
 
 // ─── SIGN-OUT CONFIRM ───────────────────────────────────────────────────────────
+const UNKNOWN_UNSYNCED = -1; // the pending count couldn't be read: ask anyway, without a number
+
 function SignOutConfirm({ count, onStay, onConfirm }) {
   useLanguage();
   const tall = { minHeight: 44 };
-  // i18n-note: "sync" is kept as सिंक (common loanword on Android); unsure whether a Hindi verb reads better
-  const body = tn(count, "{count} change hasn't synced yet and will be lost if you sign out.", "{count} changes haven't synced yet and will be lost if you sign out.");
+  const body = count === UNKNOWN_UNSYNCED
+    // i18n-note: shown when the app couldn't count the changes waiting to sync; please check it reads as a question
+    ? t("Some changes may not have synced. Sign out anyway?")
+    // i18n-note: "sync" is kept as सिंक (common loanword on Android); unsure whether a Hindi verb reads better
+    : tn(count, "{count} change hasn't synced yet and will be lost if you sign out.", "{count} changes haven't synced yet and will be lost if you sign out.");
   return (
     <Modal title={t("Sign out?")} onClose={onStay}
       footer={<><button className="btn btn-g" style={tall} onClick={onStay}>{t("Stay signed in")}</button><button className="btn btn-p" style={tall} onClick={onConfirm}>{t("Sign out anyway")}</button></>}>
@@ -2230,6 +2236,14 @@ export default function App() {
   const [email, setEmail] = useState("");
   const [showAuth, setShowAuth] = useState(false);
   const [authMode, setAuthMode] = useState("login");
+  // The active session's offline facade ({ pendingSummary, wipe }), registered by JourneyApp's provider.
+  const offlineRef = useRef(null);
+  const registerOffline = useCallback(api => {
+    offlineRef.current = api;
+    return () => { if (offlineRef.current === api) offlineRef.current = null; };
+  }, []);
+  const [unsynced, setUnsynced] = useState(0); // 0: no confirm; >0: count; UNKNOWN_UNSYNCED: count unreadable
+  const signingOut = useRef(false);
 
   // Restore the stored session (localStorage on web, Keystore cache on native) on mount
   useEffect(() => {
@@ -2245,6 +2259,9 @@ export default function App() {
   // is deliberately left alone); bounce to login only if the session dies.
   useEffect(() => {
     const onExpired = () => {
+      // Keeps the offline cache and queue; only a confirm left open is dropped so it can't reappear after re-login.
+      setUnsynced(0);
+      signingOut.current = false;
       teardownReminders();
       setToken(null);
       setEmail("");
@@ -2281,19 +2298,11 @@ export default function App() {
     window.history.pushState({}, '', '/app');
   };
 
-  // The active session's offline facade ({ pendingSummary, wipe }), registered by JourneyApp's provider.
-  const offlineRef = useRef(null);
-  const registerOffline = useCallback(api => {
-    offlineRef.current = api;
-    return () => { if (offlineRef.current === api) offlineRef.current = null; };
-  }, []);
-  const [unsynced, setUnsynced] = useState(0);
-  const signingOut = useRef(false);
-
   const handleLogout = () => {
     teardownReminders();
     setToken(null);
     setEmail("");
+    // Only the session and the offline data go; other luna_* preferences intentionally survive a manual sign-out.
     clearSession();
     
     // Redirect to login page after logout
@@ -2303,13 +2312,15 @@ export default function App() {
   // Manual sign-out wipes the offline cache and queue (session expiry does not), so it asks first when changes
   // haven't synced yet.
   const wipeAndLogout = async () => {
+    if (signingOut.current) return; // a second tap while the first is wiping
     setUnsynced(0);
     signingOut.current = true;
     try {
       const offline = offlineRef.current;
       if (offline) await offline.wipe();
-    } catch (e) { /* the cache was cleared as far as possible; sign out regardless */ }
-    finally {
+    } catch (e) {
+      clearOfflineData(); // sign out regardless, and still drop the encrypted cache and vault key
+    } finally {
       signingOut.current = false;
       handleLogout();
     }
@@ -2322,9 +2333,9 @@ export default function App() {
     try {
       const offline = offlineRef.current;
       count = offline ? (await offline.pendingSummary()).count : 0;
-    } catch (e) { count = 0; }
+    } catch (e) { count = UNKNOWN_UNSYNCED; } // unknown: never sign out (and lose changes) without asking
     signingOut.current = false;
-    if (count > 0) { setUnsynced(count); return; }
+    if (count > 0 || count === UNKNOWN_UNSYNCED) { setUnsynced(count); return; }
     await wipeAndLogout();
   };
 
@@ -2344,7 +2355,7 @@ export default function App() {
   return (
     <>
       <JourneyApp token={token} email={email} onLogout={requestLogout} onOfflineRegister={registerOffline} />
-      {unsynced > 0 && <SignOutConfirm count={unsynced} onStay={() => setUnsynced(0)} onConfirm={wipeAndLogout} />}
+      {unsynced !== 0 && <SignOutConfirm count={unsynced} onStay={() => setUnsynced(0)} onConfirm={wipeAndLogout} />}
     </>
   );
 }
