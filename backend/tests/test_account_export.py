@@ -29,7 +29,7 @@ def test_export_contains_decrypted_user_data(client, db, make_user):
     assert body["questionnaires"][0]["responses"] == {"pain": 3}
     assert body["chat_messages"][0]["content"] == "hello luna"
     assert set(body) == {"exported_at", "account", "periods", "questionnaires",
-                         "analyses", "chat_messages", "consents", "medications", "daily_logs"}
+                         "analyses", "chat_messages", "consents", "medications", "daily_logs", "plan"}
 
 
 def test_export_never_includes_another_users_data(client, db, make_user):

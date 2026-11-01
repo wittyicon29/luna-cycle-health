@@ -1,6 +1,7 @@
 import base64
 import hashlib
-from typing import List, Optional
+import os
+from typing import List, Literal, Optional
 
 from cryptography.fernet import Fernet
 from pydantic import model_validator
@@ -40,6 +41,16 @@ class Settings(BaseSettings):
     PRIVACY_POLICY_VERSION: str = "1.0"
     SUPPORT_EMAIL: str = ""
 
+    BILLING_MODE: Literal["off", "test", "google"] = "off"
+    GOOGLE_PLAY_PACKAGE_NAME: str = ""
+    GOOGLE_PLAY_SERVICE_ACCOUNT_FILE: str = ""
+    BILLING_PRODUCT_IDS: str = ""  # comma-separated Play subscription product ids
+    BILLING_REVERIFY_AFTER_HOURS: int = 6
+    BILLING_OUTAGE_GRACE_HOURS: int = 24
+    # Key for account_token(); empty falls back to SECRET_KEY. Set it so a JWT SECRET_KEY
+    # rotation does not change every user's Play obfuscated account id.
+    BILLING_ACCOUNT_SECRET: str = ""
+
     # hide_input_in_errors keeps SECRET_KEY / ENCRYPTION_KEYS / DATABASE_URL out of validation errors.
     model_config = SettingsConfigDict(env_file=".env", hide_input_in_errors=True)
 
@@ -62,6 +73,24 @@ class Settings(BaseSettings):
                     raise ValueError(f"{name} must be set in production")
         for key in self._split_keys():
             Fernet(key)  # raises ValueError for malformed keys
+        return self
+
+    @property
+    def billing_product_ids(self) -> List[str]:
+        return [p.strip() for p in self.BILLING_PRODUCT_IDS.split(",") if p.strip()]
+
+    @model_validator(mode="after")
+    def _check_billing_settings(self):
+        if self.BILLING_MODE == "test" and self.APP_ENV not in ("development", "testing"):
+            raise ValueError("BILLING_MODE=test is only allowed when APP_ENV is development or testing")
+        if self.BILLING_MODE == "google":
+            if not self.GOOGLE_PLAY_PACKAGE_NAME:
+                raise ValueError("GOOGLE_PLAY_PACKAGE_NAME must be set when BILLING_MODE=google")
+            if not self.billing_product_ids:
+                raise ValueError("BILLING_PRODUCT_IDS must be set when BILLING_MODE=google")
+            path = self.GOOGLE_PLAY_SERVICE_ACCOUNT_FILE
+            if not path or not os.path.isfile(path) or not os.access(path, os.R_OK):
+                raise ValueError("GOOGLE_PLAY_SERVICE_ACCOUNT_FILE must point to a readable file when BILLING_MODE=google")
         return self
 
     @property

@@ -17,7 +17,7 @@ from ..services.language import HINDI_MAX_TOKENS, language_instruction
 from ..services.llm_service import llm_service
 from ..services.prediction_service import predict_next_period, get_cycle_summary
 from .auth import get_current_user
-from .consents import require_consent
+from .billing import require_plan
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ def get_chat_history(
 async def ask_question(
     request: Request,
     payload: ChatRequest,
-    current_user: User = Depends(require_consent("ai_processing")),
+    current_user: User = Depends(require_plan("ai")),  # consent first, then plan
     db: Session = Depends(get_db)
 ):
     """Ask questions about your cycle health and get personalized answers."""

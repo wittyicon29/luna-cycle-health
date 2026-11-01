@@ -7,8 +7,9 @@ from sqlalchemy.orm import Session
 
 from ..core.database import get_db
 from ..models.models import (Analysis, ChatMessage, ConsentRecord, DailyLog, Medication,
-                             Period, Questionnaire, User)
+                             Period, Questionnaire, Subscription, User)
 from ..schemas.schemas import PeriodResponse
+from ..services.billing import ACTIVE_STATES
 from .auth import get_current_user
 from .daily_logs import entry_dict
 
@@ -51,6 +52,16 @@ def export_account_data(
 
     logs = db.query(DailyLog).filter(DailyLog.user_id == uid).order_by(DailyLog.log_date).all()
 
+    sub = db.query(Subscription).filter(Subscription.user_id == uid).first()
+    plan = None
+    if sub is not None:  # plan status only; the purchase token is never exported
+        plan = {
+            "active": sub.state in ACTIVE_STATES and sub.expiry_time > datetime.utcnow(),
+            "state": sub.state,
+            "expires_at": sub.expiry_time.isoformat(),
+            "product_id": sub.product_id,
+        }
+
     data = {
         "exported_at": datetime.now(timezone.utc).isoformat(),
         "account": {"email": current_user.email, "created_at": current_user.created_at.isoformat()},
@@ -60,6 +71,7 @@ def export_account_data(
             for m in meds
         ],
         "daily_logs": [entry_dict(r) for r in logs],
+        "plan": plan,
         "questionnaires": [
             {"id": str(q.id), "created_at": q.created_at.isoformat(), "responses": q.responses}
             for q in questionnaires
