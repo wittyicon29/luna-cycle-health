@@ -10,6 +10,16 @@ ENV/
 .env
 .env.*
 !.env.example
+# Production deploy files are tracked; the real deploy/.env never is.
+deploy/.env
+!deploy/
+!deploy/.env.example
+!deploy/compose.prod.yml
+!deploy/Caddyfile
+!deploy/smoke.sh
+!deploy/README.md
+!backend/Dockerfile
+!backend/.dockerignore
 *.db
 *.sqlite3
 .DS_Store

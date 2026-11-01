@@ -1,0 +1,60 @@
+# Caddy 2 reverse proxy for the Luna Health API (mounted by deploy/compose.prod.yml).
+# API_DOMAIN and ACME_EMAIL come from deploy/.env. Caddy obtains and renews the TLS
+# certificate automatically and redirects HTTP to HTTPS.
+#
+# Client IP: no `trusted_proxies` is configured, so Caddy treats every client as
+# untrusted and REPLACES any client-supplied X-Forwarded-For / X-Forwarded-Proto /
+# X-Forwarded-Host with the real TCP peer before proxying. The API trusts X-Forwarded-For
+# only from this container (TRUSTED_PROXY_IPS in compose), so clients cannot spoof their
+# rate-limit key. Only if a CDN/load balancer is put in front of Caddy, add its published
+# ranges here (global options: `servers { trusted_proxies static <CDN ranges> }`); never
+# trust 0.0.0.0/0.
+
+{
+	email {$ACME_EMAIL}
+}
+
+{$API_DOMAIN} {
+	encode zstd gzip
+
+	request_body {
+		max_size 2MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
+	# Defense in depth: the app already disables these outside development.
+	@apidocs path /docs /docs/* /redoc /redoc/* /openapi.json
+	handle @apidocs {
+		respond 404
+	}
+
+	handle {
+		reverse_proxy api:8000 {
+			header_down -Server
+		}
+	}
+
+	# JSON access log to stdout. Caddy never logs request bodies; request headers (which
+	# carry Authorization/Cookie) and query strings (the Google OAuth `code`) are dropped.
+	log {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>headers delete
+				request>uri query {
+					delete code
+					delete token
+				}
+				resp_headers delete
+			}
+		}
+	}
+}

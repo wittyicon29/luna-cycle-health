@@ -135,6 +135,10 @@ Required variables typically include:
 
 This project includes authentication, email verification, and AI integrations. For production, use strong environment secrets, rotate keys regularly, and avoid committing real credentials to version control.
 
+## Production
+
+The backend ships as a Docker Compose stack (Postgres, Redis, a one-shot migration job, the API and Caddy with automatic HTTPS). See [`deploy/README.md`](deploy/README.md) for the first deploy, the environment template and the smoke test. Back up `ENCRYPTION_KEYS` before any real data exists.
+
 ## Development Notes
 
 - The backend creates database tables automatically in development mode.
