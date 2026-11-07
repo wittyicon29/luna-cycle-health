@@ -441,3 +441,24 @@ def test_env_template_documents_sentry_settings():
     for name in ("SENTRY_DSN", "SENTRY_TRACES_SAMPLE_RATE", "SENTRY_ENVIRONMENT"):
         assert f"\n{name}=" in text, name
     assert "\nSENTRY_DSN=\n" in text, "reporting must stay off in an untouched template"
+
+
+def test_real_trace_ids_survive_and_malformed_ids_are_dropped():
+    trace_id, span_id = uuid.uuid4().hex, uuid.uuid4().hex[:16]  # mixed digits/letters, like the SDK's
+    event = {"event_id": "a" * 32, "contexts": {"trace": {"trace_id": trace_id, "span_id": span_id,
+                                                          "parent_span_id": "not-hex-SNTL", "op": "http"}}}
+    cleaned = error_reporting.scrub_event(event, {})
+    assert cleaned["contexts"]["trace"] == {"trace_id": trace_id, "span_id": span_id, "op": "http"}
+
+    for bad in ("SNTL" + "a" * 28, "A" * 32, "a" * 15, "a" * 33, "a@b.example.com", 12345):
+        event = {"event_id": "a" * 32, "contexts": {"trace": {"trace_id": bad, "span_id": span_id}}}
+        trace = error_reporting.scrub_event(event, {})["contexts"]["trace"]
+        assert "trace_id" not in trace and trace["span_id"] == span_id
+
+
+def test_span_ids_are_validated_as_hex():
+    trace_id = uuid.uuid4().hex
+    tx = {"type": "transaction", "event_id": "a" * 32,
+          "spans": [{"span_id": "zz-not-hex-span", "trace_id": trace_id, "op": "db"}]}
+    [span] = error_reporting.scrub_transaction(tx, {})["spans"]
+    assert span == {"trace_id": trace_id, "op": "db"}

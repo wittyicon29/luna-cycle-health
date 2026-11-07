@@ -35,6 +35,14 @@ _enabled = False
 
 _REQUEST_ID = re.compile(r"[A-Za-z0-9-]{8,64}")
 _IDENT = re.compile(r"[A-Za-z0-9_.:-]{1,200}")
+# Trace/span ids are lower-case hex (16 or 32 chars); validated, not scrubbed (scrub_text would
+# mask a 32-char id as a secret).
+_HEX_ID = re.compile(r"[0-9a-f]{16,32}")
+_ID_KEYS = frozenset({"trace_id", "span_id", "parent_span_id"})
+
+
+def _hex_id(value: Any) -> Optional[str]:
+    return value if isinstance(value, str) and _HEX_ID.fullmatch(value) else None
 
 _EVENT_KEYS = ("event_id", "timestamp", "start_timestamp", "level", "platform", "logger", "environment",
                "release", "dist", "sdk", "type", "fingerprint")
@@ -132,8 +140,19 @@ def _scrub_contexts(contexts: dict) -> dict:
     for name, keys in _CONTEXT_KEYS.items():
         context = contexts.get(name)
         if isinstance(context, dict):
-            picked = _pick(context, keys, lambda v: v if isinstance(v, str) and len(v) <= 100 else None)
-            picked = {k: scrub_text(v) for k, v in picked.items()}
+            picked = {}
+            for key in keys:
+                if key not in context:
+                    continue
+                value = context[key]
+                if key in _ID_KEYS:
+                    value = _hex_id(value)
+                elif isinstance(value, str) and len(value) <= 100:
+                    value = scrub_text(value)
+                else:
+                    value = None
+                if value is not None:
+                    picked[key] = value
             if picked:
                 result[name] = picked
     return result
@@ -208,10 +227,18 @@ def scrub_transaction(event: Any, hint: Any) -> Optional[dict]:
         clean["type"] = "transaction"
         spans = event.get("spans")
         if isinstance(spans, list):
-            clean["spans"] = [_pick(span, _SPAN_KEYS, _span_value) for span in spans if isinstance(span, dict)]
+            clean["spans"] = [_scrub_span(span) for span in spans if isinstance(span, dict)]
         return clean
     except Exception:
         return None
+
+
+def _scrub_span(span: dict) -> dict:
+    clean = _pick(span, _SPAN_KEYS, _span_value)
+    for key in _ID_KEYS & clean.keys():
+        if _hex_id(clean[key]) is None:
+            del clean[key]
+    return clean
 
 
 def _span_value(value: Any) -> Any:
