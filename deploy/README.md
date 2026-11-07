@@ -109,7 +109,9 @@ database dump first.
   recommended). If you add a second domain, add it here as well as in the Caddyfile.
 - **Limits and timeouts.** Request bodies above `MAX_REQUEST_BYTES` (1 MiB) get `413`.
   AI provider calls time out after `AI_CONNECT_TIMEOUT`/`AI_READ_TIMEOUT` seconds and are
-  retried once only on connection failures and `502`/`503`/`504`.
+  retried once only on connection failures and `502`/`503`/`504`; one call never takes
+  longer than `AI_TOTAL_TIMEOUT` (50 s) and a whole analysis than `ANALYSIS_TOTAL_BUDGET`
+  (80 s; it then returns its fallback result). Chat answers a timeout with its usual 502.
 - **Workers.** `WEB_CONCURRENCY` (default 2) gunicorn workers, each with up to
   `DB_POOL_SIZE + DB_MAX_OVERFLOW` connections; keep the total under Postgres
   `max_connections` (100).

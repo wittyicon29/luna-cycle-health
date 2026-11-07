@@ -256,3 +256,136 @@ def test_chat_returns_translated_502_when_provider_fails(client, ai_headers, pro
     assert response.json()["detail"] == "Luna is unavailable right now. Please try again in a moment."
     assert PROMPT_SENTINEL not in caplog.text and RESPONSE_SENTINEL not in caplog.text
     assert any(r.getMessage() == "LLM call failed: HTTPStatusError" for r in caplog.records)
+
+
+# --- overall deadlines (no real waiting beyond a few tens of milliseconds) ------------------------
+
+
+class Trickle(httpx.AsyncByteStream):
+    """A response body that never ends: one byte, then a short pause, forever."""
+
+    async def __aiter__(self):
+        while True:
+            yield b" "
+            await asyncio.sleep(0.005)
+
+
+def _trickle_handler(request):
+    return httpx.Response(200, stream=Trickle())
+
+
+def test_ai_budget_defaults():
+    s = Settings(_env_file=None)
+    assert s.AI_TOTAL_TIMEOUT == 50 and s.ANALYSIS_TOTAL_BUDGET == 80
+
+
+@pytest.mark.parametrize("name", ["AI_TOTAL_TIMEOUT", "ANALYSIS_TOTAL_BUDGET"])
+def test_ai_budgets_must_be_positive(name):
+    with pytest.raises(ValueError):
+        Settings(_env_file=None, **{name: 0})
+
+
+def test_trickle_response_is_bounded_by_the_total_deadline(monkeypatch, caplog):
+    caplog.set_level(logging.DEBUG)
+    monkeypatch.setattr(settings, "AI_TOTAL_TIMEOUT", 0.05)
+
+    async def go():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(_trickle_handler)) as client:
+            loop = asyncio.get_running_loop()
+            started = loop.time()
+            with pytest.raises(llm_module.AITimeoutError):
+                await _post_with_retry(client, URL, sleep=Sleeps(), json={"prompt": PROMPT_SENTINEL})
+            return loop.time() - started
+
+    assert asyncio.run(go()) < 1.0
+    assert issubclass(llm_module.AITimeoutError, TimeoutError)
+    assert [r.getMessage() for r in caplog.records if r.getMessage().startswith("LLM call failed")] == [
+        "LLM call failed: AITimeoutError"]
+    assert PROMPT_SENTINEL not in caplog.text
+
+
+def test_retry_is_skipped_when_the_budget_cannot_fit_another_attempt(monkeypatch):
+    monkeypatch.setattr(settings, "AI_TOTAL_TIMEOUT", 3.0)  # < AI_CONNECT_TIMEOUT (5) + 0.5
+    recorder, sleeps, go = run_helper([503, qwen_ok()])
+    with pytest.raises(httpx.HTTPStatusError):
+        asyncio.run(go())
+    assert recorder.calls == 1 and sleeps.delays == []
+
+
+def test_retry_happens_when_the_budget_fits(monkeypatch):
+    monkeypatch.setattr(settings, "AI_TOTAL_TIMEOUT", 6.0)
+    monkeypatch.setattr(settings, "AI_CONNECT_TIMEOUT", 1.0)
+    recorder, sleeps, go = run_helper([_connect_error(), qwen_ok()])
+    assert asyncio.run(go()).status_code == 200
+    assert recorder.calls == 2
+
+
+def test_exhausted_outer_deadline_fails_without_calling(monkeypatch):
+    recorder, sleeps, go = run_helper([qwen_ok()])
+
+    async def with_spent_budget():
+        token = llm_module._deadline_var.set(asyncio.get_running_loop().time() - 1)
+        try:
+            return await go()
+        finally:
+            llm_module._deadline_var.reset(token)
+
+    with pytest.raises(llm_module.AITimeoutError):
+        asyncio.run(with_spent_budget())
+    assert recorder.calls == 0
+
+
+def test_analysis_falls_back_within_its_budget(client, ai_headers, monkeypatch, caplog):
+    caplog.set_level(logging.DEBUG)
+    monkeypatch.setattr(settings, "ANALYSIS_TOTAL_BUDGET", 0.1)
+
+    def factory(**kwargs):
+        return httpx.AsyncClient(transport=httpx.MockTransport(_trickle_handler), **kwargs)
+
+    monkeypatch.setattr(llm_service, "_client_factory", factory)
+    import time
+    started = time.monotonic()
+    response = client.post("/api/v1/analysis/", json={"analysis_type": "cycle_health"}, headers=ai_headers)
+    assert time.monotonic() - started < 2.0
+    assert response.status_code == 200
+    assert "chance your next period" in json.dumps(response.json())
+    names = {r.getMessage() for r in caplog.records if "call failed" in r.getMessage()}
+    assert "LLM call failed: AITimeoutError" in names
+    assert {"MedGemma analysis call failed: AITimeoutError", "Qwen analysis call failed: AITimeoutError"} <= names
+
+
+def test_analysis_gives_medgemma_a_share_and_qwen_the_rest(monkeypatch):
+    monkeypatch.setattr(settings, "ANALYSIS_TOTAL_BUDGET", 80.0)
+    monkeypatch.setattr(settings, "AI_TOTAL_TIMEOUT", 50.0)
+    seen = {}
+
+    async def fake_medgemma(prompt):
+        seen["medgemma"] = llm_module._deadline_var.get() - asyncio.get_running_loop().time()
+        return "{}"
+
+    async def fake_qwen(prompt, system_prompt=None, **kwargs):
+        seen["qwen"] = llm_module._deadline_var.get() - asyncio.get_running_loop().time()
+        return "{}"
+
+    service = LLMService()
+    monkeypatch.setattr(service, "call_medgemma", fake_medgemma)
+    monkeypatch.setattr(service, "call_qwen", fake_qwen)
+    asyncio.run(service.analyze_cycle_health([], {}, {}, {}))
+    assert 39 < seen["medgemma"] <= 40
+    assert 79 < seen["qwen"] <= 80
+    assert llm_module._deadline_var.get() is None
+
+
+def test_chat_returns_translated_502_on_total_timeout(client, ai_headers, monkeypatch, caplog):
+    caplog.set_level(logging.DEBUG)
+    monkeypatch.setattr(settings, "AI_TOTAL_TIMEOUT", 0.05)
+
+    def factory(**kwargs):
+        return httpx.AsyncClient(transport=httpx.MockTransport(_trickle_handler), **kwargs)
+
+    monkeypatch.setattr(llm_service, "_client_factory", factory)
+    response = client.post("/api/v1/chat/ask", json={"question": f"q {PROMPT_SENTINEL}"}, headers=ai_headers)
+    assert response.status_code == 502
+    assert response.json()["detail"] == "Luna is unavailable right now. Please try again in a moment."
+    assert any(r.getMessage() == "Chat LLM call failed: AITimeoutError" for r in caplog.records)
+    assert PROMPT_SENTINEL not in caplog.text

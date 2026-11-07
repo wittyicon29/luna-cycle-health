@@ -148,6 +148,10 @@ class Settings(BaseSettings):
     # AI provider timeouts in seconds (write 10 s and pool 5 s are fixed).
     AI_CONNECT_TIMEOUT: float = 5.0
     AI_READ_TIMEOUT: float = 45.0
+    # Hard cap in seconds on one AI call including its retry (the read timeout is per chunk, so
+    # this is what bounds a slowly trickling answer), and on a whole two-model analysis.
+    AI_TOTAL_TIMEOUT: float = 50.0
+    ANALYSIS_TOTAL_BUDGET: float = 80.0
 
     # hide_input_in_errors keeps SECRET_KEY / ENCRYPTION_KEYS / DATABASE_URL out of validation errors.
     model_config = SettingsConfigDict(env_file=".env", hide_input_in_errors=True)
@@ -229,7 +233,7 @@ class Settings(BaseSettings):
             raise ValueError("MAX_REQUEST_BYTES must be positive")
         return value
 
-    @field_validator("AI_CONNECT_TIMEOUT", "AI_READ_TIMEOUT")
+    @field_validator("AI_CONNECT_TIMEOUT", "AI_READ_TIMEOUT", "AI_TOTAL_TIMEOUT", "ANALYSIS_TOTAL_BUDGET")
     @classmethod
     def _check_ai_timeouts(cls, value):
         if not value > 0:  # also rejects NaN

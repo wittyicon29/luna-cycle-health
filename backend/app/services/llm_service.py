@@ -3,6 +3,7 @@ import httpx
 import json
 import logging
 import re
+from contextvars import ContextVar
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 from ..core.config import settings
 from .language import HINDI_MAX_TOKENS, language_instruction
@@ -50,6 +51,17 @@ _RETRYABLE_ERRORS = (httpx.ConnectError, httpx.ConnectTimeout)
 
 Sleep = Callable[[float], Awaitable[Any]]
 
+# Optional outer deadline (event-loop time) set by a caller with its own budget, e.g. the
+# two-model analysis; each call also has its own AI_TOTAL_TIMEOUT cap.
+_deadline_var: ContextVar[Optional[float]] = ContextVar("ai_deadline", default=None)
+
+
+_BACKSTOP_GRACE_SECONDS = 0.25
+
+
+class AITimeoutError(TimeoutError):
+    """An AI call ran out of its overall time budget (callers treat it like any provider failure)."""
+
 
 def _log_failure(exc: BaseException) -> None:
     # Class name only: messages can contain the URL, provider keys or response text.
@@ -63,26 +75,46 @@ def _ai_timeout() -> httpx.Timeout:
 async def _post_with_retry(client: httpx.AsyncClient, url: str, *, sleep: Optional[Sleep] = None, **kwargs) -> httpx.Response:
     """POST and raise_for_status(), retrying once after 0.5 s on connect errors and 502/503/504.
 
-    Worst case: two attempts (each bounded by the client timeout) plus the delay. The last
-    exception is raised unchanged.
+    The whole call (both attempts, the delay and reading the body) runs under one deadline:
+    AI_TOTAL_TIMEOUT, or the caller's earlier deadline from _deadline_var. The retry is skipped
+    when less than AI_CONNECT_TIMEOUT + 0.5 s would be left. Running out of time raises
+    AITimeoutError; any other last exception is raised unchanged.
     """
-    for attempt in (1, 2):
-        try:
-            response = await client.post(url, **kwargs)
-            response.raise_for_status()
-            return response
-        except _RETRYABLE_ERRORS as exc:
-            _log_failure(exc)
-            if attempt == 2:
-                raise
-        except httpx.HTTPStatusError as exc:
-            _log_failure(exc)
-            if attempt == 2 or exc.response.status_code not in RETRY_STATUSES:
-                raise
-        except Exception as exc:
-            _log_failure(exc)
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + settings.AI_TOTAL_TIMEOUT
+    outer = _deadline_var.get()
+    if outer is not None:
+        deadline = min(deadline, outer)
+    if deadline <= loop.time():
+        exc = AITimeoutError("AI time budget exhausted")
+        _log_failure(exc)
+        raise exc
+    try:
+        async with asyncio.timeout_at(deadline):
+            for attempt in (1, 2):
+                try:
+                    response = await client.post(url, **kwargs)
+                    response.raise_for_status()
+                    return response
+                except _RETRYABLE_ERRORS as exc:
+                    _log_failure(exc)
+                    failure, retryable = exc, True
+                except httpx.HTTPStatusError as exc:
+                    _log_failure(exc)
+                    failure, retryable = exc, exc.response.status_code in RETRY_STATUSES
+                except Exception as exc:
+                    _log_failure(exc)
+                    raise
+                room = deadline - loop.time()
+                if attempt == 2 or not retryable or room < settings.AI_CONNECT_TIMEOUT + RETRY_DELAY_SECONDS:
+                    raise failure
+                await (sleep or asyncio.sleep)(RETRY_DELAY_SECONDS)
+    except TimeoutError as exc:
+        if isinstance(exc, AITimeoutError):
             raise
-        await (sleep or asyncio.sleep)(RETRY_DELAY_SECONDS)
+        error = AITimeoutError("AI call exceeded its time budget")
+        _log_failure(error)
+        raise error from None
     raise AssertionError("unreachable")  # pragma: no cover
 
 
@@ -98,6 +130,21 @@ class LLMService:
         self.groq_api_key = settings.GROQ_API_KEY
         self.hf_endpoint = f"https://api-inference.huggingface.co/models/{self.medgemma_model}"
         self.groq_endpoint = "https://api.groq.com/openai/v1/chat/completions"
+
+    @staticmethod
+    async def _within(deadline: float, call: Awaitable[Any]) -> Any:
+        """Await `call` with `deadline` as the outer AI deadline for _post_with_retry, plus a hard
+        stop shortly after it as a backstop for anything else in the call."""
+        token = _deadline_var.set(deadline)
+        try:
+            async with asyncio.timeout_at(deadline + _BACKSTOP_GRACE_SECONDS):
+                return await call
+        except TimeoutError as exc:
+            if isinstance(exc, AITimeoutError):
+                raise
+            raise AITimeoutError("AI time budget exhausted") from None
+        finally:
+            _deadline_var.reset(token)
 
     def _client(self) -> httpx.AsyncClient:
         factory = self._client_factory or httpx.AsyncClient
@@ -232,8 +279,13 @@ IMPORTANT: Include uncertainty and probabilistic nature in your assessment. Thes
 JSON format:
 {{"clinical_findings": ["..."], "risk_factors": ["..."], "medical_recommendations": ["..."], "urgency": "none|low|medium|high", "key_concerns": ["..."], "positive_indicators": ["..."], "prediction_confidence": "high|medium|low", "uncertainty_note": "..."}}"""
         
+        # Overall budget: MedGemma gets half, Qwen whatever is left (each call is also capped by
+        # AI_TOTAL_TIMEOUT). A timeout lands in the graceful fallbacks below.
+        loop = asyncio.get_running_loop()
+        analysis_deadline = loop.time() + settings.ANALYSIS_TOTAL_BUDGET
+        medgemma_deadline = loop.time() + settings.ANALYSIS_TOTAL_BUDGET / 2
         try:
-            medgemma_response = await self.call_medgemma(medgemma_prompt)
+            medgemma_response = await self._within(medgemma_deadline, self.call_medgemma(medgemma_prompt))
             medical_analysis = self.parse_llm_json(medgemma_response)
         except Exception as e:
             logger.warning("MedGemma analysis call failed: %s", type(e).__name__)
@@ -287,7 +339,8 @@ Use supportive language. Explain uncertainty clearly. Be reassuring about natura
         try:
             # Devanagari needs several times more tokens than English; English keeps the default cap.
             qwen_kwargs = {"max_tokens": HINDI_MAX_TOKENS} if language == "hi" else {}
-            qwen_response = await self.call_qwen(qwen_prompt, LUNA_PERSONALITY, **qwen_kwargs)
+            qwen_response = await self._within(
+                analysis_deadline, self.call_qwen(qwen_prompt, LUNA_PERSONALITY, **qwen_kwargs))
             user_friendly = self.parse_llm_json(qwen_response)
         except Exception as e:
             logger.warning("Qwen analysis call failed: %s", type(e).__name__)
