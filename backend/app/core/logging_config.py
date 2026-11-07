@@ -117,14 +117,36 @@ EXTRA_FIELDS = ("method", "route", "status", "duration_ms", "exc_type", "exc_whe
 _MAX_FIELD_LEN = 200
 
 
+# Loggers whose formatted messages we write ourselves (or that only carry server lifecycle text).
+TRUSTED_LOGGERS = ("uvicorn.error", "gunicorn.error")
+# Characters that start a repr, mapping or assignment: third-party text after them is dropped.
+_REPR_START = re.compile(r"[(<\[{'\"=]")
+
+
+def _is_trusted_logger(name: str) -> bool:
+    return name == "app" or name.startswith("app.") or name in TRUSTED_LOGGERS
+
+
+def _foreign_message(record: logging.LogRecord) -> str:
+    """Third-party records: first line of the message TEMPLATE only (never its args or the
+    formatted text), cut before anything repr-like (asyncio pre-formats callback/task reprs
+    into the template), truncated."""
+    template = record.msg
+    if not isinstance(template, str):
+        return f"[{type(template).__name__}]"
+    line = template.split("\n", 1)[0]
+    line = _REPR_START.split(line, 1)[0].rstrip()
+    return line[:_MAX_FIELD_LEN]
+
+
 def _safe_message(record: logging.LogRecord) -> str:
+    """The message to write, scrubbed. Never raises."""
     try:
-        return record.getMessage()
+        if not _is_trusted_logger(record.name):
+            return scrub_text(_foreign_message(record))
+        return scrub_text(record.getMessage())
     except Exception:
-        try:
-            return str(record.msg)
-        except Exception:
-            return "[unformattable log message]"
+        return "[unformattable log message]"
 
 
 def _safe_extra(value: Any) -> Any:
@@ -163,7 +185,7 @@ class JsonFormatter(logging.Formatter):
                 "ts": ts.isoformat(timespec="milliseconds").replace("+00:00", "Z"),
                 "level": record.levelname,
                 "logger": record.name,
-                "msg": scrub_text(_safe_message(record)),
+                "msg": _safe_message(record),
                 "request_id": _request_id(record),
             }
             data.update(_record_fields(record))
@@ -200,6 +222,9 @@ ACCESS_LOGGERS = ("uvicorn.access", "gunicorn.access")
 # Chatty libraries that can log URLs, SQL parameters or bodies at INFO/DEBUG: pinned to WARNING
 # whatever LOG_LEVEL says.
 QUIET_LOGGERS = ("httpx", "httpcore", "sqlalchemy", "urllib3", "multipart", "python_multipart", "hpack", "asyncio")
+# Loggers whose WARNINGs carry personal data: slowapi logs the client IP and the raw path on every
+# rate-limit hit (the structured access record already shows the 429 and the route template).
+SILENT_LOGGERS = ("slowapi",)
 
 
 class _StdoutHandler(logging.StreamHandler):
@@ -240,3 +265,5 @@ def configure_logging() -> None:
         access.disabled = True  # RequestContextMiddleware writes the access log
     for name in QUIET_LOGGERS:
         logging.getLogger(name).setLevel(logging.WARNING)
+    for name in SILENT_LOGGERS:
+        logging.getLogger(name).setLevel(logging.ERROR)
