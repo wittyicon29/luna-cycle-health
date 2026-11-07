@@ -3,13 +3,23 @@
 #
 #   scripts/restore_db.sh --file luna-YYYYmmddTHHMMSSZ.dump.age --identity KEYFILE \
 #       --target-url postgresql://user@host:port/dbname [--create] [--force] [--manifest FILE]
+#   scripts/restore_db.sh --compose --file F --identity KEYFILE --target-db NAME [--create] [--force]
 #
 #   --file F            the encrypted dump (.dump.age)
 #   --identity KEYFILE  the age identity (private key) file, or an SSH private key matching
 #                       the backup's recipient. It is only read by `age -d`, never copied.
-#   --target-url URL    the database to restore into (or set RESTORE_TARGET_URL). Leave the
-#                       password out of the URL and use PGPASSWORD or ~/.pgpass: a command
-#                       line is visible to other users of the machine while the script runs.
+#   --target-url URL    direct mode: the database to restore into (or set RESTORE_TARGET_URL).
+#                       Leave the password out of the URL and use PGPASSWORD or ~/.pgpass: a
+#                       command line is visible to other users of the machine while the
+#                       script runs.
+#   --compose           compose mode: restore into the `db` container of the compose stack
+#                       (it publishes no port). psql and pg_restore run inside the container:
+#                       docker compose -f COMPOSE_FILE --env-file COMPOSE_ENV_FILE exec -T db ...
+#                       and the decrypted dump is streamed into it (never written to a file).
+#                       Settings (environment): COMPOSE_FILE (default deploy/compose.prod.yml
+#                       in this repository), COMPOSE_ENV_FILE (default deploy/.env),
+#                       COMPOSE_DB_SERVICE (default db), COMPOSE_DB_USER (default luna).
+#   --target-db NAME    compose mode: the database inside the container to restore into.
 #   --create            create the target database first (it must not exist). It is dropped
 #                       again if the restore fails. Needs CREATEDB; the server's `postgres`
 #                       database is used for this (--maintenance-db NAME to change it).
@@ -17,6 +27,9 @@
 #                       backup are dropped and recreated (pg_restore --clean --if-exists);
 #                       other objects stay and show up as count mismatches.
 #   --manifest FILE     the row count manifest (default: the .counts.json next to --file).
+#   DRY_RUN=1           (environment) check the arguments and the manifest, print the
+#                       commands that would run (password redacted) and stop: nothing is
+#                       decrypted, contacted or written.
 #
 # Without --create the target must exist and be empty. Steps:
 #   1. The target is checked (read-only): with --create it must not exist, otherwise it
@@ -40,6 +53,9 @@
 
 set -euo pipefail
 umask 077
+
+SCRIPT_DIR="$(cd -P "$(dirname "$0")" && pwd -P)"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 
 # Same query as scripts/backup_db.sh (a test checks that they are identical).
 COUNT_SQL="SELECT 'COUNT' || chr(9) || CASE WHEN n.nspname = 'public' THEN c.relname::text ELSE n.nspname || '.' || c.relname END || chr(9) || (xpath('/row/n/text()', query_to_xml(format('SELECT count(*) AS n FROM %I.%I', n.nspname, c.relname), false, true, '')))[1]::text FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind IN ('r', 'p') AND n.nspname NOT IN ('pg_catalog', 'information_schema') AND n.nspname !~ '^pg_(toast|temp)' ORDER BY 1;"
@@ -143,10 +159,25 @@ absolute() {
     esac
 }
 
-# psql against the target (or another database on the same server with -d NAME);
-# the SQL comes on stdin so that :'var' / :"var" interpolation quotes values safely.
+quote_cmd() {
+    # Shell-quoted command line for display.
+    local out
+    out="$(printf '%q ' "$@")"
+    printf '%s' "${out% }"
+}
+
+is_true() {
+    case "${1:-}" in
+        1 | true | yes | on) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# psql against a database of the target server (-d NAME): locally in direct mode, inside
+# the db container in compose mode. The SQL comes on stdin so that :'var' / :"var"
+# interpolation quotes values safely.
 run_psql() {
-    psql -X -q -At -w -v ON_ERROR_STOP=1 "$@"
+    "${psql_cmd[@]}" "$@"
 }
 
 # --- arguments --------------------------------------------------------------------------
@@ -154,6 +185,9 @@ run_psql() {
 file=""
 identity=""
 target_url="${RESTORE_TARGET_URL:-}"
+target_url_given=0
+target_db_arg=""
+mode=direct
 manifest=""
 maintenance_db="postgres"
 create=0
@@ -179,7 +213,17 @@ while [ "$#" -gt 0 ]; do
         --target-url)
             need_value "$1" "$#"
             target_url="$2"
+            target_url_given=1
             shift 2
+            ;;
+        --target-db)
+            need_value "$1" "$#"
+            target_db_arg="$2"
+            shift 2
+            ;;
+        --compose)
+            mode=compose
+            shift
             ;;
         --manifest)
             need_value "$1" "$#"
@@ -209,7 +253,13 @@ done
 
 [ -n "$file" ] || die 2 "--file is required"
 [ -n "$identity" ] || die 2 "--identity is required"
-[ -n "$target_url" ] || die 2 "--target-url is required"
+if [ "$mode" = compose ]; then
+    [ "$target_url_given" = 0 ] || die 2 "--target-url cannot be combined with --compose (use --target-db NAME)"
+    [ -n "$target_db_arg" ] || die 2 "--target-db is required with --compose"
+else
+    [ -z "$target_db_arg" ] || die 2 "--target-db needs --compose (direct mode takes --target-url)"
+    [ -n "$target_url" ] || die 2 "--target-url is required"
+fi
 [ -f "$file" ] && [ -r "$file" ] || die 2 "--file: cannot read the backup file"
 [ -f "$identity" ] && [ -r "$identity" ] || die 2 "--identity: cannot read the identity file"
 file="$(absolute "$file")"
@@ -223,8 +273,25 @@ fi
 [ -f "$manifest" ] && [ -r "$manifest" ] ||
     die 2 "the row count manifest is missing: ${manifest##*/} (expected next to the backup, or pass --manifest)"
 
-parse_db_url "$target_url"
-target_db="$PGDATABASE"
+if [ "$mode" = direct ]; then
+    parse_db_url "$target_url"
+    target_db="$PGDATABASE"
+    psql_cmd=(psql -X -q -At -w -v ON_ERROR_STOP=1)
+    restore_prefix=(pg_restore)
+else
+    COMPOSE_FILE="${COMPOSE_FILE:-$REPO_ROOT/deploy/compose.prod.yml}"
+    COMPOSE_ENV_FILE="${COMPOSE_ENV_FILE:-$REPO_ROOT/deploy/.env}"
+    COMPOSE_DB_SERVICE="${COMPOSE_DB_SERVICE:-db}"
+    COMPOSE_DB_USER="${COMPOSE_DB_USER:-luna}"
+    [[ "$COMPOSE_DB_SERVICE" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]*$ ]] || die 2 "COMPOSE_DB_SERVICE: invalid service name"
+    [[ "$COMPOSE_DB_USER" =~ ^[A-Za-z_][A-Za-z0-9_$-]{0,62}$ ]] || die 2 "COMPOSE_DB_USER: invalid user name"
+    target_db="$target_db_arg"
+    # The container authenticates over its local socket; no password leaves this host.
+    unset PGPASSWORD
+    compose=(docker compose -f "$COMPOSE_FILE" --env-file "$COMPOSE_ENV_FILE" exec -T "$COMPOSE_DB_SERVICE")
+    psql_cmd=("${compose[@]}" psql -U "$COMPOSE_DB_USER" -X -q -At -w -v ON_ERROR_STOP=1)
+    restore_prefix=("${compose[@]}" pg_restore -U "$COMPOSE_DB_USER")
+fi
 # pg_restore/psql would read a name containing '=' as a connection string.
 [[ "$target_db" =~ ^[A-Za-z_][A-Za-z0-9_$-]{0,62}$ ]] ||
     die 2 "the target database name must be letters, digits, _, \$ or - (max 63)"
@@ -237,9 +304,7 @@ if [ -n "$(find "$identity" -maxdepth 0 -perm -004 2> /dev/null)" ]; then
     warn "warning: the identity file is readable by other users; chmod 600 it"
 fi
 
-for tool in age pg_restore psql; do
-    command -v "$tool" > /dev/null || die 2 "$tool is not installed"
-done
+restore_cmd=("${restore_prefix[@]}" --no-owner --no-acl --exit-on-error --single-transaction -d "$target_db")
 
 # Manifest: the line-oriented JSON object written by backup_db.sh.
 m_names=()
@@ -257,6 +322,40 @@ while IFS= read -r line || [ -n "$line" ]; do
     fi
 done < "$manifest"
 [ "${#m_names[@]}" -gt 0 ] || die 2 "the manifest lists no tables: ${manifest##*/}"
+
+if is_true "${DRY_RUN:-}"; then
+    log "DRY_RUN: nothing is decrypted, contacted or written"
+    log "DRY_RUN: mode $mode, target database $target_db, manifest ${manifest##*/} (${#m_names[@]} tables)"
+    if [ "$mode" = direct ]; then
+        password_state="<unset>"
+        [ -z "${PGPASSWORD:-}" ] || password_state="<redacted>"
+        log "DRY_RUN: environment PGHOST=${PGHOST:-} PGPORT=${PGPORT:-} PGUSER=${PGUSER:-} PGDATABASE=${PGDATABASE:-} PGSSLMODE=${PGSSLMODE:-} PGPASSWORD=$password_state"
+    fi
+    if [ "$create" = 1 ]; then
+        log "DRY_RUN: 1. target must not exist: $(quote_cmd "${psql_cmd[@]}" -d "$maintenance_db" -v "target=$target_db") <<< SELECT 1 FROM pg_database WHERE datname = :'target'"
+    else
+        log "DRY_RUN: 1. target must be empty$([ "$force" = 1 ] && printf ' (or --force)'): $(quote_cmd "${psql_cmd[@]}" -d "$target_db") <<< <count of user objects>"
+    fi
+    log "DRY_RUN: 2. decrypt check (output discarded): $(quote_cmd age -d -i "$identity" "$file")"
+    if [ "$create" = 1 ]; then
+        log "DRY_RUN:    create: $(quote_cmd "${psql_cmd[@]}" -d "$maintenance_db" -v "target=$target_db") <<< CREATE DATABASE :\"target\""
+    fi
+    log "DRY_RUN: 3. restore: $(quote_cmd age -d -i "$identity" "$file") | $(quote_cmd "${restore_cmd[@]}")$([ "$force" = 1 ] && printf ' [--clean --if-exists when the target is not empty]')"
+    log "DRY_RUN: 4. verify: $(quote_cmd "${psql_cmd[@]}" -d "$target_db") <<< <row count per table>, compared with the manifest"
+    exit 0
+fi
+
+if [ "$mode" = direct ]; then
+    for tool in age pg_restore psql; do
+        command -v "$tool" > /dev/null || die 2 "$tool is not installed"
+    done
+else
+    for tool in age docker; do
+        command -v "$tool" > /dev/null || die 2 "$tool is not installed"
+    done
+    [ -f "$COMPOSE_FILE" ] || die 2 "COMPOSE_FILE not found"
+    [ -f "$COMPOSE_ENV_FILE" ] || die 2 "COMPOSE_ENV_FILE not found"
+fi
 
 # --- cleanup ------------------------------------------------------------------------------
 
@@ -310,7 +409,7 @@ if [ "$create" = 1 ]; then
     [ -z "$exists" ] || die 3 "the target database already exists; drop it, or restore without --create into an empty database"
     objects=0
 else
-    objects="$(printf '%s\n' "$OBJECTS_SQL" | run_psql)" || die 1 "cannot connect to the target database"
+    objects="$(printf '%s\n' "$OBJECTS_SQL" | run_psql -d "$target_db")" || die 1 "cannot connect to the target database"
     [[ "$objects" =~ ^[0-9]+$ ]] || die 1 "unexpected answer from the target database"
     if [ "$objects" != 0 ] && [ "$force" != 1 ]; then
         die 3 "the target database is not empty ($objects objects); use an empty or new database (--create), or --force"
@@ -331,7 +430,6 @@ if [ "$create" = 1 ]; then
     created=1
     log "created database $target_db"
 fi
-restore_cmd=(pg_restore --no-owner --no-acl --exit-on-error --single-transaction -d "$target_db")
 if [ "$objects" != 0 ]; then
     warn "target is not empty ($objects objects): --force, objects from the backup are dropped and recreated"
     restore_cmd+=(--clean --if-exists)
@@ -356,7 +454,7 @@ log "restore complete; comparing row counts"
 
 # --- 4. verify ---------------------------------------------------------------------------------
 
-counts="$(printf '%s\n' "$COUNT_SQL" | run_psql)" || die 1 "cannot count the restored rows"
+counts="$(printf '%s\n' "$COUNT_SQL" | run_psql -d "$target_db")" || die 1 "cannot count the restored rows"
 t_names=()
 t_counts=()
 while IFS= read -r line; do

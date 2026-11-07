@@ -731,3 +731,100 @@ def test_restore_reports_a_count_mismatch(backup_file, age_keys, dirs, server, t
     assert "periods" in result.stdout and "ghost_table" in result.stdout
     assert "mismatch" in (result.stdout + result.stderr).lower()
     assert SENTINEL not in result.stdout + result.stderr
+
+
+# --- restore --compose (docker replaced by a shim that runs the command on the test server) ---
+
+
+def compose_shim(tmp_path, server_url):
+    """(shim_dir, calls log, env) for restore --compose: the stand-in `docker` checks the
+    compose prefix, refuses a TTY stdin, and runs the in-container command against the test
+    server (Docker itself is not used here)."""
+    shim_dir = tmp_path / "compose-shims"
+    calls = tmp_path / "docker-restore.log"
+    compose_file, env_file = tmp_path / "compose.prod.yml", tmp_path / "prod.env"
+    compose_file.write_text("services: {}\n")
+    env_file.write_text("POSTGRES_PASSWORD=\n")
+    password = f"PGPASSWORD={server_url.password} " if server_url.password else ""
+    write_shim(
+        shim_dir,
+        "docker",
+        f'printf "%s\\n" "$*" >> "{calls}"\n'
+        f'[ "$1 $2 $3 $4 $5 $6 $7 $8" = "compose -f {compose_file} --env-file {env_file} exec -T db" ] || exit 98\n'
+        'shift 8\n'
+        '[ -t 0 ] && exit 97\n'
+        f'{password}PGHOST={server_url.host} PGPORT={server_url.port or 5432} exec "$@"\n',
+    )
+    env = {"COMPOSE_FILE": str(compose_file), "COMPOSE_ENV_FILE": str(env_file), "COMPOSE_DB_USER": server_url.username}
+    return shim_dir, calls, env
+
+
+def compose_restore(private_tmp, shim_dir, compose_env, dump, identity, target, *extra):
+    env = base_env(private_tmp, shim_dir)
+    env.update(compose_env)
+    return run(RESTORE, env, "--compose", "--file", str(dump), "--identity", str(identity), "--target-db", target, *extra)
+
+
+def test_compose_restore_into_a_new_database_matches_and_reads_back(source, backup_file, age_keys, dirs, server, key, tmp_path):
+    _, source_engine = source
+    dump, counts = backup_file
+    _, identity, _ = age_keys
+    _, private_tmp = dirs
+    shim_dir, calls, compose_env = compose_shim(tmp_path, make_url(TEST_POSTGRES_URL))
+    target = server.new_name("luna_restore")
+    with Watcher(dump.parent, private_tmp) as watcher:
+        result = compose_restore(private_tmp, shim_dir, compose_env, dump, identity, target, "--create")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert watcher.problems == []
+    assert list(private_tmp.iterdir()) == []
+    out = result.stdout + result.stderr
+    assert SENTINEL not in out and EMAIL_MARK not in out
+    logged = calls.read_text().splitlines()
+    assert any(" exec -T db pg_restore -U " in line and "--no-owner --no-acl" in line and line.endswith(f"-d {target}")
+               for line in logged), logged
+    assert any(" exec -T db psql -U " in line and f"-d {target}" in line for line in logged)
+    restored = create_engine(server.url_for(target))
+    try:
+        assert table_counts(restored) == json.loads(counts.read_text())
+        assert app_view(restored, EncryptionService([key])) == app_view(source_engine, EncryptionService([key]))
+    finally:
+        restored.dispose()
+
+
+def test_compose_restore_refuses_a_non_empty_target(source, backup_file, age_keys, dirs, server, tmp_path):
+    source_url, source_engine = source
+    dump, _ = backup_file
+    _, identity, _ = age_keys
+    _, private_tmp = dirs
+    shim_dir, calls, compose_env = compose_shim(tmp_path, make_url(TEST_POSTGRES_URL))
+    before = table_counts(source_engine)
+    result = compose_restore(private_tmp, shim_dir, compose_env, dump, identity, source_url.database)
+    assert result.returncode == 3, result.stdout + result.stderr
+    assert table_counts(source_engine) == before
+    assert not any(" pg_restore " in line for line in calls.read_text().splitlines())
+
+
+def test_compose_restore_with_the_wrong_identity_creates_nothing(backup_file, age_keys, dirs, server, tmp_path):
+    dump, _ = backup_file
+    _, _, other = age_keys
+    _, private_tmp = dirs
+    shim_dir, _, compose_env = compose_shim(tmp_path, make_url(TEST_POSTGRES_URL))
+    target = server.new_name("luna_restore")
+    result = compose_restore(private_tmp, shim_dir, compose_env, dump, other, target, "--create")
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert not server.exists(target)
+
+
+def test_compose_restore_failure_drops_the_database_it_created(backup_file, age_keys, dirs, server, tmp_path):
+    dump, _ = backup_file
+    _, identity, _ = age_keys
+    _, private_tmp = dirs
+    shim_dir, _, compose_env = compose_shim(tmp_path, make_url(TEST_POSTGRES_URL))
+    real = shutil.which("pg_restore")
+    # The "in-container" pg_restore restores part of the archive, then fails.
+    write_shim(shim_dir, "pg_restore", f'"{real}" "$@" --section=pre-data\nexit 1\n')
+    target = server.new_name("luna_restore")
+    result = compose_restore(private_tmp, shim_dir, compose_env, dump, identity, target, "--create")
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert not server.exists(target)
+    assert list(private_tmp.iterdir()) == []

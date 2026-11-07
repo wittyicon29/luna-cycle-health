@@ -17,8 +17,10 @@ deploy/secrets/
 !deploy/
 !deploy/.env.example
 !deploy/backup.env.example
-# Operations scripts (backup/restore) are tracked.
+# Operations scripts (backup/restore) and CI helpers are tracked.
 !scripts/*.sh
+!scripts/ci/
+!.github/
 !deploy/compose.prod.yml
 !deploy/Caddyfile
 !deploy/smoke.sh
@@ -37,6 +39,7 @@ docs/*
 docs/superpowers/*
 !docs/superpowers/offline-emulator-checklist.md
 !docs/superpowers/billing-owner-checklist.md
+!docs/superpowers/runbook.md
 node_modules/
 frontend/node_modules/
 frontend/build/

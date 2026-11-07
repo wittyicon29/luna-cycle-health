@@ -102,8 +102,9 @@ def test_backup_never_writes_a_plaintext_dump():
 def test_restore_streams_decryption_into_pg_restore():
     code = "\n".join(_code_lines(RESTORE))
     assert re.search(r"age\b[^\n]*-d\b[^\n]*-i\b", code)
-    assert re.search(r"pg_restore\b[^\n]*--no-owner", code)
-    assert re.search(r"pg_restore\b[^\n]*--no-acl", code)
+    # restore_cmd = the pg_restore prefix (local, or inside the compose db container) + options.
+    assert len(re.findall(r"restore_prefix=\((?:\"\$\{compose\[@\]\}\" )?pg_restore\b", code)) == 2
+    assert re.search(r"restore_cmd=\(\"\$\{restore_prefix\[@\]\}\" --no-owner --no-acl\b", code)
     # age -d never writes its output to a file.
     for line in code.splitlines():
         if re.search(r"\bage\b.*\s-d\b", line):
@@ -136,7 +137,8 @@ def test_both_scripts_count_rows_with_the_same_query():
 
 def test_restore_flags_are_present():
     text = _read(RESTORE)
-    for flag in ("--file", "--identity", "--target-url", "--force", "--create", "--manifest", "--help"):
+    for flag in ("--file", "--identity", "--target-url", "--force", "--create", "--manifest", "--help",
+                 "--compose", "--target-db", "DRY_RUN"):
         assert flag in text, flag
     for needle in ("--single-transaction", "--exit-on-error", "WITH (FORCE)"):
         assert needle in text, needle
@@ -390,6 +392,146 @@ def test_restore_does_not_print_the_target_password(tmp_path, shims):
     # The age shim fails the pre-flight decryption: exit 1, and no secret anywhere.
     assert result.returncode == 1
     assert SECRET not in result.stdout + result.stderr
+
+
+def _restore_files(tmp_path):
+    dump = tmp_path / "luna-20260101T000000Z.dump.age"
+    dump.write_bytes(b"age-encryption.org/v1\n")
+    (tmp_path / "luna-20260101T000000Z.counts.json").write_text('{\n  "users": 1,\n  "periods": 2\n}\n')
+    key = tmp_path / "key.txt"
+    key.write_text("placeholder\n")
+    key.chmod(0o600)
+    return dump, key
+
+
+@needs_bash
+def test_restore_dry_run_compose_mode_prints_the_container_commands(tmp_path, shims):
+    shim_dir, log = shims
+    dump, key = _restore_files(tmp_path)
+    compose_file = tmp_path / "compose with space.yml"
+    env_file = tmp_path / "prod.env"
+    env = _env(tmp_path, shim_dir, DRY_RUN="1", COMPOSE_FILE=str(compose_file), COMPOSE_ENV_FILE=str(env_file),
+               PGPASSWORD=SECRET)
+    result = _run(RESTORE, env, "--compose", "--file", str(dump), "--identity", str(key),
+                  "--target-db", "luna_restore", "--create")
+    assert result.returncode == 0, result.stdout + result.stderr
+    out = result.stdout
+    prefix = f"docker compose -f {str(compose_file).replace(' ', chr(92) + ' ')} --env-file {env_file} exec -T db"
+    assert f"| {prefix} pg_restore -U luna --no-owner --no-acl --exit-on-error --single-transaction -d luna_restore" in out
+    assert f"{prefix} psql -U luna -X -q -At -w -v ON_ERROR_STOP=1 -d postgres -v target=luna_restore" in out
+    assert f"{prefix} psql -U luna -X -q -At -w -v ON_ERROR_STOP=1 -d luna_restore" in out
+    assert f"age -d -i {key} {dump} |" in out
+    assert "CREATE DATABASE" in out and "2 tables" in out
+    assert SECRET not in result.stdout + result.stderr
+    assert not log.exists(), log.read_text()  # nothing was run, not even age
+    assert not compose_file.exists() and not env_file.exists()
+
+
+@needs_bash
+def test_restore_dry_run_compose_mode_honours_service_and_user(tmp_path, shims):
+    shim_dir, log = shims
+    dump, key = _restore_files(tmp_path)
+    env = _env(tmp_path, shim_dir, DRY_RUN="1", COMPOSE_FILE="deploy/compose.prod.yml", COMPOSE_ENV_FILE="deploy/.env",
+               COMPOSE_DB_SERVICE="postgres", COMPOSE_DB_USER="owner")
+    result = _run(RESTORE, env, "--compose", "--file", str(dump), "--identity", str(key), "--target-db", "luna")
+    assert result.returncode == 0, result.stderr
+    assert "exec -T postgres pg_restore -U owner --no-owner" in result.stdout
+    assert "target must be empty" in result.stdout
+    assert not log.exists()
+
+
+@needs_bash
+def test_restore_dry_run_direct_mode_redacts_the_password(tmp_path, shims):
+    shim_dir, log = shims
+    dump, key = _restore_files(tmp_path)
+    result = _run(RESTORE, _env(tmp_path, shim_dir, DRY_RUN="1"), "--file", str(dump), "--identity", str(key),
+                  "--target-url", f"postgresql://luna:{SECRET}@db.example.com:5433/restore?sslmode=require")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert SECRET not in result.stdout + result.stderr
+    assert "PGPASSWORD=<redacted>" in result.stdout
+    assert "PGHOST=db.example.com PGPORT=5433" in result.stdout
+    assert "| pg_restore --no-owner --no-acl --exit-on-error --single-transaction -d restore" in result.stdout
+    assert not log.exists()
+
+
+@needs_bash
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["--compose", "--target-url", "postgresql://luna@db.example.com/restore"],
+        ["--compose"],
+        ["--target-db", "luna"],
+        ["--compose", "--target-db", "bad=name"],
+    ],
+    ids=["compose-with-url", "compose-without-db", "db-without-compose", "bad-db-name"],
+)
+def test_restore_compose_mode_usage_errors(tmp_path, shims, args):
+    shim_dir, log = shims
+    dump, key = _restore_files(tmp_path)
+    result = _run(RESTORE, _env(tmp_path, shim_dir), "--file", str(dump), "--identity", str(key), *args)
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert not log.exists(), log.read_text()
+
+
+@needs_bash
+def test_restore_compose_mode_needs_the_compose_files(tmp_path, shims):
+    shim_dir, log = shims
+    dump, key = _restore_files(tmp_path)
+    write_age = shim_dir / "age"  # age must be present; it is never reached
+    assert write_age.exists()
+    env = _env(tmp_path, shim_dir, COMPOSE_FILE=str(tmp_path / "missing.yml"), COMPOSE_ENV_FILE=str(tmp_path / "missing.env"))
+    result = _run(RESTORE, env, "--compose", "--file", str(dump), "--identity", str(key), "--target-db", "luna")
+    assert result.returncode == 2
+    assert "COMPOSE_FILE not found" in result.stderr
+    assert not log.exists()
+
+
+def _compose_files(tmp_path):
+    compose_file, env_file = tmp_path / "compose.prod.yml", tmp_path / "prod.env"
+    compose_file.write_text("services: {}\n")
+    env_file.write_text("POSTGRES_PASSWORD=\n")
+    return compose_file, env_file
+
+
+@needs_bash
+def test_restore_compose_mode_refuses_a_non_empty_target(tmp_path, shims):
+    """A stand-in docker answers the emptiness check with 5 objects: refused (exit 3),
+    and neither age nor pg_restore ever runs."""
+    shim_dir, log = shims
+    dump, key = _restore_files(tmp_path)
+    compose_file, env_file = _compose_files(tmp_path)
+    (shim_dir / "docker").write_text(
+        f'#!/bin/sh\necho "docker $*" >> "{log}"\n'
+        f'[ "$1 $2 $3 $4 $5 $6 $7 $8" = "compose -f {compose_file} --env-file {env_file} exec -T db" ] || exit 98\n'
+        'case "$*" in *" psql "*) cat > /dev/null; echo 5; exit 0 ;; esac\nexit 99\n'
+    )
+    env = _env(tmp_path, shim_dir, COMPOSE_FILE=str(compose_file), COMPOSE_ENV_FILE=str(env_file))
+    result = _run(RESTORE, env, "--compose", "--file", str(dump), "--identity", str(key), "--target-db", "luna")
+    assert result.returncode == 3, result.stdout + result.stderr
+    assert "not empty (5 objects)" in result.stderr
+    calls = log.read_text().splitlines()
+    assert len(calls) == 1 and " exec -T db psql -U luna " in calls[0] and "-d luna" in calls[0], calls
+    assert not any(line.startswith(("age", "pg_restore")) for line in calls)
+
+
+@needs_bash
+def test_restore_compose_mode_wrong_identity_drops_nothing_and_restores_nothing(tmp_path, shims):
+    """With --create: the existence check says 'absent', age fails the decrypt check, and
+    the script stops before CREATE DATABASE (no pg_restore, nothing to drop)."""
+    shim_dir, log = shims
+    dump, key = _restore_files(tmp_path)
+    compose_file, env_file = _compose_files(tmp_path)
+    (shim_dir / "docker").write_text(
+        f'#!/bin/sh\necho "docker $*" >> "{log}"\n'
+        'case "$*" in *" psql "*) sql="$(cat)"; echo "sql: $sql" >> "' + str(log) + '"; exit 0 ;; esac\nexit 99\n'
+    )
+    env = _env(tmp_path, shim_dir, COMPOSE_FILE=str(compose_file), COMPOSE_ENV_FILE=str(env_file))
+    result = _run(RESTORE, env, "--compose", "--file", str(dump), "--identity", str(key), "--target-db", "luna_new", "--create")
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "cannot decrypt" in result.stderr
+    calls = log.read_text()
+    assert "pg_database" in calls and "CREATE DATABASE" not in calls and "DROP DATABASE" not in calls
+    assert "pg_restore" not in calls
 
 
 # --- retention (--prune-only, fake files) --------------------------------------------

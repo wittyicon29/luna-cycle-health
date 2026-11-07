@@ -159,18 +159,30 @@ workstation, start a throwaway server (`docker run --rm -d -p 127.0.0.1:55432:54
 run the command above, and check that the counts match. To read data with the app, the
 same `ENCRYPTION_KEYS` are needed: a backup without the keys is useless.
 
-The production `db` container does not publish a port, so `restore_db.sh` cannot reach it
-from the host as the stack is shipped. To restore production, either publish the port on
-`127.0.0.1` temporarily (stop `api` first), or stream the dump into the container by hand
-(no count check then):
-`age -d -i luna-backup.key luna-....dump.age | docker compose -f deploy/compose.prod.yml --env-file deploy/.env exec -T db pg_restore -U luna -d luna --no-owner --no-acl --single-transaction`
-into an empty database.
+The production `db` container does not publish a port, so restore into it with
+`--compose`: `psql` and `pg_restore` then run inside the container
+(`docker compose -f deploy/compose.prod.yml --env-file deploy/.env exec -T db ...`, settings
+`COMPOSE_FILE`, `COMPOSE_ENV_FILE`, `COMPOSE_DB_SERVICE`, `COMPOSE_DB_USER` as for the
+backup) and the decrypted dump is streamed into it, with the same checks as above (empty
+target or `--create`, decrypt check first, one transaction, count comparison):
+
+```
+DRY_RUN=1 scripts/restore_db.sh --compose --file luna-20260101T031700Z.dump.age \
+    --identity /dev/shm/luna-backup.key --target-db luna_restored --create
+scripts/restore_db.sh --compose --file luna-20260101T031700Z.dump.age \
+    --identity /dev/shm/luna-backup.key --target-db luna_restored --create
+```
+
+`DRY_RUN=1` prints every command it would run and touches nothing. The private key has to
+be on the server for this: copy it to a RAM-backed directory such as `/dev/shm` (mode
+`0600`) and delete it right after. The full production restore (stop the API, restore into
+a new database, swap the names) is in `docs/superpowers/runbook.md`.
 
 **Tested where these files were written:** both scripts against a local PostgreSQL 16 in
 direct mode (backup, retention, interrupted and failed runs, restore, wrong key, non-empty
-target, count mismatch), and compose mode with a stand-in for `docker`. **Untested here:**
-real Docker/compose, cron, `apt-get install age`, `rclone`, and the `docker run` and
-manual `pg_restore` commands above.
+target, count mismatch), and compose mode of both scripts with a stand-in for `docker`
+that runs the in-container command against that server. **Untested here:** real
+Docker/compose, cron, `apt-get install age`, `rclone`, and the `docker run` command above.
 
 ## Updating
 
