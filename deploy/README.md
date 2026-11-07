@@ -11,6 +11,8 @@ reachable only on the private compose network.
 | `Caddyfile` | TLS, HTTP->HTTPS redirect, security headers, 2 MB body limit, JSON access log, hides `/docs` `/redoc` `/openapi.json` |
 | `.env.example` | every setting, with comments; copy to `deploy/.env` (git-ignored) |
 | `smoke.sh` | post-deploy checks through the public proxy |
+| `backup.env.example` | settings for `scripts/backup_db.sh`; copy to `deploy/backup.env` (git-ignored) |
+| `../scripts/backup_db.sh`, `../scripts/restore_db.sh` | encrypted backups with retention, and verified restores (see [Backups and restore](#backups-and-restore)) |
 | `../backend/Dockerfile` | the API image |
 
 All commands run from the repository root and always pass both files:
@@ -58,9 +60,9 @@ bucket. For the same reason the published ports bind `0.0.0.0` (IPv4) only.
    `docker compose -f deploy/compose.prod.yml --env-file deploy/.env logs migrate api proxy`.
 9. **Smoke test.** From your workstation: `deploy/smoke.sh api.example.com` (your domain).
    Every line must say `PASS`.
-10. **Backups.** Until automated backups land (a later release), take a manual dump before
-    and after every deploy and copy it off the server:
-    `docker compose -f deploy/compose.prod.yml --env-file deploy/.env exec -T db pg_dump -U luna -Fc luna > luna-$(date +%F).dump`.
+10. **Backups.** Set up the encrypted nightly backup described in
+    [Backups and restore](#backups-and-restore), run it once by hand, and do one restore
+    drill before real users arrive.
 
 ## First deploy: things to verify
 
@@ -77,11 +79,104 @@ the first real deploy:
 8. `POSTGRES_PASSWORD` only takes effect when the `pgdata` volume is first created. Changing it later needs `ALTER USER luna PASSWORD '...'` inside Postgres as well as the new value in `deploy/.env`.
 9. With `BILLING_MODE=google`, the mounted Play service-account JSON must be readable by uid 10001 (the API's user).
 
+## Backups and restore
+
+`scripts/backup_db.sh` streams `pg_dump -Fc` straight into `age`, so an unencrypted dump
+never exists on disk, and writes two files per run into `BACKUP_DIR` (directory `0700`,
+files `0600`):
+
+- `luna-YYYYmmddTHHMMSSZ.dump.age`: the dump, encrypted to your age public key;
+- `luna-YYYYmmddTHHMMSSZ.counts.json`: the row count of every table, taken from the same
+  database snapshot as the dump (`pg_export_snapshot()` + `pg_dump --snapshot`), used by
+  `scripts/restore_db.sh` to verify a restore.
+
+A failed or interrupted run exits non-zero and leaves no partial file; the script refuses
+to run without a valid recipient, and it checks the recipient before it contacts the
+database. Exit codes and every setting are listed at the top of the script.
+
+**Setup (once).**
+
+1. On your workstation (not the server): `age-keygen -o luna-backup.key`. It prints the
+   public key (`age1...`). Store `luna-backup.key` with the other secrets (password
+   manager or offline): it is the only way to read the backups, and it must never be on
+   the server. Losing it loses every backup; leaking it exposes them (the health data in
+   them is still encrypted with `ENCRYPTION_KEYS`, but e-mails and metadata are not).
+2. On the server: install `age` (`apt-get install -y age` on Ubuntu 22.04+/Debian 12+).
+   In the default `BACKUP_MODE=compose` the database tools come from the `db` container:
+   the script runs `docker compose -f deploy/compose.prod.yml --env-file deploy/.env exec -T db pg_dump ...`
+   (and `psql` the same way for the snapshot and the counts), so no database port or
+   password is needed on the host.
+3. `cp deploy/backup.env.example deploy/backup.env && chmod 600 deploy/backup.env`, then
+   set `BACKUP_AGE_RECIPIENT` to the public key and `BACKUP_DIR` to an absolute path.
+4. Check the settings without touching anything:
+   `DRY_RUN=1 scripts/backup_db.sh --env-file deploy/backup.env` prints the commands that
+   would run (any password redacted). Then run it once for real.
+
+**Schedule.** A cron entry as the user that runs the stack, from the repository root (cron
+has a short `PATH`: make sure `docker` and `age` are on it):
+
+```
+# /etc/cron.d/luna-backup
+PATH=/usr/local/bin:/usr/bin:/bin
+17 3 * * * deploy cd /srv/luna && scripts/backup_db.sh --env-file deploy/backup.env >> /var/log/luna-backup.log 2>&1
+```
+
+The log contains file names and counts only, never connection strings or passwords. Alert
+on a non-zero exit (or on the newest `luna-*.dump.age` being older than a day).
+
+**Retention.** After each successful backup the script keeps the newest `BACKUP_KEEP_LAST`
+(default 14) backups and deletes any older than `BACKUP_KEEP_DAYS` (default 30); both
+limits apply, and the newest backup is never deleted, even if it is older than the limit.
+Only `luna-YYYYmmddTHHMMSSZ.dump.age` files directly in `BACKUP_DIR` (and their
+`.counts.json`) are considered; symlinks, subdirectories and other files are left alone.
+`scripts/backup_db.sh --env-file deploy/backup.env --prune-only` applies retention
+without taking a backup.
+
+**Off-site copy.** A backup on the same disk as the database does not survive the server.
+Set `BACKUP_UPLOAD_CMD` to a command that copies `$1` (the dump) and `$2` (the counts) to
+another provider, for example `rclone copy "$1" offsite:luna-backups/` (rclone configured
+separately). The files are already encrypted, so the storage does not need to be trusted.
+If the hook fails the script exits `4` and keeps the local backup.
+
+**Restore and drills.** `scripts/restore_db.sh` needs `age` and the PostgreSQL 16 client
+tools (`psql`, `pg_restore`) on a machine that can reach the target database, plus the
+private key file:
+
+```
+scripts/restore_db.sh --file luna-20260101T031700Z.dump.age --identity luna-backup.key \
+    --target-url postgresql://luna@127.0.0.1:55432/luna_restore --create
+```
+
+It decrypts the whole file first (a wrong key or a damaged file fails before the target is
+touched), streams `age -d | pg_restore --no-owner --no-acl --single-transaction` into the
+target (no plaintext file), then prints the row count of every table next to the manifest
+and exits `4` on any difference. The target must be empty, or created by the script with
+`--create` (it is dropped again if the restore fails); `--force` restores over a
+non-empty database. Put the password in `PGPASSWORD` or `~/.pgpass`, not in the URL.
+
+Do a restore drill monthly: copy the newest `.dump.age` and `.counts.json` to your
+workstation, start a throwaway server (`docker run --rm -d -p 127.0.0.1:55432:5432 -e POSTGRES_USER=luna -e POSTGRES_HOST_AUTH_METHOD=trust postgres:16`),
+run the command above, and check that the counts match. To read data with the app, the
+same `ENCRYPTION_KEYS` are needed: a backup without the keys is useless.
+
+The production `db` container does not publish a port, so `restore_db.sh` cannot reach it
+from the host as the stack is shipped. To restore production, either publish the port on
+`127.0.0.1` temporarily (stop `api` first), or stream the dump into the container by hand
+(no count check then):
+`age -d -i luna-backup.key luna-....dump.age | docker compose -f deploy/compose.prod.yml --env-file deploy/.env exec -T db pg_restore -U luna -d luna --no-owner --no-acl --single-transaction`
+into an empty database.
+
+**Tested where these files were written:** both scripts against a local PostgreSQL 16 in
+direct mode (backup, retention, interrupted and failed runs, restore, wrong key, non-empty
+target, count mismatch), and compose mode with a stand-in for `docker`. **Untested here:**
+real Docker/compose, cron, `apt-get install age`, `rclone`, and the `docker run` and
+manual `pg_restore` commands above.
+
 ## Updating
 
 `git pull` then `docker compose -f deploy/compose.prod.yml --env-file deploy/.env up -d --build`.
 The `migrate` job runs again and upgrades the schema before the new API starts. Take a
-database dump first.
+backup first: `scripts/backup_db.sh --env-file deploy/backup.env`.
 
 ## Notes
 

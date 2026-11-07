@@ -12,9 +12,13 @@ ENV/
 !.env.example
 # Production deploy files are tracked; the real deploy/.env never is.
 deploy/.env
+deploy/backup.env
 deploy/secrets/
 !deploy/
 !deploy/.env.example
+!deploy/backup.env.example
+# Operations scripts (backup/restore) are tracked.
+!scripts/*.sh
 !deploy/compose.prod.yml
 !deploy/Caddyfile
 !deploy/smoke.sh
