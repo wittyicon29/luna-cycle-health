@@ -21,6 +21,7 @@ from .core.middleware import (
     RequestContextMiddleware,
     SecurityHeadersMiddleware,
     TrustedHostMiddleware,
+    cors_options,
     unhandled_exception_handler,
 )
 from .api import auth, periods, questionnaire, analysis, chat, email_verification, consents, account, legal, medications, daily_logs, billing
@@ -66,20 +67,15 @@ def install_http_middleware(target: FastAPI) -> None:
     """Install the HTTP middleware stack. add_middleware() wraps, so the LAST added is OUTERMOST.
 
     Resulting order, outermost first:
-      RequestContext   request id, access log, generic 500 (which it gives security headers too)
+      RequestContext   request id, access log, generic 500 (which it gives security headers too);
+                       adds CORS headers (allowed Origin only) to responses made outside CORS
       SecurityHeaders  on every response below, including 400/413 and CORS preflights
       TrustedHost      400 for a Host not in ALLOWED_HOSTS, before any body is read
       BodySizeLimit    413 above MAX_REQUEST_BYTES (Content-Length and streamed bytes)
       CORS             preflights and CORS headers
     All are pure ASGI, so streaming responses and BackgroundTasks are unaffected.
     """
-    target.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.ALLOWED_ORIGINS.split(","),
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    target.add_middleware(CORSMiddleware, **cors_options())
     target.add_middleware(BodySizeLimitMiddleware)
     target.add_middleware(TrustedHostMiddleware)
     target.add_middleware(SecurityHeadersMiddleware)

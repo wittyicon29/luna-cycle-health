@@ -129,12 +129,3 @@ database dump first.
   messages); only the gunicorn master's own start/stop lines are plain text.
   `LOG_TRACEBACKS=true` prints exception messages (they can include SQL with values in
   development/testing): never in production.
-
-## Known limitations
-
-- **CORS headers on some errors.** The `400` (unknown `Host`), `413` (request too large) and
-  generic `500` responses are produced outside the CORS middleware, so they carry no CORS
-  headers: the browser sees an opaque CORS error instead of the status. This includes the
-  Android app, whose WebView calls the API with `fetch` from the `https://localhost` origin
-  (no native HTTP plugin): it shows its generic "Connection problem" message for these
-  responses. Normal 4xx/5xx answers from the API routes carry CORS headers and are unaffected.

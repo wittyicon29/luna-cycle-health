@@ -10,7 +10,9 @@ Order (outermost first; see main.install_http_middleware):
   RequestContext -> SecurityHeaders -> TrustedHost -> BodySizeLimit -> CORS -> app
 so the 400 (bad host) and 413 (too large) answers carry both the request id and the security
 headers, CORS preflights get the security headers, and the generic 500 that RequestContext
-writes itself is passed through with_security_headers() explicitly.
+writes itself is passed through with_security_headers() explicitly. Responses made outside
+CORSMiddleware (400, 413, 500) get CORS headers from RequestContext via cors_headers_for(), so
+a browser/WebView client sees the real status instead of an opaque network error.
 """
 import logging
 import re
@@ -20,6 +22,8 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
+from starlette.datastructures import Headers
+from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
@@ -141,6 +145,7 @@ class RequestContextMiddleware:
                 status["code"], status["sent"] = message["status"], True
                 headers = [(k, v) for k, v in message.get("headers", []) if k.lower() != REQUEST_ID_HEADER]
                 headers.append((REQUEST_ID_HEADER, header_value))
+                _add_missing_cors_headers(scope, headers)
                 message = {**message, "headers": headers}
             await send(message)
 
@@ -162,6 +167,70 @@ class RequestContextMiddleware:
                        "duration_ms": duration_ms},
             )
             request_id_var.reset(token)
+
+
+# ==== CORS on responses made outside CORSMiddleware ==============================================
+
+
+def cors_options() -> dict:
+    """CORSMiddleware options from settings (shared by main and cors_headers_for)."""
+    return dict(allow_origins=settings.ALLOWED_ORIGINS.split(","), allow_credentials=True,
+                allow_methods=["*"], allow_headers=["*"])
+
+
+_cors_cache: dict = {}
+
+
+def _cors() -> CORSMiddleware:
+    key = settings.ALLOWED_ORIGINS
+    cors = _cors_cache.get(key)
+    if cors is None:
+        _cors_cache.clear()
+        cors = _cors_cache[key] = CORSMiddleware(app=None, **cors_options())
+    return cors
+
+
+def cors_headers_for(request_headers) -> dict:
+    """The headers CORSMiddleware adds to a simple (non-preflight) response for these request
+    headers (ASGI header list), or {} when there is no Origin or it is not allowed.
+
+    Uses Starlette's own CORSMiddleware config and origin check (exact match; '*' -> '*' unless a
+    cookie is sent, then the origin is echoed; Vary: Origin when echoed). Unlike CORSMiddleware nothing at all,
+    not even Allow-Credentials, is added for a disallowed origin.
+    """
+    headers = Headers(raw=list(request_headers or ()))
+    origin = headers.get("origin")
+    if origin is None:
+        return {}
+    cors = _cors()
+    if not (cors.allow_all_origins or cors.is_allowed_origin(origin=origin)):
+        return {}
+    # Same steps as CORSMiddleware.send(), from its own precomputed simple headers.
+    result = {k.lower(): v for k, v in cors.simple_headers.items()}
+    if not cors.allow_all_origins or "cookie" in headers:
+        result["access-control-allow-origin"] = origin
+        result["vary"] = "Origin"
+    return result
+
+
+def _add_missing_cors_headers(scope: Scope, headers: list) -> None:
+    """Add CORS headers in place unless the response already has them (CORSMiddleware ran)."""
+    if any(k.lower() == b"access-control-allow-origin" for k, _ in headers):
+        return
+    try:
+        extra = cors_headers_for(scope.get("headers"))
+    except Exception:
+        return
+    present = {k.lower() for k, _ in headers}
+    for name, value in extra.items():
+        key = name.encode("latin-1")
+        if key == b"vary" and key in present:
+            index = next(i for i, (k, _) in enumerate(headers) if k.lower() == b"vary")
+            existing = headers[index][1].decode("latin-1")
+            if "origin" not in existing.lower():
+                headers[index] = (headers[index][0], f"{existing}, Origin".encode("latin-1"))
+        elif key not in present:
+            headers.append((key, value.encode("latin-1")))
 
 
 # ==== security headers =========================================================================
