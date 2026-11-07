@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Query, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -23,6 +24,8 @@ from ..services.email_service import send_email
 from ..services.consent_service import add_consent
 from ..services.google_oauth import google_oauth_service
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 
 class UserStatus(BaseModel):
     email: str
@@ -253,15 +256,12 @@ async def google_oauth_callback(
     except HTTPException as e:
         if isinstance(e.detail, dict):
             raise  # structured errors (e.g. consent_required) must reach the client intact
-        raise HTTPException(
-            status_code=400,
-            detail=f"Google authentication failed: {e.detail}"
-        )
+        # The service raises fixed, translated messages only: pass them on unprefixed.
+        raise HTTPException(status_code=400, detail=e.detail)
     except Exception as e:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Google authentication failed: {str(e)}"
-        )
+        # Never echo exception text (provider responses, emails) to the client or the logs.
+        logger.warning("Google OAuth callback failed: %s", type(e).__name__)
+        raise HTTPException(status_code=400, detail="Google sign-in could not be verified")
 
 
 @router.post("/google/id-token")

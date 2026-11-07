@@ -37,17 +37,15 @@ async def send_email(to_email: str, subject: str, content: str, is_html: bool = 
         bool: True if email was sent successfully, False otherwise
     """
     if not validate_email_config():
-        if settings.APP_ENV not in ("development", "testing"):
+        if settings.APP_ENV != "development":
             logger.warning("Email not sent: SMTP not configured")
             return False
-        logger.warning("Email credentials not configured. Mocking email (development only)")
-        print(f"--- MOCK EMAIL ---")
-        print(f"To: {to_email}")
-        print(f"From: {settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL or settings.SMTP_USER}>")
-        print(f"Subject: {subject}")
-        print(f"Content: {content}")
-        print(f"HTML: {is_html}")
-        print(f"------------------")
+        # Local development only: show the mail (it carries the verification/reset link) so the
+        # flow can be completed without SMTP. Never reached in testing or production.
+        logger.warning(
+            "MOCK EMAIL (development only)\nTo: %s\nSubject: %s\nHTML: %s\n%s",
+            to_email, subject, is_html, content,
+        )
         return False
 
     try:
@@ -59,10 +57,10 @@ async def send_email(to_email: str, subject: str, content: str, is_html: bool = 
                 server.starttls()
             server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
             server.send_message(msg)
-            logger.info(f"Successfully sent email to {to_email}")
+            logger.info("Email sent")
             return True
     except Exception as e:
-        logger.error(f"Failed to send email to {to_email}: {e}")
+        logger.error("Email send failed: %s", type(e).__name__)
         return False
 
 async def send_welcome_email(to_email: str, user_name: str = None) -> bool:

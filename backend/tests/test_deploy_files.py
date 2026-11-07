@@ -161,6 +161,19 @@ def test_app_services_get_production_urls_from_env(services):
         assert env["DATABASE_URL"].startswith("postgresql://")
         assert "${POSTGRES_PASSWORD:?" in env["DATABASE_URL"]
         assert services[name]["env_file"] in (".env", [".env"])
+        # Required in production: compose refuses to start while it is empty.
+        assert env["ALLOWED_HOSTS"].startswith("${ALLOWED_HOSTS:?")
+
+
+def test_healthcheck_host_is_always_allowed_by_the_trusted_host_check(services):
+    # The api healthcheck calls 127.0.0.1:8000, which ALLOWED_HOSTS never has to list.
+    from app.core.config import ALWAYS_ALLOWED_HOSTS, normalize_host
+
+    test = " ".join(services["api"]["healthcheck"]["test"])
+    host = re.search(r"http://([^/']+)/health", test).group(1)
+    assert normalize_host(host) in ALWAYS_ALLOWED_HOSTS
+    docker = re.search(r"http://([^/']+)/health", _read(DOCKERFILE)).group(1)
+    assert normalize_host(docker) in ALWAYS_ALLOWED_HOSTS
 
 
 def test_network_has_fixed_subnet_and_trusted_proxy_is_only_the_proxy(compose, services):
@@ -316,7 +329,8 @@ def test_env_template_documents_compose_variables_and_key_generation():
 
 
 REQUIRED_ENV = ("API_DOMAIN", "ACME_EMAIL", "POSTGRES_PASSWORD", "REDIS_PASSWORD", "SECRET_KEY",
-                "ENCRYPTION_KEYS", "SMTP_SERVER", "SMTP_USER", "SMTP_PASSWORD", "SUPPORT_EMAIL")
+                "ENCRYPTION_KEYS", "SMTP_SERVER", "SMTP_USER", "SMTP_PASSWORD", "SUPPORT_EMAIL",
+                "ALLOWED_HOSTS")
 
 
 def test_env_template_leaves_required_values_empty():

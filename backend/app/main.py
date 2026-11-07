@@ -4,7 +4,6 @@ from typing import Dict, Optional
 import redis as redis_sync
 from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
-from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -13,47 +12,77 @@ from slowapi.errors import RateLimitExceeded
 from sqlalchemy import text
 from . import db_migrate
 from .core.database import engine, Base
-from .core.config import settings
+from .core.config import APP_VERSION, settings
+from .core.error_reporting import init_error_reporting
 from .core.limiter import limiter
+from .core.logging_config import configure_logging
+from .core.middleware import (
+    BodySizeLimitMiddleware,
+    RequestContextMiddleware,
+    SecurityHeadersMiddleware,
+    TrustedHostMiddleware,
+    cors_options,
+    unhandled_exception_handler,
+)
 from .api import auth, periods, questionnaire, analysis, chat, email_verification, consents, account, legal, medications, daily_logs, billing
 
+configure_logging()
 logger = logging.getLogger(__name__)
+init_error_reporting()  # off (and sentry_sdk not imported) unless SENTRY_DSN is set
 
 # Create tables (use Alembic in production)
 if settings.APP_ENV == "development":
     Base.metadata.create_all(bind=engine)
 
+_DEVELOPMENT = settings.APP_ENV == "development"
+
 app = FastAPI(
     title="Luna Health API",
-    version="1.0.0",
-    docs_url="/docs" if settings.APP_ENV == "development" else None,
-    redoc_url="/redoc" if settings.APP_ENV == "development" else None,
+    version=APP_VERSION,
+    # The schema and its viewers exist only in development.
+    docs_url="/docs" if _DEVELOPMENT else None,
+    redoc_url="/redoc" if _DEVELOPMENT else None,
+    openapi_url="/openapi.json" if _DEVELOPMENT else None,
 )
 
 # Rate limiting
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+# Generic JSON 500 without internals. RequestContextMiddleware answers unhandled exceptions itself
+# (so the response carries the request id); this covers anything raised outside it.
+app.add_exception_handler(Exception, unhandled_exception_handler)
 
-# Billing request bodies carry purchase tokens; their 422s must not echo the input back.
-_REDACTED_422_PATHS = frozenset({"/api/v1/billing/verify", "/api/v1/billing/refresh"})
 
 
 @app.exception_handler(RequestValidationError)
 async def validation_error_handler(request: Request, exc: RequestValidationError):
-    if request.url.path.rstrip("/") not in _REDACTED_422_PATHS:
-        return await request_validation_exception_handler(request, exc)
+    # Request bodies carry health data, notes, passwords and purchase tokens: no 422 echoes the
+    # input back (`input`) or the constraint context (`ctx`). The shape is otherwise FastAPI's
+    # default ({"detail": [{"type", "loc", "msg", ...}]}); the frontend reads detail[].msg.
     errors = [{k: v for k, v in error.items() if k not in ("input", "ctx")} for error in exc.errors()]
     return JSONResponse(status_code=422, content={"detail": jsonable_encoder(errors)})
 
-# CORS
-allowed_origins = settings.ALLOWED_ORIGINS.split(",")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
+def install_http_middleware(target: FastAPI) -> None:
+    """Install the HTTP middleware stack. add_middleware() wraps, so the LAST added is OUTERMOST.
+
+    Resulting order, outermost first:
+      RequestContext   request id, access log, generic 500 (which it gives security headers too);
+                       adds CORS headers (allowed Origin only) to responses made outside CORS
+      SecurityHeaders  on every response below, including 400/413 and CORS preflights
+      TrustedHost      400 for a Host not in ALLOWED_HOSTS, before any body is read
+      BodySizeLimit    413 above MAX_REQUEST_BYTES (Content-Length and streamed bytes)
+      CORS             preflights and CORS headers
+    All are pure ASGI, so streaming responses and BackgroundTasks are unaffected.
+    """
+    target.add_middleware(CORSMiddleware, **cors_options())
+    target.add_middleware(BodySizeLimitMiddleware)
+    target.add_middleware(TrustedHostMiddleware)
+    target.add_middleware(SecurityHeadersMiddleware)
+    target.add_middleware(RequestContextMiddleware)
+
+
+install_http_middleware(app)
 
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(periods.router, prefix="/api/v1")
@@ -70,7 +99,7 @@ app.include_router(legal.router)
 
 @app.get("/")
 def root():
-    return {"message": "Luna Health API", "status": "running", "version": "1.0.0"}
+    return {"message": "Luna Health API", "status": "running", "version": APP_VERSION}
 
 @app.get("/health")
 def health_check():

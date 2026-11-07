@@ -1,10 +1,15 @@
+import asyncio
 import httpx
 import json
+import logging
 import re
-from typing import Dict, Any, List
+from contextvars import ContextVar
+from typing import Any, Awaitable, Callable, Dict, List, Optional
 from ..core.config import settings
 from .language import HINDI_MAX_TOKENS, language_instruction
 from .prediction_service import tracked_cycles_phrase, format_friendly_date, variation_clause
+
+logger = logging.getLogger(__name__)
 
 LUNA_PERSONALITY = """You are Luna, a knowledgeable health guide specializing in menstrual health.
 
@@ -37,14 +42,113 @@ Never sound like:
 
 You are: knowledgeable, friendly, empathetic, calm, science-based, non-alarmist."""
 
+# One retry at most, and only where the provider cannot have processed the request yet (connect
+# failures) or says it is temporarily unavailable (502/503/504). A read timeout is never retried:
+# the provider may already be generating. 4xx (including 429) fail immediately.
+RETRY_STATUSES = frozenset({502, 503, 504})
+RETRY_DELAY_SECONDS = 0.5
+_RETRYABLE_ERRORS = (httpx.ConnectError, httpx.ConnectTimeout)
+
+Sleep = Callable[[float], Awaitable[Any]]
+
+# Optional outer deadline (event-loop time) set by a caller with its own budget, e.g. the
+# two-model analysis; each call also has its own AI_TOTAL_TIMEOUT cap.
+_deadline_var: ContextVar[Optional[float]] = ContextVar("ai_deadline", default=None)
+
+
+_BACKSTOP_GRACE_SECONDS = 0.25
+
+
+class AITimeoutError(TimeoutError):
+    """An AI call ran out of its overall time budget (callers treat it like any provider failure)."""
+
+
+def _log_failure(exc: BaseException) -> None:
+    # Class name only: messages can contain the URL, provider keys or response text.
+    logger.warning("LLM call failed: %s", type(exc).__name__)
+
+
+def _ai_timeout() -> httpx.Timeout:
+    return httpx.Timeout(connect=settings.AI_CONNECT_TIMEOUT, read=settings.AI_READ_TIMEOUT, write=10.0, pool=5.0)
+
+
+async def _post_with_retry(client: httpx.AsyncClient, url: str, *, sleep: Optional[Sleep] = None, **kwargs) -> httpx.Response:
+    """POST and raise_for_status(), retrying once after 0.5 s on connect errors and 502/503/504.
+
+    The whole call (both attempts, the delay and reading the body) runs under one deadline:
+    AI_TOTAL_TIMEOUT, or the caller's earlier deadline from _deadline_var. The retry is skipped
+    when less than AI_CONNECT_TIMEOUT + 0.5 s would be left. Running out of time raises
+    AITimeoutError; any other last exception is raised unchanged.
+    """
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + settings.AI_TOTAL_TIMEOUT
+    outer = _deadline_var.get()
+    if outer is not None:
+        deadline = min(deadline, outer)
+    if deadline <= loop.time():
+        exc = AITimeoutError("AI time budget exhausted")
+        _log_failure(exc)
+        raise exc
+    try:
+        async with asyncio.timeout_at(deadline):
+            for attempt in (1, 2):
+                try:
+                    response = await client.post(url, **kwargs)
+                    response.raise_for_status()
+                    return response
+                except _RETRYABLE_ERRORS as exc:
+                    _log_failure(exc)
+                    failure, retryable = exc, True
+                except httpx.HTTPStatusError as exc:
+                    _log_failure(exc)
+                    failure, retryable = exc, exc.response.status_code in RETRY_STATUSES
+                except Exception as exc:
+                    _log_failure(exc)
+                    raise
+                room = deadline - loop.time()
+                if attempt == 2 or not retryable or room < settings.AI_CONNECT_TIMEOUT + RETRY_DELAY_SECONDS:
+                    raise failure
+                await (sleep or asyncio.sleep)(RETRY_DELAY_SECONDS)
+    except TimeoutError as exc:
+        if isinstance(exc, AITimeoutError):
+            raise
+        error = AITimeoutError("AI call exceeded its time budget")
+        _log_failure(error)
+        raise error from None
+    raise AssertionError("unreachable")  # pragma: no cover
+
+
 class LLMService:
-    def __init__(self):
+    def __init__(self, client_factory: Optional[Callable[..., httpx.AsyncClient]] = None, sleep: Optional[Sleep] = None):
+        # Injectable for tests (httpx.MockTransport). None = a fresh httpx.AsyncClient per call,
+        # looked up at call time.
+        self._client_factory = client_factory
+        self._sleep = sleep
         self.medgemma_model = settings.MEDGEMMA_MODEL
         self.qwen_model = settings.QWEN_MODEL
         self.hf_api_key = settings.HUGGINGFACE_API_KEY
         self.groq_api_key = settings.GROQ_API_KEY
         self.hf_endpoint = f"https://api-inference.huggingface.co/models/{self.medgemma_model}"
         self.groq_endpoint = "https://api.groq.com/openai/v1/chat/completions"
+
+    @staticmethod
+    async def _within(deadline: float, call: Awaitable[Any]) -> Any:
+        """Await `call` with `deadline` as the outer AI deadline for _post_with_retry, plus a hard
+        stop shortly after it as a backstop for anything else in the call."""
+        token = _deadline_var.set(deadline)
+        try:
+            async with asyncio.timeout_at(deadline + _BACKSTOP_GRACE_SECONDS):
+                return await call
+        except TimeoutError as exc:
+            if isinstance(exc, AITimeoutError):
+                raise
+            raise AITimeoutError("AI time budget exhausted") from None
+        finally:
+            _deadline_var.reset(token)
+
+    def _client(self) -> httpx.AsyncClient:
+        factory = self._client_factory or httpx.AsyncClient
+        return factory(timeout=_ai_timeout())
     
     async def call_medgemma(self, prompt: str) -> str:
         headers = {"Authorization": f"Bearer {self.hf_api_key}"}
@@ -57,9 +161,8 @@ class LLMService:
             }
         }
         
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(self.hf_endpoint, json=payload, headers=headers)
-            response.raise_for_status()
+        async with self._client() as client:
+            response = await _post_with_retry(client, self.hf_endpoint, sleep=self._sleep, json=payload, headers=headers)
             result = response.json()
             return result[0]["generated_text"] if isinstance(result, list) else result.get("generated_text", "")
     
@@ -81,9 +184,8 @@ class LLMService:
             "max_tokens": max_tokens,
         }
         
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(self.groq_endpoint, json=payload, headers=headers)
-            response.raise_for_status()
+        async with self._client() as client:
+            response = await _post_with_retry(client, self.groq_endpoint, sleep=self._sleep, json=payload, headers=headers)
             result = response.json()
             return result["choices"][0]["message"]["content"]
     
@@ -177,11 +279,16 @@ IMPORTANT: Include uncertainty and probabilistic nature in your assessment. Thes
 JSON format:
 {{"clinical_findings": ["..."], "risk_factors": ["..."], "medical_recommendations": ["..."], "urgency": "none|low|medium|high", "key_concerns": ["..."], "positive_indicators": ["..."], "prediction_confidence": "high|medium|low", "uncertainty_note": "..."}}"""
         
+        # Overall budget: MedGemma gets half, Qwen whatever is left (each call is also capped by
+        # AI_TOTAL_TIMEOUT). A timeout lands in the graceful fallbacks below.
+        loop = asyncio.get_running_loop()
+        analysis_deadline = loop.time() + settings.ANALYSIS_TOTAL_BUDGET
+        medgemma_deadline = loop.time() + settings.ANALYSIS_TOTAL_BUDGET / 2
         try:
-            medgemma_response = await self.call_medgemma(medgemma_prompt)
+            medgemma_response = await self._within(medgemma_deadline, self.call_medgemma(medgemma_prompt))
             medical_analysis = self.parse_llm_json(medgemma_response)
         except Exception as e:
-            print(f"MedGemma Error: {e}")
+            logger.warning("MedGemma analysis call failed: %s", type(e).__name__)
             medical_analysis = {"clinical_findings": [], "risk_factors": [], "medical_recommendations": [], "urgency": "none", "key_concerns": [], "positive_indicators": [], "prediction_confidence": confidence_info.get('level', 'low'), "uncertainty_note": probabilistic_info.get('disclaimer', '')}
         
         # Step 2: Qwen with personality and probabilistic insights
@@ -232,10 +339,11 @@ Use supportive language. Explain uncertainty clearly. Be reassuring about natura
         try:
             # Devanagari needs several times more tokens than English; English keeps the default cap.
             qwen_kwargs = {"max_tokens": HINDI_MAX_TOKENS} if language == "hi" else {}
-            qwen_response = await self.call_qwen(qwen_prompt, LUNA_PERSONALITY, **qwen_kwargs)
+            qwen_response = await self._within(
+                analysis_deadline, self.call_qwen(qwen_prompt, LUNA_PERSONALITY, **qwen_kwargs))
             user_friendly = self.parse_llm_json(qwen_response)
         except Exception as e:
-            print(f"Qwen Error: {e}")
+            logger.warning("Qwen analysis call failed: %s", type(e).__name__)
             user_friendly = {
                 "simple_summary": f"Based on your {tracked_cycles_phrase(statistics.get('data_points') or 0)}, there's a {confidence_info.get('percentage')}% chance your next period will arrive around {format_friendly_date(prediction_range.get('most_likely'))}{variation_clause(statistics.get('cycle_std_deviation'))}.",
                 "key_insights": medical_analysis.get("clinical_findings", []) + medical_analysis.get("positive_indicators", []),

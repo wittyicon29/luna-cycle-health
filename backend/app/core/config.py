@@ -2,13 +2,15 @@ import base64
 import hashlib
 import ipaddress
 import os
-from typing import List, Literal, Optional, Union
+import re
+from typing import FrozenSet, List, Literal, Optional, Union
 
 from cryptography.fernet import Fernet
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_SECRET_KEY = "your-secret-key-change-in-production"
+APP_VERSION = "1.0.0"
 
 IPNetwork = Union[ipaddress.IPv4Network, ipaddress.IPv6Network]
 
@@ -16,6 +18,65 @@ IPNetwork = Union[ipaddress.IPv4Network, ipaddress.IPv6Network]
 def parse_networks(raw: str) -> List[IPNetwork]:
     """Comma-separated IPs/CIDRs -> networks; raises ValueError on a malformed entry."""
     return [ipaddress.ip_network(entry.strip(), strict=False) for entry in raw.split(",") if entry.strip()]
+
+
+# The container healthcheck calls http://127.0.0.1:8000/health, so loopback names are always
+# accepted by the trusted-host check in addition to ALLOWED_HOSTS.
+ALWAYS_ALLOWED_HOSTS: FrozenSet[str] = frozenset({"localhost", "127.0.0.1", "::1"})
+_HOSTNAME = re.compile(r"[a-z0-9_]([a-z0-9_.-]*[a-z0-9_])?")
+
+
+def normalize_host(value: str) -> Optional[str]:
+    """Host header (or ALLOWED_HOSTS entry) -> lower-case host without port or trailing dot.
+
+    Handles bracketed IPv6 literals ("[::1]:8000" -> "::1", compressed form). Returns None for
+    anything that is not a plain hostname / IP literal with an optional numeric port.
+    """
+    value = value.strip().lower()
+    if not value:
+        return None
+    if value.startswith("["):
+        end = value.find("]")
+        if end == -1:
+            return None
+        rest = value[end + 1:]
+        if rest and not (rest.startswith(":") and rest[1:].isdigit()) and rest != ":":
+            return None
+        try:
+            return str(ipaddress.IPv6Address(value[1:end]))
+        except ValueError:
+            return None
+    if value.count(":") > 1:  # bare IPv6 (config entries); a Host header must use brackets
+        try:
+            return str(ipaddress.IPv6Address(value))
+        except ValueError:
+            return None
+    host, _, port = value.partition(":")
+    if port and not port.isdigit():
+        return None
+    host = host.rstrip(".")
+    return host if host and _HOSTNAME.fullmatch(host) else None
+
+
+def parse_allowed_hosts(raw: str) -> Optional[FrozenSet[str]]:
+    """ALLOWED_HOSTS -> allowed host names (plus loopback), or None for "no check" ("*" or empty).
+
+    Raises ValueError for malformed entries; "*" must stand alone.
+    """
+    entries = [entry.strip() for entry in raw.split(",") if entry.strip()]
+    if not entries:
+        return None
+    if "*" in entries:
+        if len(entries) != 1:
+            raise ValueError("ALLOWED_HOSTS: '*' must be the only entry")
+        return None
+    hosts = set()
+    for entry in entries:
+        host = normalize_host(entry) if "*" not in entry and "/" not in entry else None
+        if host is None:
+            raise ValueError("ALLOWED_HOSTS entries must be plain host names or IP addresses")
+        hosts.add(host)
+    return frozenset(hosts) | ALWAYS_ALLOWED_HOSTS
 
 
 class Settings(BaseSettings):
@@ -67,6 +128,31 @@ class Settings(BaseSettings):
     # rotation does not change every user's Play obfuscated account id.
     BILLING_ACCOUNT_SECRET: str = ""
 
+    # Logging. LOG_FORMAT unset/empty -> "console" in development/testing, "json" everywhere else.
+    LOG_LEVEL: str = "INFO"
+    LOG_FORMAT: Optional[Literal["json", "console"]] = None
+    # Include tracebacks in logs (they can contain exception messages with user data). Debug only.
+    LOG_TRACEBACKS: bool = False
+
+    # Optional error reporting (Sentry-compatible). Empty DSN = off: sentry_sdk is never imported.
+    SENTRY_DSN: str = ""
+    SENTRY_TRACES_SAMPLE_RATE: float = 0.0
+    SENTRY_ENVIRONMENT: str = ""  # empty -> APP_ENV
+
+    # Comma-separated Host header values accepted (the public API domain; ports are ignored).
+    # Empty = check off in development/testing; REQUIRED elsewhere ("*" explicitly allows any).
+    # localhost/127.0.0.1/::1 are always allowed (container healthcheck).
+    ALLOWED_HOSTS: str = ""
+    # Largest accepted request body in bytes (Content-Length and streamed bytes); larger -> 413.
+    MAX_REQUEST_BYTES: int = 1_048_576
+    # AI provider timeouts in seconds (write 10 s and pool 5 s are fixed).
+    AI_CONNECT_TIMEOUT: float = 5.0
+    AI_READ_TIMEOUT: float = 45.0
+    # Hard cap in seconds on one AI call including its retry (the read timeout is per chunk, so
+    # this is what bounds a slowly trickling answer), and on a whole two-model analysis.
+    AI_TOTAL_TIMEOUT: float = 50.0
+    ANALYSIS_TOTAL_BUDGET: float = 80.0
+
     # hide_input_in_errors keeps SECRET_KEY / ENCRYPTION_KEYS / DATABASE_URL out of validation errors.
     model_config = SettingsConfigDict(env_file=".env", hide_input_in_errors=True)
 
@@ -87,6 +173,11 @@ class Settings(BaseSettings):
             for name in ("SMTP_SERVER", "SMTP_USER", "SMTP_PASSWORD", "SUPPORT_EMAIL"):
                 if not getattr(self, name):
                     raise ValueError(f"{name} must be set in production")
+            if not any(entry.strip() for entry in self.ALLOWED_HOSTS.split(",")):
+                raise ValueError(
+                    "ALLOWED_HOSTS must be set in production (the public API domain, or '*' to allow any host)"
+                )
+        parse_allowed_hosts(self.ALLOWED_HOSTS)  # raises ValueError for malformed entries
         for key in self._split_keys():
             Fernet(key)  # raises ValueError for malformed keys
         return self
@@ -104,6 +195,55 @@ class Settings(BaseSettings):
             raise ValueError("REDIS_URL must be set when RATE_LIMIT_STORAGE=redis")
         parse_networks(self.TRUSTED_PROXY_IPS)  # raises ValueError for malformed entries
         return self
+
+    @field_validator("LOG_FORMAT", mode="before")
+    @classmethod
+    def _blank_log_format_is_unset(cls, value):
+        return None if isinstance(value, str) and not value.strip() else value
+
+    @field_validator("LOG_LEVEL", mode="before")
+    @classmethod
+    def _check_log_level(cls, value):
+        level = str(value).strip().upper()
+        if level not in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"):
+            raise ValueError("LOG_LEVEL must be DEBUG, INFO, WARNING, ERROR or CRITICAL")
+        return level
+
+    @model_validator(mode="after")
+    def _default_log_format(self):
+        if self.LOG_FORMAT is None:
+            self.LOG_FORMAT = "console" if self.APP_ENV in ("development", "testing") else "json"
+        return self
+
+    @field_validator("SENTRY_TRACES_SAMPLE_RATE")
+    @classmethod
+    def _check_traces_sample_rate(cls, value):
+        if not 0.0 <= value <= 1.0:  # also rejects NaN
+            raise ValueError("SENTRY_TRACES_SAMPLE_RATE must be between 0 and 1")
+        return value
+
+    @property
+    def sentry_environment(self) -> str:
+        return self.SENTRY_ENVIRONMENT.strip() or self.APP_ENV
+
+    @field_validator("MAX_REQUEST_BYTES")
+    @classmethod
+    def _check_max_request_bytes(cls, value):
+        if value < 1:
+            raise ValueError("MAX_REQUEST_BYTES must be positive")
+        return value
+
+    @field_validator("AI_CONNECT_TIMEOUT", "AI_READ_TIMEOUT", "AI_TOTAL_TIMEOUT", "ANALYSIS_TOTAL_BUDGET")
+    @classmethod
+    def _check_ai_timeouts(cls, value):
+        if not value > 0:  # also rejects NaN
+            raise ValueError("AI timeouts must be positive")
+        return value
+
+    @property
+    def allowed_hosts(self) -> Optional[FrozenSet[str]]:
+        """Accepted host names, or None when the trusted-host check is off ('*' or empty)."""
+        return parse_allowed_hosts(self.ALLOWED_HOSTS)
 
     @property
     def trusted_proxies(self) -> List[IPNetwork]:

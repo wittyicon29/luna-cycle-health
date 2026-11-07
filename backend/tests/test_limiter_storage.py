@@ -23,7 +23,8 @@ def production_settings(**overrides):
     values = dict(_env_file=None, APP_ENV="production", SECRET_KEY=STRONG_SECRET,
                   ENCRYPTION_KEYS=Fernet.generate_key().decode(),
                   SMTP_SERVER="smtp.example.com", SMTP_USER="mailer",
-                  SMTP_PASSWORD="change-me", SUPPORT_EMAIL="help@example.com")
+                  SMTP_PASSWORD="change-me", SUPPORT_EMAIL="help@example.com",
+                  ALLOWED_HOSTS="api.example.com")
     values.update(overrides)
     return Settings(**values)
 
