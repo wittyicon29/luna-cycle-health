@@ -1,10 +1,13 @@
 import httpx
 import json
+import logging
 import re
 from typing import Dict, Any, List
 from ..core.config import settings
 from .language import HINDI_MAX_TOKENS, language_instruction
 from .prediction_service import tracked_cycles_phrase, format_friendly_date, variation_clause
+
+logger = logging.getLogger(__name__)
 
 LUNA_PERSONALITY = """You are Luna, a knowledgeable health guide specializing in menstrual health.
 
@@ -181,7 +184,7 @@ JSON format:
             medgemma_response = await self.call_medgemma(medgemma_prompt)
             medical_analysis = self.parse_llm_json(medgemma_response)
         except Exception as e:
-            print(f"MedGemma Error: {e}")
+            logger.warning("MedGemma analysis call failed: %s", type(e).__name__)
             medical_analysis = {"clinical_findings": [], "risk_factors": [], "medical_recommendations": [], "urgency": "none", "key_concerns": [], "positive_indicators": [], "prediction_confidence": confidence_info.get('level', 'low'), "uncertainty_note": probabilistic_info.get('disclaimer', '')}
         
         # Step 2: Qwen with personality and probabilistic insights
@@ -235,7 +238,7 @@ Use supportive language. Explain uncertainty clearly. Be reassuring about natura
             qwen_response = await self.call_qwen(qwen_prompt, LUNA_PERSONALITY, **qwen_kwargs)
             user_friendly = self.parse_llm_json(qwen_response)
         except Exception as e:
-            print(f"Qwen Error: {e}")
+            logger.warning("Qwen analysis call failed: %s", type(e).__name__)
             user_friendly = {
                 "simple_summary": f"Based on your {tracked_cycles_phrase(statistics.get('data_points') or 0)}, there's a {confidence_info.get('percentage')}% chance your next period will arrive around {format_friendly_date(prediction_range.get('most_likely'))}{variation_clause(statistics.get('cycle_std_deviation'))}.",
                 "key_insights": medical_analysis.get("clinical_findings", []) + medical_analysis.get("positive_indicators", []),

@@ -67,6 +67,12 @@ class Settings(BaseSettings):
     # rotation does not change every user's Play obfuscated account id.
     BILLING_ACCOUNT_SECRET: str = ""
 
+    # Logging. LOG_FORMAT unset/empty -> "console" in development/testing, "json" everywhere else.
+    LOG_LEVEL: str = "INFO"
+    LOG_FORMAT: Optional[Literal["json", "console"]] = None
+    # Include tracebacks in logs (they can contain exception messages with user data). Debug only.
+    LOG_TRACEBACKS: bool = False
+
     # hide_input_in_errors keeps SECRET_KEY / ENCRYPTION_KEYS / DATABASE_URL out of validation errors.
     model_config = SettingsConfigDict(env_file=".env", hide_input_in_errors=True)
 
@@ -103,6 +109,25 @@ class Settings(BaseSettings):
         if self.RATE_LIMIT_STORAGE == "redis" and not self.REDIS_URL:
             raise ValueError("REDIS_URL must be set when RATE_LIMIT_STORAGE=redis")
         parse_networks(self.TRUSTED_PROXY_IPS)  # raises ValueError for malformed entries
+        return self
+
+    @field_validator("LOG_FORMAT", mode="before")
+    @classmethod
+    def _blank_log_format_is_unset(cls, value):
+        return None if isinstance(value, str) and not value.strip() else value
+
+    @field_validator("LOG_LEVEL", mode="before")
+    @classmethod
+    def _check_log_level(cls, value):
+        level = str(value).strip().upper()
+        if level not in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"):
+            raise ValueError("LOG_LEVEL must be DEBUG, INFO, WARNING, ERROR or CRITICAL")
+        return level
+
+    @model_validator(mode="after")
+    def _default_log_format(self):
+        if self.LOG_FORMAT is None:
+            self.LOG_FORMAT = "console" if self.APP_ENV in ("development", "testing") else "json"
         return self
 
     @property

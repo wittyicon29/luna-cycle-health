@@ -15,8 +15,11 @@ from . import db_migrate
 from .core.database import engine, Base
 from .core.config import settings
 from .core.limiter import limiter
+from .core.logging_config import configure_logging
+from .core.middleware import RequestContextMiddleware, unhandled_exception_handler
 from .api import auth, periods, questionnaire, analysis, chat, email_verification, consents, account, legal, medications, daily_logs, billing
 
+configure_logging()
 logger = logging.getLogger(__name__)
 
 # Create tables (use Alembic in production)
@@ -33,6 +36,9 @@ app = FastAPI(
 # Rate limiting
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+# Generic JSON 500 without internals. RequestContextMiddleware answers unhandled exceptions itself
+# (so the response carries the request id); this covers anything raised outside it.
+app.add_exception_handler(Exception, unhandled_exception_handler)
 
 # Billing request bodies carry purchase tokens; their 422s must not echo the input back.
 _REDACTED_422_PATHS = frozenset({"/api/v1/billing/verify", "/api/v1/billing/refresh"})
@@ -54,6 +60,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# Added last = outermost: every response (including CORS and error responses) gets a request id.
+app.add_middleware(RequestContextMiddleware)
 
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(periods.router, prefix="/api/v1")

@@ -523,6 +523,9 @@ def test_httpx_request_logs_never_contain_the_token(sa_file, caplog):
 
     logging.basicConfig(level=logging.INFO)
     caplog.set_level(logging.DEBUG)
+    # configure_logging() pins httpx/httpcore to WARNING; lower them so the filter is exercised.
+    caplog.set_level(logging.DEBUG, logger="httpx")
+    caplog.set_level(logging.DEBUG, logger="httpcore")
     http = google_module.HttpxTransport(transport=httpx.MockTransport(_mock_google))
     v = GoogleVerifier(http=http, package_name=PACKAGE, product_ids=PRODUCTS, service_account_file=sa_file)
 
@@ -540,6 +543,7 @@ def test_httpx_logging_still_works_for_other_hosts(caplog):
     from app.services.billing import google  # noqa: F401  (installs the filter)
 
     caplog.set_level(logging.DEBUG)
+    caplog.set_level(logging.DEBUG, logger="httpx")  # pinned to WARNING by configure_logging()
 
     async def call():
         async with httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(200))) as client:
