@@ -34,12 +34,25 @@ def test_rate_limit_hit_logs_neither_ip_nor_path(logs):
     text = logs.text()
     assert SENTINEL_IP not in text
     assert "exceeded at endpoint" not in text
+    assert any(r.name == "slowapi" and r.getMessage() == "rate limit exceeded" for r in logs.records())
     limited = [r for r in access_records(logs) if r["status"] == 429]
     assert limited and limited[-1]["route"] == "/api/v1/auth/login"
 
 
-def test_slowapi_logger_is_quiet():
-    assert logging.getLogger("slowapi").getEffectiveLevel() >= logging.ERROR
+def test_slowapi_rate_limit_message_is_replaced_and_args_dropped(caplog):
+    caplog.set_level(logging.DEBUG)
+    slowapi = logging.getLogger("slowapi")
+    slowapi.warning("ratelimit %s (%s) exceeded at endpoint: %s", "5 per 1 minute", SENTINEL_IP, "/x/SNTLpath")
+    slowapi.error("failed to load ratelimit for view function %s (%s)", "f", "SNTLexc")
+    messages = [r.getMessage() for r in caplog.records if r.name == "slowapi"]
+    assert messages == ["rate limit exceeded", "failed to load ratelimit for view function %s (%s)"]
+    assert SENTINEL_IP not in caplog.text and "SNTL" not in caplog.text
+
+
+def test_slowapi_storage_warnings_are_kept(caplog):
+    caplog.set_level(logging.WARNING)
+    logging.getLogger("slowapi").warning("Rate limit storage unreachable - falling back to in-memory storage")
+    assert "Rate limit storage unreachable" in caplog.text
 
 
 # --- M2: template-only messages for foreign loggers --------------------------------------------

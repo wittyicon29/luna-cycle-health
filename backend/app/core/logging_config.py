@@ -222,9 +222,26 @@ ACCESS_LOGGERS = ("uvicorn.access", "gunicorn.access")
 # Chatty libraries that can log URLs, SQL parameters or bodies at INFO/DEBUG: pinned to WARNING
 # whatever LOG_LEVEL says.
 QUIET_LOGGERS = ("httpx", "httpcore", "sqlalchemy", "urllib3", "multipart", "python_multipart", "hpack", "asyncio")
-# Loggers whose WARNINGs carry personal data: slowapi logs the client IP and the raw path on every
-# rate-limit hit (the structured access record already shows the 429 and the route template).
-SILENT_LOGGERS = ("slowapi",)
+
+
+class _SlowapiFilter(logging.Filter):
+    """slowapi logs the client IP and the raw path on every rate-limit hit: replace that message
+    (the access record already has the 429 and the route template) and drop the arguments of
+    any other slowapi record. Its "storage unreachable" warnings stay."""
+
+    luna_slowapi_filter = True
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.msg, str) and record.msg.startswith("ratelimit "):
+            record.msg = "rate limit exceeded"
+        record.args = ()
+        return True
+
+
+def _install_slowapi_filter() -> None:
+    target = logging.getLogger("slowapi")
+    if not any(getattr(f, "luna_slowapi_filter", False) for f in target.filters):
+        target.addFilter(_SlowapiFilter())
 
 
 class _StdoutHandler(logging.StreamHandler):
@@ -265,5 +282,4 @@ def configure_logging() -> None:
         access.disabled = True  # RequestContextMiddleware writes the access log
     for name in QUIET_LOGGERS:
         logging.getLogger(name).setLevel(logging.WARNING)
-    for name in SILENT_LOGGERS:
-        logging.getLogger(name).setLevel(logging.ERROR)
+    _install_slowapi_filter()
