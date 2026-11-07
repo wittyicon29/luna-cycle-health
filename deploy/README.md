@@ -44,8 +44,8 @@ bucket. For the same reason the published ports bind `0.0.0.0` (IPv4) only.
    refuses to start until it is set: `API_DOMAIN`, `ACME_EMAIL`, `POSTGRES_PASSWORD` and
    `REDIS_PASSWORD` (`openssl rand -hex 24`: use hex/alphanumeric values, they are embedded
    in connection URLs unencoded), `SECRET_KEY` (`openssl rand -hex 32`), `ENCRYPTION_KEYS`
-   (Fernet command in the file), `SMTP_SERVER`/`SMTP_USER`/`SMTP_PASSWORD` and
-   `SUPPORT_EMAIL`. Also review `ALLOWED_ORIGINS`/`FRONTEND_URL` and set
+   (Fernet command in the file), `SMTP_SERVER`/`SMTP_USER`/`SMTP_PASSWORD`,
+   `SUPPORT_EMAIL` and `ALLOWED_HOSTS` (your `API_DOMAIN`, see "Trusted hosts" below). Also review `ALLOWED_ORIGINS`/`FRONTEND_URL` and set
    `BILLING_ACCOUNT_SECRET`. Leave `DATABASE_URL`, `REDIS_URL`, `APP_ENV`,
    `RATE_LIMIT_STORAGE` and `TRUSTED_PROXY_IPS` unset; compose sets them.
 6. **Back up the keys** (see the warning above) before going further.
@@ -100,6 +100,16 @@ database dump first.
   in `compose.prod.yml`); uvicorn itself is not allowed to rewrite the client address. If
   you later put a CDN or load balancer in front of Caddy, add its published ranges as
   `trusted_proxies` in the Caddyfile (see the comment there).
+- **Trusted hosts.** The API answers only requests whose `Host` header is listed in
+  `ALLOWED_HOSTS` (comma-separated, ports ignored); anything else gets `400`. Caddy forwards
+  the original `Host`, so set it to the public domain (the same value as `API_DOMAIN`).
+  `localhost`, `127.0.0.1` and `::1` are always allowed so the container healthcheck
+  (`http://127.0.0.1:8000/health`) keeps working. In production the API refuses to start
+  while `ALLOWED_HOSTS` is empty; `ALLOWED_HOSTS=*` turns the check off explicitly (not
+  recommended). If you add a second domain, add it here as well as in the Caddyfile.
+- **Limits and timeouts.** Request bodies above `MAX_REQUEST_BYTES` (1 MiB) get `413`.
+  AI provider calls time out after `AI_CONNECT_TIMEOUT`/`AI_READ_TIMEOUT` seconds and are
+  retried once only on connection failures and `502`/`503`/`504`.
 - **Workers.** `WEB_CONCURRENCY` (default 2) gunicorn workers, each with up to
   `DB_POOL_SIZE + DB_MAX_OVERFLOW` connections; keep the total under Postgres
   `max_connections` (100).

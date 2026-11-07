@@ -23,6 +23,9 @@ x-backend: &backend
     RATE_LIMIT_STORAGE: redis
     # Only the Caddy container (fixed address below) may supply X-Forwarded-For.
     TRUSTED_PROXY_IPS: 172.28.0.10
+    # Host header values accepted by the API (normally API_DOMAIN; Caddy forwards the original
+    # Host). The healthcheck's 127.0.0.1 is always allowed by the app.
+    ALLOWED_HOSTS: ${ALLOWED_HOSTS:?set ALLOWED_HOSTS in deploy/.env}
   networks:
     - luna
 

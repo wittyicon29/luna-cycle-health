@@ -10,7 +10,8 @@ def build(**overrides):
     values = dict(_env_file=None, APP_ENV="production", SECRET_KEY=STRONG_SECRET,
                   ENCRYPTION_KEYS=Fernet.generate_key().decode(),
                   SMTP_SERVER="smtp.example.in", SMTP_USER="mailer",
-                  SMTP_PASSWORD="mail-pass", SUPPORT_EMAIL="help@example.in")
+                  SMTP_PASSWORD="mail-pass", SUPPORT_EMAIL="help@example.in",
+                  ALLOWED_HOSTS="api.example.in")
     values.update(overrides)
     return Settings(**values)
 

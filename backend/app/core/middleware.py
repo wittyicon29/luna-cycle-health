@@ -2,6 +2,15 @@
 
 Sections:
 - request context: request id, structured access log and the generic 500 handler
+- security headers: nosniff/frame/referrer/permissions on every response, no-store on /api/v1/*
+- trusted hosts: Host header must be in ALLOWED_HOSTS (loopback always allowed)
+- body size limit: MAX_REQUEST_BYTES by Content-Length and by counting streamed bytes
+
+Order (outermost first; see main.install_http_middleware):
+  RequestContext -> SecurityHeaders -> TrustedHost -> BodySizeLimit -> CORS -> app
+so the 400 (bad host) and 413 (too large) answers carry both the request id and the security
+headers, CORS preflights get the security headers, and the generic 500 that RequestContext
+writes itself is passed through with_security_headers() explicitly.
 """
 import logging
 import re
@@ -17,7 +26,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from .client_ip import _is_trusted, _networks, _parse_ip
 from . import error_reporting
-from .config import settings
+from .config import normalize_host, settings
 from .logging_config import request_id_var
 
 access_logger = logging.getLogger("app.access")
@@ -141,7 +150,8 @@ class RequestContextMiddleware:
             if status["sent"]:
                 raise  # too late for a 500; the server closes the connection
             response = await unhandled_exception_handler(Request(scope), exc)
-            await response(scope, receive, send_with_request_id)
+            # This response bypasses the inner SecurityHeadersMiddleware, so add them here.
+            await response(scope, receive, with_security_headers(scope, send_with_request_id))
         finally:
             duration_ms = round((time.perf_counter() - started) * 1000, 2)
             code = status["code"]
@@ -152,3 +162,154 @@ class RequestContextMiddleware:
                        "duration_ms": duration_ms},
             )
             request_id_var.reset(token)
+
+
+# ==== security headers =========================================================================
+
+SECURITY_HEADERS = (
+    (b"x-content-type-options", b"nosniff"),
+    (b"x-frame-options", b"DENY"),
+    (b"referrer-policy", b"no-referrer"),
+    (b"permissions-policy", b"camera=(), microphone=(), geolocation=()"),
+)
+_CACHE_CONTROL = b"cache-control"
+_NO_STORE_PREFIX = "/api/v1/"
+
+
+def with_security_headers(scope: Scope, send: Send) -> Send:
+    """Wrap `send` so the response start gets the security headers (existing values are kept).
+
+    /api/v1/* responses also get Cache-Control: no-store unless the route set its own. HSTS is
+    added by the proxy (it is the TLS terminator).
+    """
+    path = scope.get("path") or ""
+    no_store = path.startswith(_NO_STORE_PREFIX) or path == _NO_STORE_PREFIX.rstrip("/")
+
+    async def send_with_headers(message: Message) -> None:
+        if message["type"] == "http.response.start":
+            headers = list(message.get("headers", []))
+            present = {key.lower() for key, _ in headers}
+            headers.extend((key, value) for key, value in SECURITY_HEADERS if key not in present)
+            if no_store and _CACHE_CONTROL not in present:
+                headers.append((_CACHE_CONTROL, b"no-store"))
+            message = {**message, "headers": headers}
+        await send(message)
+
+    return send_with_headers
+
+
+class SecurityHeadersMiddleware:
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        await self.app(scope, receive, with_security_headers(scope, send))
+
+
+# ==== trusted hosts ============================================================================
+
+
+def _host_is_allowed(scope: Scope) -> bool:
+    allowed = settings.allowed_hosts
+    if allowed is None:  # "*" or empty in development/testing (production refuses empty)
+        return True
+    values = [value for key, value in scope.get("headers") or () if key.lower() == b"host"]
+    if len(values) != 1:
+        return False
+    try:
+        host = normalize_host(values[0].decode("ascii"))
+    except UnicodeDecodeError:
+        return False
+    return host is not None and host in allowed
+
+
+class TrustedHostMiddleware:
+    """Rejects requests whose Host header is not in ALLOWED_HOSTS with 400 (ports ignored).
+
+    Our own class (not Starlette's) so the rejection is a JSON body and passes through the outer
+    request-id and security-header middleware like every other response. Caddy forwards the
+    original Host (the public domain); the healthcheck uses 127.0.0.1, which is always allowed.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http" and not _host_is_allowed(scope):
+            response = JSONResponse(status_code=400, content={"detail": "Invalid host header"})
+            await response(scope, receive, send)
+            return
+        await self.app(scope, receive, send)
+
+
+# ==== body size limit ==========================================================================
+
+TOO_LARGE = {"detail": "Request too large"}
+
+
+class _BodyTooLarge(Exception):
+    """Raised from receive() once the streamed body passes MAX_REQUEST_BYTES."""
+
+
+def _declared_length(scope: Scope) -> Optional[int]:
+    for key, value in scope.get("headers") or ():
+        if key.lower() == b"content-length":
+            try:
+                return int(value)
+            except ValueError:
+                return None  # malformed: rely on counting
+    return None
+
+
+class BodySizeLimitMiddleware:
+    """413 {"detail": "Request too large"} for bodies above MAX_REQUEST_BYTES.
+
+    Checks Content-Length up front (the app never runs) and counts the bytes actually received,
+    so chunked uploads and a lying Content-Length are caught too. When the cap is passed
+    mid-stream, receive() raises; whatever the app makes of that (a 400 "error parsing the
+    body", an exception) is discarded and the 413 is sent instead, as long as the app has not
+    started its response. The response itself is streamed through untouched.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        limit = settings.MAX_REQUEST_BYTES
+        declared = _declared_length(scope)
+        if declared is not None and declared > limit:
+            await JSONResponse(status_code=413, content=TOO_LARGE)(scope, receive, send)
+            return
+
+        state = {"received": 0, "exceeded": False, "started": False}
+
+        async def limited_receive() -> Message:
+            message = await receive()
+            if message["type"] == "http.request":
+                state["received"] += len(message.get("body", b""))
+                if state["received"] > limit:
+                    state["exceeded"] = True
+                    raise _BodyTooLarge()
+            return message
+
+        async def guarded_send(message: Message) -> None:
+            if state["exceeded"] and not state["started"]:
+                return  # drop the app's answer to the aborted read; the 413 goes out below
+            if message["type"] == "http.response.start":
+                state["started"] = True
+            await send(message)
+
+        try:
+            await self.app(scope, limited_receive, guarded_send)
+        except Exception:
+            if not state["exceeded"] or state["started"]:
+                raise
+        if state["exceeded"] and not state["started"]:
+            await JSONResponse(status_code=413, content=TOO_LARGE)(scope, receive, send)

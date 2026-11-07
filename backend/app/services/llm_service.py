@@ -1,8 +1,9 @@
+import asyncio
 import httpx
 import json
 import logging
 import re
-from typing import Dict, Any, List
+from typing import Any, Awaitable, Callable, Dict, List, Optional
 from ..core.config import settings
 from .language import HINDI_MAX_TOKENS, language_instruction
 from .prediction_service import tracked_cycles_phrase, format_friendly_date, variation_clause
@@ -40,14 +41,67 @@ Never sound like:
 
 You are: knowledgeable, friendly, empathetic, calm, science-based, non-alarmist."""
 
+# One retry at most, and only where the provider cannot have processed the request yet (connect
+# failures) or says it is temporarily unavailable (502/503/504). A read timeout is never retried:
+# the provider may already be generating. 4xx (including 429) fail immediately.
+RETRY_STATUSES = frozenset({502, 503, 504})
+RETRY_DELAY_SECONDS = 0.5
+_RETRYABLE_ERRORS = (httpx.ConnectError, httpx.ConnectTimeout)
+
+Sleep = Callable[[float], Awaitable[Any]]
+
+
+def _log_failure(exc: BaseException) -> None:
+    # Class name only: messages can contain the URL, provider keys or response text.
+    logger.warning("LLM call failed: %s", type(exc).__name__)
+
+
+def _ai_timeout() -> httpx.Timeout:
+    return httpx.Timeout(connect=settings.AI_CONNECT_TIMEOUT, read=settings.AI_READ_TIMEOUT, write=10.0, pool=5.0)
+
+
+async def _post_with_retry(client: httpx.AsyncClient, url: str, *, sleep: Optional[Sleep] = None, **kwargs) -> httpx.Response:
+    """POST and raise_for_status(), retrying once after 0.5 s on connect errors and 502/503/504.
+
+    Worst case: two attempts (each bounded by the client timeout) plus the delay. The last
+    exception is raised unchanged.
+    """
+    for attempt in (1, 2):
+        try:
+            response = await client.post(url, **kwargs)
+            response.raise_for_status()
+            return response
+        except _RETRYABLE_ERRORS as exc:
+            _log_failure(exc)
+            if attempt == 2:
+                raise
+        except httpx.HTTPStatusError as exc:
+            _log_failure(exc)
+            if attempt == 2 or exc.response.status_code not in RETRY_STATUSES:
+                raise
+        except Exception as exc:
+            _log_failure(exc)
+            raise
+        await (sleep or asyncio.sleep)(RETRY_DELAY_SECONDS)
+    raise AssertionError("unreachable")  # pragma: no cover
+
+
 class LLMService:
-    def __init__(self):
+    def __init__(self, client_factory: Optional[Callable[..., httpx.AsyncClient]] = None, sleep: Optional[Sleep] = None):
+        # Injectable for tests (httpx.MockTransport). None = a fresh httpx.AsyncClient per call,
+        # looked up at call time.
+        self._client_factory = client_factory
+        self._sleep = sleep
         self.medgemma_model = settings.MEDGEMMA_MODEL
         self.qwen_model = settings.QWEN_MODEL
         self.hf_api_key = settings.HUGGINGFACE_API_KEY
         self.groq_api_key = settings.GROQ_API_KEY
         self.hf_endpoint = f"https://api-inference.huggingface.co/models/{self.medgemma_model}"
         self.groq_endpoint = "https://api.groq.com/openai/v1/chat/completions"
+
+    def _client(self) -> httpx.AsyncClient:
+        factory = self._client_factory or httpx.AsyncClient
+        return factory(timeout=_ai_timeout())
     
     async def call_medgemma(self, prompt: str) -> str:
         headers = {"Authorization": f"Bearer {self.hf_api_key}"}
@@ -60,9 +114,8 @@ class LLMService:
             }
         }
         
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(self.hf_endpoint, json=payload, headers=headers)
-            response.raise_for_status()
+        async with self._client() as client:
+            response = await _post_with_retry(client, self.hf_endpoint, sleep=self._sleep, json=payload, headers=headers)
             result = response.json()
             return result[0]["generated_text"] if isinstance(result, list) else result.get("generated_text", "")
     
@@ -84,9 +137,8 @@ class LLMService:
             "max_tokens": max_tokens,
         }
         
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(self.groq_endpoint, json=payload, headers=headers)
-            response.raise_for_status()
+        async with self._client() as client:
+            response = await _post_with_retry(client, self.groq_endpoint, sleep=self._sleep, json=payload, headers=headers)
             result = response.json()
             return result["choices"][0]["message"]["content"]
     

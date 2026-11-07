@@ -172,7 +172,7 @@ def test_log_format_defaults_by_environment(env, expected):
     extra = {}
     if env not in ("development", "testing"):
         extra = dict(SECRET_KEY="x" * 40, ENCRYPTION_KEYS="", SMTP_SERVER="s", SMTP_USER="u", SMTP_PASSWORD="p",
-                     SUPPORT_EMAIL="support@example.com")
+                     SUPPORT_EMAIL="support@example.com", ALLOWED_HOSTS="api.example.com")
         from cryptography.fernet import Fernet
         extra["ENCRYPTION_KEYS"] = Fernet.generate_key().decode()
     config = Settings(_env_file=None, APP_ENV=env, **extra)

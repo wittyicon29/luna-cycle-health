@@ -282,12 +282,14 @@ def test_verify_validates_the_body(client, make_user, verifier):
             assert {"loc", "msg", "type"} <= set(error)
 
 
-def test_other_routes_keep_the_default_422_body(client, make_user):
+def test_other_routes_get_the_same_redacted_422_body(client, make_user):
+    # Every 422 drops `input`/`ctx` (they can echo user data); the frontend reads detail[].msg.
     user = make_user()
     response = client.post("/api/v1/medications/", json={"name": 5}, headers=_h(user))
     assert response.status_code == 422
     [error] = response.json()["detail"]
-    assert error["input"] == 5 and error["loc"] == ["body", "name"]
+    assert "input" not in error and "ctx" not in error
+    assert error["loc"] == ["body", "name"] and error["msg"] and error["type"]
 
 
 # --- status and refresh ----------------------------------------------------------------------
