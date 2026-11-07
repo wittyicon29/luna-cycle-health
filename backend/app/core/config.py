@@ -9,6 +9,7 @@ from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_SECRET_KEY = "your-secret-key-change-in-production"
+APP_VERSION = "1.0.0"
 
 IPNetwork = Union[ipaddress.IPv4Network, ipaddress.IPv6Network]
 
@@ -73,6 +74,11 @@ class Settings(BaseSettings):
     # Include tracebacks in logs (they can contain exception messages with user data). Debug only.
     LOG_TRACEBACKS: bool = False
 
+    # Optional error reporting (Sentry-compatible). Empty DSN = off: sentry_sdk is never imported.
+    SENTRY_DSN: str = ""
+    SENTRY_TRACES_SAMPLE_RATE: float = 0.0
+    SENTRY_ENVIRONMENT: str = ""  # empty -> APP_ENV
+
     # hide_input_in_errors keeps SECRET_KEY / ENCRYPTION_KEYS / DATABASE_URL out of validation errors.
     model_config = SettingsConfigDict(env_file=".env", hide_input_in_errors=True)
 
@@ -129,6 +135,17 @@ class Settings(BaseSettings):
         if self.LOG_FORMAT is None:
             self.LOG_FORMAT = "console" if self.APP_ENV in ("development", "testing") else "json"
         return self
+
+    @field_validator("SENTRY_TRACES_SAMPLE_RATE")
+    @classmethod
+    def _check_traces_sample_rate(cls, value):
+        if not 0.0 <= value <= 1.0:  # also rejects NaN
+            raise ValueError("SENTRY_TRACES_SAMPLE_RATE must be between 0 and 1")
+        return value
+
+    @property
+    def sentry_environment(self) -> str:
+        return self.SENTRY_ENVIRONMENT.strip() or self.APP_ENV
 
     @property
     def trusted_proxies(self) -> List[IPNetwork]:

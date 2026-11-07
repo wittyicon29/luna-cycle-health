@@ -13,7 +13,8 @@ from slowapi.errors import RateLimitExceeded
 from sqlalchemy import text
 from . import db_migrate
 from .core.database import engine, Base
-from .core.config import settings
+from .core.config import APP_VERSION, settings
+from .core.error_reporting import init_error_reporting
 from .core.limiter import limiter
 from .core.logging_config import configure_logging
 from .core.middleware import RequestContextMiddleware, unhandled_exception_handler
@@ -21,6 +22,7 @@ from .api import auth, periods, questionnaire, analysis, chat, email_verificatio
 
 configure_logging()
 logger = logging.getLogger(__name__)
+init_error_reporting()  # off (and sentry_sdk not imported) unless SENTRY_DSN is set
 
 # Create tables (use Alembic in production)
 if settings.APP_ENV == "development":
@@ -28,7 +30,7 @@ if settings.APP_ENV == "development":
 
 app = FastAPI(
     title="Luna Health API",
-    version="1.0.0",
+    version=APP_VERSION,
     docs_url="/docs" if settings.APP_ENV == "development" else None,
     redoc_url="/redoc" if settings.APP_ENV == "development" else None,
 )
@@ -78,7 +80,7 @@ app.include_router(legal.router)
 
 @app.get("/")
 def root():
-    return {"message": "Luna Health API", "status": "running", "version": "1.0.0"}
+    return {"message": "Luna Health API", "status": "running", "version": APP_VERSION}
 
 @app.get("/health")
 def health_check():

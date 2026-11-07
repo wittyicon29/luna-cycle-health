@@ -16,6 +16,7 @@ from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from .client_ip import _is_trusted, _networks, _parse_ip
+from . import error_reporting
 from .config import settings
 from .logging_config import request_id_var
 
@@ -90,6 +91,9 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
             exc_info=exc if settings.LOG_TRACEBACKS else None,
             extra={"exc_type": type(exc).__name__, "exc_where": _exception_where(exc)},
         )
+        # Only unhandled exceptions get here (4xx HTTPExceptions are answered by FastAPI); a no-op
+        # unless SENTRY_DSN is set. Tagged with the request id only.
+        error_reporting.capture_exception(exc, request_id=rid)
     finally:
         request_id_var.reset(token)
     return JSONResponse(
