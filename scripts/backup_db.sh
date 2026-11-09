@@ -42,6 +42,14 @@
 #                            dump path as $1 and the counts path as $2 (e.g. an rclone or
 #                            scp command). PGPASSWORD is removed from its environment.
 #   BACKUP_SNAPSHOT_TIMEOUT  seconds to wait for the snapshot session (default 60).
+#   BACKUP_LOCK_WAIT_TIMEOUT how long pg_dump (and the snapshot session) wait for a table
+#                            lock before giving up: 1-999999 followed by ms, s or min
+#                            (default 60s). The snapshot session holds read locks on every
+#                            table while the dump runs; a concurrent ALTER TABLE (a deploy's
+#                            migration) queues behind them, and pg_dump's own locks would
+#                            queue behind the ALTER forever. With this timeout the backup
+#                            fails (exit 1, nothing left behind) and the ALTER proceeds.
+#                            Do not deploy or migrate during the backup window.
 #   DRY_RUN                  1: validate the settings and print the commands (password
 #                            redacted) without connecting or writing anything.
 #
@@ -68,7 +76,7 @@ REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 DUMP_GLOB='luna-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]T[0-9][0-9][0-9][0-9][0-9][0-9]Z.dump.age'
 COUNTS_GLOB='luna-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]T[0-9][0-9][0-9][0-9][0-9][0-9]Z.counts.json'
 AGE_MAGIC='age-encryption.org/v1'
-ENV_KEYS=" BACKUP_MODE DATABASE_URL COMPOSE_FILE COMPOSE_ENV_FILE COMPOSE_DB_SERVICE COMPOSE_DB_USER COMPOSE_DB_NAME BACKUP_DIR BACKUP_AGE_RECIPIENT BACKUP_KEEP_LAST BACKUP_KEEP_DAYS BACKUP_UPLOAD_CMD BACKUP_SNAPSHOT_TIMEOUT DRY_RUN "
+ENV_KEYS=" BACKUP_MODE DATABASE_URL COMPOSE_FILE COMPOSE_ENV_FILE COMPOSE_DB_SERVICE COMPOSE_DB_USER COMPOSE_DB_NAME BACKUP_DIR BACKUP_AGE_RECIPIENT BACKUP_KEEP_LAST BACKUP_KEEP_DAYS BACKUP_UPLOAD_CMD BACKUP_SNAPSHOT_TIMEOUT BACKUP_LOCK_WAIT_TIMEOUT DRY_RUN "
 
 # Row count of every user table, as "COUNT<TAB>table<TAB>rows" lines. Tables outside the
 # public schema are written schema.table. scripts/restore_db.sh runs the same query.
@@ -226,6 +234,7 @@ lock=""
 lock_held=0
 session_pid=""
 session_open=0
+session_status=0
 pipeline_pid=""
 partial=""
 counts_partial=""
@@ -263,7 +272,8 @@ close_session() {
             tries=$((tries + 1))
         done
         kill -TERM "$session_pid" 2> /dev/null || true
-        wait "$session_pid" 2> /dev/null || true
+        session_status=0
+        wait "$session_pid" 2> /dev/null || session_status=$?
         session_pid=""
     fi
 }
@@ -371,12 +381,16 @@ prune() {
 
 # --- snapshot session -------------------------------------------------------------------
 
-send_sql() {
-    # Writes to the session; a dead session must fail this call, not kill the script.
+try_send_sql() {
+    # Writes to the session; returns non-zero (instead of killing the script) if it is gone.
     (
         trap '' PIPE
         printf '%s\n' "$@" >&3
-    ) 2> /dev/null || session_failed
+    ) 2> /dev/null
+}
+
+send_sql() {
+    try_send_sql "$@" || session_failed
 }
 
 session_failed() {
@@ -399,7 +413,14 @@ open_snapshot_session() {
     session_pid=$!
     exec 3> "$work/session.fifo"
     session_open=1
-    send_sql "BEGIN ISOLATION LEVEL REPEATABLE READ, READ ONLY;" \
+    # Session settings first: a server- or role-level idle_in_transaction_session_timeout
+    # (common on managed Postgres) would end this transaction, and with it the exported
+    # snapshot, while pg_dump is still starting. statement_timeout is off because the waits
+    # are bounded here (BACKUP_SNAPSHOT_TIMEOUT) and lock waits by lock_timeout.
+    send_sql "SET idle_in_transaction_session_timeout = 0;" \
+        "SET statement_timeout = 0;" \
+        "SET lock_timeout = '$BACKUP_LOCK_WAIT_TIMEOUT';" \
+        "BEGIN ISOLATION LEVEL REPEATABLE READ, READ ONLY;" \
         "SELECT 'SNAPSHOT' || chr(9) || pg_export_snapshot();" \
         "$COUNT_SQL" \
         '\echo LUNA_COUNTS_DONE'
@@ -494,6 +515,7 @@ BACKUP_MODE="${BACKUP_MODE:-direct}"
 BACKUP_KEEP_LAST="${BACKUP_KEEP_LAST:-14}"
 BACKUP_KEEP_DAYS="${BACKUP_KEEP_DAYS:-30}"
 BACKUP_SNAPSHOT_TIMEOUT="${BACKUP_SNAPSHOT_TIMEOUT:-60}"
+BACKUP_LOCK_WAIT_TIMEOUT="${BACKUP_LOCK_WAIT_TIMEOUT:-60s}"
 BACKUP_AGE_RECIPIENT="${BACKUP_AGE_RECIPIENT:-}"
 BACKUP_UPLOAD_CMD="${BACKUP_UPLOAD_CMD:-}"
 
@@ -502,6 +524,8 @@ BACKUP_UPLOAD_CMD="${BACKUP_UPLOAD_CMD:-}"
 positive_int BACKUP_KEEP_LAST "$BACKUP_KEEP_LAST"
 positive_int BACKUP_KEEP_DAYS "$BACKUP_KEEP_DAYS"
 positive_int BACKUP_SNAPSHOT_TIMEOUT "$BACKUP_SNAPSHOT_TIMEOUT"
+[[ "$BACKUP_LOCK_WAIT_TIMEOUT" =~ ^[1-9][0-9]{0,5}(ms|s|min)$ ]] ||
+    die 2 "BACKUP_LOCK_WAIT_TIMEOUT must be 1-999999 followed by ms, s or min (e.g. 60s)"
 
 if [ "$prune_only" = 1 ]; then
     prepare_dir
@@ -519,7 +543,7 @@ case "$BACKUP_MODE" in
         [ -n "${DATABASE_URL:-}" ] || die 2 "DATABASE_URL is not set (or use BACKUP_MODE=compose)"
         parse_db_url "$DATABASE_URL"
         psql_cmd=(psql -X -q -At -w -v ON_ERROR_STOP=1)
-        dump_cmd=(pg_dump -w -Fc "--snapshot=SNAPSHOT_ID")
+        dump_cmd=(pg_dump -w -Fc "--lock-wait-timeout=$BACKUP_LOCK_WAIT_TIMEOUT" "--snapshot=SNAPSHOT_ID")
         ;;
     compose)
         COMPOSE_FILE="${COMPOSE_FILE:-$REPO_ROOT/deploy/compose.prod.yml}"
@@ -529,7 +553,7 @@ case "$BACKUP_MODE" in
         COMPOSE_DB_NAME="${COMPOSE_DB_NAME:-luna}"
         compose=(docker compose -f "$COMPOSE_FILE" --env-file "$COMPOSE_ENV_FILE" exec -T "$COMPOSE_DB_SERVICE")
         psql_cmd=("${compose[@]}" psql -U "$COMPOSE_DB_USER" -d "$COMPOSE_DB_NAME" -X -q -At -w -v ON_ERROR_STOP=1)
-        dump_cmd=("${compose[@]}" pg_dump -U "$COMPOSE_DB_USER" -d "$COMPOSE_DB_NAME" -Fc "--snapshot=SNAPSHOT_ID")
+        dump_cmd=("${compose[@]}" pg_dump -U "$COMPOSE_DB_USER" -d "$COMPOSE_DB_NAME" -Fc "--lock-wait-timeout=$BACKUP_LOCK_WAIT_TIMEOUT" "--snapshot=SNAPSHOT_ID")
         # The container authenticates over its local socket; no password leaves this host.
         unset PGPASSWORD
         ;;
@@ -591,10 +615,16 @@ write_manifest
 dump_cmd=("${dump_cmd[@]/--snapshot=SNAPSHOT_ID/--snapshot=$snapshot}")
 
 if ! run_dump; then
-    die 1 "pg_dump or age failed; the partial backup was removed"
+    die 1 "pg_dump or age failed (a lock wait over BACKUP_LOCK_WAIT_TIMEOUT=$BACKUP_LOCK_WAIT_TIMEOUT ends it too); the partial backup was removed"
 fi
-send_sql "COMMIT;" '\q'
+# pg_dump imported the snapshot when it started and has finished: the dump is complete
+# and consistent even if the snapshot session has ended since (server timeout, admin).
+session_ok=1
+kill -0 "$session_pid" 2> /dev/null && try_send_sql "COMMIT;" '\q' || session_ok=0
 close_session
+if [ "$session_ok" != 1 ] || [ "$session_status" != 0 ]; then
+    warn "warning: the snapshot session ended before the dump finished (psql exit $session_status); the dump itself completed and is kept"
+fi
 
 [ -s "$partial" ] || die 1 "the encrypted dump is empty"
 [ "$(head -c "${#AGE_MAGIC}" "$partial")" = "$AGE_MAGIC" ] || die 1 "the output is not an age file"

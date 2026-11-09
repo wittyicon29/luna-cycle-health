@@ -297,7 +297,7 @@ def test_backup_dry_run_compose_mode_builds_the_docker_command(tmp_path, shims):
     out = result.stdout + result.stderr
     assert SECRET not in out
     quoted_file = str(compose_file).replace(" ", "\\ ")
-    assert f"docker compose -f {quoted_file} --env-file {env_file} exec -T db pg_dump -U luna -d luna -Fc --snapshot=" in out
+    assert f"docker compose -f {quoted_file} --env-file {env_file} exec -T db pg_dump -U luna -d luna -Fc --lock-wait-timeout=60s --snapshot=" in out
     assert f"docker compose -f {quoted_file} --env-file {env_file} exec -T db psql" in out
     assert not log.exists()
 
@@ -692,3 +692,91 @@ def test_retention_refuses_while_another_backup_holds_the_lock(tmp_path, shims):
     assert result.returncode == 0, result.stderr
     assert len(_dumps(backups)) == 1
     assert not lock.exists()
+
+
+# --- a whole backup run against stand-ins (no database) ------------------------------
+
+
+def _fake_backup_tools(shim_dir, log):
+    """psql that answers the snapshot session, pg_dump/age that write fake output, all logged."""
+    (shim_dir / "psql").write_text(
+        "#!/usr/bin/env bash\n"
+        f'printf "psql-args %s\\n" "$*" >> "{log}"\n'
+        "while IFS= read -r line; do\n"
+        f'  printf "sql %s\\n" "$line" >> "{log}"\n'
+        '  case "$line" in\n'
+        "    *pg_export_snapshot*) printf 'SNAPSHOT\\t00000003-00000002-1\\n' ;;\n"
+        "    \"SELECT 'COUNT'\"*) printf 'COUNT\\tusers\\t3\\n' ;;\n"
+        "    '\\echo LUNA_COUNTS_DONE') echo LUNA_COUNTS_DONE ;;\n"
+        "    '\\q') exit 0 ;;\n"
+        "  esac\n"
+        "done\n"
+    )
+    (shim_dir / "pg_dump").write_text(f'#!/bin/sh\necho "pg_dump $*" >> "{log}"\nprintf fake-dump\n')
+    (shim_dir / "age").write_text(
+        "#!/bin/sh\n"
+        f'echo "age $*" >> "{log}"\n'
+        'out=""; while [ $# -gt 0 ]; do [ "$1" = -o ] && out="$2"; shift; done\n'
+        '[ "$out" = /dev/null ] && exit 0\n'
+        '{ printf "age-encryption.org/v1\\n"; cat; } > "$out"\n'
+    )
+    for name in ("psql", "pg_dump", "age"):
+        (shim_dir / name).chmod(0o755)
+
+
+@needs_bash
+@pytest.mark.parametrize("mode", ["direct", "compose"])
+def test_backup_session_and_dump_commands(tmp_path, shims, mode):
+    """The SQL actually sent to the snapshot session, and the pg_dump arguments: session
+    timeouts off, a lock timeout, REPEATABLE READ READ ONLY, and pg_dump --lock-wait-timeout."""
+    shim_dir, log = shims
+    _fake_backup_tools(shim_dir, log)
+    extra = {"DATABASE_URL": "postgresql://luna@db.example.com/luna"}
+    if mode == "compose":
+        compose_file, env_file = tmp_path / "c.yml", tmp_path / "e.env"
+        compose_file.write_text("services: {}\n")
+        env_file.write_text("X=1\n")
+        (shim_dir / "docker").write_text(
+            f'#!/bin/sh\necho "docker $*" >> "{log}"\nshift 8\nexec "$@"\n'
+        )
+        extra = {"BACKUP_MODE": "compose", "COMPOSE_FILE": str(compose_file), "COMPOSE_ENV_FILE": str(env_file)}
+    env = _env(tmp_path, shim_dir, BACKUP_AGE_RECIPIENT=VALID_RECIPIENT, BACKUP_LOCK_WAIT_TIMEOUT="45s", **extra)
+    result = _run(BACKUP, env)
+    assert result.returncode == 0, result.stdout + result.stderr
+    calls = log.read_text().splitlines()
+    sql = [line[4:] for line in calls if line.startswith("sql ")]
+    assert sql[:5] == [
+        "SET idle_in_transaction_session_timeout = 0;",
+        "SET statement_timeout = 0;",
+        "SET lock_timeout = '45s';",
+        "BEGIN ISOLATION LEVEL REPEATABLE READ, READ ONLY;",
+        "SELECT 'SNAPSHOT' || chr(9) || pg_export_snapshot();",
+    ], sql
+    assert sql[-2:] == ["COMMIT;", "\\q"]
+    dumps = [line for line in calls if line.startswith("pg_dump ")]
+    assert len(dumps) == 1
+    assert "--lock-wait-timeout=45s" in dumps[0].split() and "--snapshot=00000003-00000002-1" in dumps[0].split()
+    if mode == "compose":
+        assert any(line.startswith("docker compose -f ") and " exec -T db pg_dump " in line for line in calls)
+
+
+@needs_bash
+@pytest.mark.parametrize("value", ["0", "abc", "10x", "-5s", "1h"])
+def test_backup_rejects_a_bad_lock_wait_timeout(tmp_path, shims, value):
+    shim_dir, log = shims
+    env = _env(tmp_path, shim_dir, DATABASE_URL="postgresql://luna@db.example.com/luna",
+               BACKUP_AGE_RECIPIENT=VALID_RECIPIENT, BACKUP_LOCK_WAIT_TIMEOUT=value)
+    result = _run(BACKUP, env)
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert "BACKUP_LOCK_WAIT_TIMEOUT" in result.stderr
+    assert not log.exists()
+
+
+@needs_bash
+def test_backup_default_lock_wait_timeout_in_dry_run(tmp_path, shims):
+    shim_dir, _ = shims
+    env = _env(tmp_path, shim_dir, DRY_RUN="1", BACKUP_AGE_RECIPIENT=VALID_RECIPIENT,
+               DATABASE_URL="postgresql://luna@db.example.com/luna")
+    result = _run(BACKUP, env)
+    assert result.returncode == 0, result.stderr
+    assert "--lock-wait-timeout=60s" in result.stdout

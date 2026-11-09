@@ -493,6 +493,93 @@ def test_unreachable_database_fails_cleanly(age_keys, dirs):
     assert list(private_tmp.iterdir()) == []
 
 
+def test_concurrent_alter_table_does_not_hang_the_backup(source, age_keys, dirs, tmp_path):
+    """A migration's ALTER TABLE queues behind the snapshot session's read locks, and
+    pg_dump's LOCK TABLE queues behind the ALTER. --lock-wait-timeout makes the backup fail
+    cleanly instead of hanging; once it gave up, the ALTER goes through."""
+    source_url, engine = source
+    recipient, _, _ = age_keys
+    backups, private_tmp = dirs
+    shim_dir = tmp_path / "shims"
+    alter_out, alter_pid = tmp_path / "alter.out", tmp_path / "alter.pid"
+    real = shutil.which("pg_dump")
+    write_shim(
+        shim_dir,
+        "pg_dump",
+        # Before the real pg_dump starts: an ALTER TABLE from another session (it waits for
+        # the snapshot session's locks), given a moment to get into the lock queue.
+        f'psql -X -w -q -c "ALTER TABLE periods ADD COLUMN probe_col integer" > "{alter_out}" 2>&1 &\n'
+        f'echo $! > "{alter_pid}"\n'
+        'sleep 1\n'
+        f'exec "{real}" "$@"\n',
+    )
+    env = backup_env(source_url, recipient, backups, private_tmp, shim_dir, BACKUP_LOCK_WAIT_TIMEOUT="2s")
+    started = time.monotonic()
+    result = run(BACKUP, env, timeout=90)
+    elapsed = time.monotonic() - started
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert elapsed < 30, elapsed
+    assert "lock" in result.stderr.lower()
+    assert_nothing_left(backups, private_tmp)
+    pid = int(alter_pid.read_text())
+    deadline = time.time() + 30
+    while time.time() < deadline:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            break
+        time.sleep(0.1)
+    assert "ERROR" not in alter_out.read_text()
+    with engine.connect() as conn:
+        columns = conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name = 'periods'")).scalars().all()
+    assert "probe_col" in columns
+
+
+def test_backup_survives_a_short_idle_in_transaction_timeout(source, age_keys, dirs, tmp_path, server):
+    """Managed servers may end idle transactions quickly. The snapshot session turns the
+    timeout off for itself; otherwise the session would die while pg_dump starts and the
+    exported snapshot would be gone."""
+    source_url, engine = source
+    recipient, identity, _ = age_keys
+    backups, private_tmp = dirs
+    with server.admin.connect() as conn:
+        conn.execute(text(f'ALTER DATABASE "{source_url.database}" SET idle_in_transaction_session_timeout = \'500ms\''))
+    shim_dir = tmp_path / "shims"
+    real = shutil.which("pg_dump")
+    write_shim(shim_dir, "pg_dump", f'sleep 2\nexec "{real}" "$@"\n')
+    result = run(BACKUP, backup_env(source_url, recipient, backups, private_tmp, shim_dir))
+    assert result.returncode == 0, result.stdout + result.stderr
+    dump, counts = only_backup(backups)
+    assert json.loads(counts.read_text()) == table_counts(engine)
+
+
+def test_snapshot_session_ending_after_a_good_dump_is_only_a_warning(source, age_keys, dirs, tmp_path, server):
+    """pg_dump has imported the snapshot and finished: the backup is complete even if the
+    snapshot session was ended (by the server or an admin) in the meantime."""
+    source_url, engine = source
+    recipient, identity, _ = age_keys
+    backups, private_tmp = dirs
+    shim_dir = tmp_path / "shims"
+    real = shutil.which("pg_dump")
+    terminate = ("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = current_database() "
+                 "AND pid <> pg_backend_pid() AND state LIKE 'idle in transaction%'")
+    write_shim(
+        shim_dir,
+        "pg_dump",
+        f'"{real}" "$@" || exit $?\n'
+        f'psql -X -w -q -At -c "{terminate}" > /dev/null 2>&1\n'
+        'sleep 0.5\n',
+    )
+    result = run(BACKUP, backup_env(source_url, recipient, backups, private_tmp, shim_dir))
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "snapshot session" in result.stderr and "warning" in result.stderr.lower()
+    dump, counts = only_backup(backups)
+    target = server.new_name("luna_restore")
+    restored = run(RESTORE, base_env(private_tmp), "--file", str(dump), "--identity", str(identity),
+                   "--target-url", dsn(server.url_for(target)), "--create")
+    assert restored.returncode == 0, restored.stdout + restored.stderr
+
+
 def test_compose_mode_through_a_stand_in_docker(source, age_keys, dirs, tmp_path, server):
     """BACKUP_MODE=compose end to end, with `docker` replaced by a shim that runs the
     in-container command against the test server (Docker itself is not used here)."""
