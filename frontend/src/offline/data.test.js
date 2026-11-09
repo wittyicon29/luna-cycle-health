@@ -728,7 +728,7 @@ describe('review fixes', () => {
     await data.patchLog(D1, { set: { mood: 2 } }, 'tok');
     await sync.whenIdle();
     expect(status.getState().dropped).toEqual([{ kind: 'period.create', reason: 'overflow' }]);
-  });
+  }, 30000); // seeds the full queue cap with encrypted writes: ~2.4 s alone, over jest's 5 s default when the suite runs in parallel
 
   test('unsubscribe stops notifications', async () => {
     server.setOffline(true);

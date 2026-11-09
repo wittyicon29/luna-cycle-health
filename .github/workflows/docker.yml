@@ -1,0 +1,183 @@
+# Docker image smoke test: builds backend/Dockerfile (not pushed anywhere), runs the
+# one-shot migration and the API exactly as the image's CMD does, with a production
+# environment generated in the job (throwaway random secrets, example.test hosts), against
+# PostgreSQL 16 and Redis 7 service containers. Then: /health and /ready answer 200, the
+# API docs are hidden (404), and a request for another Host gets 400.
+name: Docker image
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - backend/**
+      - deploy/**
+      - .github/workflows/docker.yml
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - backend/**
+      - deploy/**
+      - .github/workflows/docker.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  IMAGE: luna-api:ci
+  API_HOST: api.example.test
+
+jobs:
+  smoke:
+    name: build and boot the API image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: luna
+          POSTGRES_DB: luna
+          # Throwaway CI database reachable only from this job: no password at all.
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U luna -d luna"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build backend/Dockerfile
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: backend
+          file: backend/Dockerfile
+          push: false
+          load: true
+          tags: luna-api:ci
+
+      - name: Image runs as the unprivileged user
+        run: test "$(docker run --rm --network none "$IMAGE" id -u)" = 10001
+
+      # Every value the production settings checks require (backend/app/core/config.py):
+      # strong SECRET_KEY, ENCRYPTION_KEYS, SMTP_*, SUPPORT_EMAIL, ALLOWED_HOSTS; plus the
+      # compose-provided DATABASE_URL/REDIS_URL/RATE_LIMIT_STORAGE/TRUSTED_PROXY_IPS.
+      # Secrets are random per run, masked, and only written to a 0600 file in RUNNER_TEMP.
+      - name: Generate a throwaway production environment
+        run: |
+          umask 077
+          secret_key="$(openssl rand -hex 32)"
+          smtp_password="$(openssl rand -hex 16)"
+          encryption_key="$(docker run --rm --network none "$IMAGE" python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')"
+          echo "::add-mask::$secret_key"
+          echo "::add-mask::$smtp_password"
+          echo "::add-mask::$encryption_key"
+          env_file="$RUNNER_TEMP/smoke.env"
+          cat > "$env_file" <<ENV
+          APP_ENV=production
+          SECRET_KEY=$secret_key
+          ENCRYPTION_KEYS=$encryption_key
+          ALLOWED_HOSTS=$API_HOST
+          SUPPORT_EMAIL=support@example.test
+          SMTP_SERVER=smtp.example.test
+          SMTP_PORT=587
+          SMTP_USER=ci-smoke
+          SMTP_PASSWORD=$smtp_password
+          SMTP_FROM_EMAIL=no-reply@example.test
+          DATABASE_URL=postgresql://luna@127.0.0.1:5432/luna
+          REDIS_URL=redis://127.0.0.1:6379/0
+          RATE_LIMIT_STORAGE=redis
+          TRUSTED_PROXY_IPS=127.0.0.1
+          BILLING_MODE=off
+          WEB_CONCURRENCY=2
+          ENV
+          echo "SMOKE_ENV_FILE=$env_file" >> "$GITHUB_ENV"
+
+      # --network host: the service containers are published on the runner's localhost.
+      - name: Migrate (twice; the second run must be a no-op)
+        run: |
+          docker run --rm --network host --env-file "$SMOKE_ENV_FILE" "$IMAGE" python scripts/migrate.py
+          docker run --rm --network host --env-file "$SMOKE_ENV_FILE" "$IMAGE" python scripts/migrate.py
+
+      - name: Start the API (image CMD, gunicorn)
+        run: |
+          docker run -d --name luna-api --network host --env-file "$SMOKE_ENV_FILE" "$IMAGE"
+          for _ in $(seq 1 60); do
+            if curl -fsS -o /dev/null --max-time 2 http://127.0.0.1:8000/health; then
+              echo "API is up"
+              exit 0
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' luna-api)" != true ]; then
+              echo "the API container exited" >&2
+              exit 1
+            fi
+            sleep 1
+          done
+          echo "the API did not answer /health within 60 s" >&2
+          exit 1
+
+      - name: Smoke checks
+        run: |
+          failed=0
+          check() { # check <name> <expected status> <curl args...>
+            local name="$1" want="$2" got
+            shift 2
+            got="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$@" || true)"
+            if [ "$got" = "$want" ]; then
+              echo "PASS  $name ($got)"
+            else
+              echo "FAIL  $name (got $got, want $want)"
+              failed=1
+            fi
+          }
+          base=http://127.0.0.1:8000
+          check "GET /health (allowed Host)" 200 -H "Host: $API_HOST" "$base/health"
+          check "GET /ready (database and redis)" 200 -H "Host: $API_HOST" "$base/ready"
+          check "GET /ready via --resolve" 200 --resolve "$API_HOST:8000:127.0.0.1" "http://$API_HOST:8000/ready"
+          check "GET /docs is hidden" 404 -H "Host: $API_HOST" "$base/docs"
+          check "GET /redoc is hidden" 404 -H "Host: $API_HOST" "$base/redoc"
+          check "GET /openapi.json is hidden" 404 -H "Host: $API_HOST" "$base/openapi.json"
+          check "wrong Host header is rejected" 400 -H "Host: evil.example.test" "$base/health"
+          check "wrong Host via --resolve is rejected" 400 --resolve "evil.example.test:8000:127.0.0.1" "http://evil.example.test:8000/health"
+          exit "$failed"
+
+      - name: Container healthcheck turns healthy
+        run: |
+          for _ in $(seq 1 30); do
+            status="$(docker inspect -f '{{.State.Health.Status}}' luna-api)"
+            [ "$status" = healthy ] && { echo "healthy"; exit 0; }
+            sleep 3
+          done
+          echo "container health: $status" >&2
+          exit 1
+
+      - name: API container logs
+        if: ${{ failure() }}
+        run: docker logs luna-api 2>&1 || true
+
+      - name: Stop the API
+        if: ${{ always() }}
+        run: docker rm -f luna-api > /dev/null 2>&1 || true

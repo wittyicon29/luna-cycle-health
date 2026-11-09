@@ -139,6 +139,8 @@ This project includes authentication, email verification, and AI integrations. F
 
 The backend ships as a Docker Compose stack (Postgres, Redis, a one-shot migration job, the API and Caddy with automatic HTTPS). See [`deploy/README.md`](deploy/README.md) for the first deploy, the environment template and the smoke test. Back up `ENCRYPTION_KEYS` before any real data exists.
 
+Operations (secrets and key custody, encryption key rotation, encrypted backups and restore drills, updates and rollback, incidents, pre-launch checklist) are in [`docs/superpowers/runbook.md`](docs/superpowers/runbook.md). CI runs from `.github/workflows/`: `backend.yml` (pytest against PostgreSQL and Redis), `frontend.yml` (i18n check, jest, build warning gate), `docker.yml` (image build and boot smoke test) and `audit.yml` (weekly pip-audit / npm audit).
+
 ## Development Notes
 
 - The backend creates database tables automatically in development mode.
