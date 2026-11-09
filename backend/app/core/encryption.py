@@ -15,6 +15,8 @@ class EncryptionService:
         self._primary = fernets[0] if fernets else None
         self._fernet = MultiFernet(fernets)
         self.key_count = len(fernets)
+        # ENCRYPTION_KEYS=K,K is one key: rotation needs two different ones.
+        self.distinct_key_count = len(set(keys))
 
     @staticmethod
     def is_encrypted(data: Optional[str]) -> bool:

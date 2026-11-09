@@ -1,7 +1,7 @@
 """Re-encrypt every encrypted column under the newest key in ENCRYPTION_KEYS.
 
 Usage: python scripts/rotate_encryption_keys.py [--apply] [--batch-size 200] [--encrypt-legacy]
-                                               [--allow-single-key] [--tables a,b]
+                                               [--allow-single-key] [--tables a,b] [--show-ids]
        (or python -m scripts.rotate_encryption_keys ...)
 
 Procedure: put the new key FIRST in ENCRYPTION_KEYS and keep the old ones after it
@@ -22,7 +22,9 @@ nothing pending.
 - Fewer than two keys (including the development key derived from SECRET_KEY when
   ENCRYPTION_KEYS is empty) means there is nothing to rotate to: the script refuses, and
   with --allow-single-key only reports (it never writes).
-- Output is counts per column only, never values, tokens or keys.
+- Output is counts per column only, never values, tokens or keys. --show-ids adds the
+  primary keys of undecryptable rows (ids only) to help find them.
+- A key listed twice in ENCRYPTION_KEYS counts once (with a warning): K,K is a single key.
 
 Exit codes: 0 success / nothing pending, 1 refused or failed (including any undecryptable
 row), 2 dry run found work pending (so automation can detect an unfinished rotation).
@@ -31,13 +33,14 @@ import argparse
 import sys
 from dataclasses import dataclass, field, fields
 from pathlib import Path
-from typing import Callable, Dict, Iterable, Optional, Tuple
+from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from sqlalchemy import Text, and_, column, select, table, tuple_, update  # noqa: E402
 
 DEFAULT_BATCH_SIZE = 200
+MAX_SHOWN_IDS = 1000  # per column, for --show-ids
 
 
 class RotationError(Exception):
@@ -67,6 +70,8 @@ class ColumnCounts:
 class Report:
     apply: bool
     columns: Dict[Tuple[str, str], ColumnCounts] = field(default_factory=dict)
+    # Primary keys (never values) of undecryptable rows, per column, for --show-ids.
+    undecryptable_ids: Dict[Tuple[str, str], List[Tuple[Tuple[str, ...], tuple]]] = field(default_factory=dict)
 
     def totals(self) -> ColumnCounts:
         total = ColumnCounts()
@@ -130,7 +135,7 @@ def rotate_database(
         encrypted = [c for c in encrypted if c.table in wanted]
 
     report = Report(apply=apply)
-    if apply and service.key_count < 2:
+    if apply and service.distinct_key_count < 2:
         raise RotationError("refusing to write with fewer than two keys configured", report)
     for enc in encrypted:
         counts = report.columns.setdefault((enc.table, enc.column), ColumnCounts())
@@ -175,6 +180,9 @@ def _rotate_column(engine, service, enc, metadata, apply, batch_size, encrypt_le
                         plaintext = service.decrypt(stored)
                     except ValueError:
                         batch.undecryptable += 1
+                        ids = report.undecryptable_ids.setdefault((enc.table, enc.column), [])
+                        if len(ids) < MAX_SHOWN_IDS:
+                            ids.append((tuple(enc.pk_columns), pk))
                         if apply:
                             counts.undecryptable += 1
                             raise RotationError(
@@ -233,11 +241,25 @@ def _parse(argv):
         "--allow-single-key", action="store_true", help="with fewer than two keys, report only instead of refusing"
     )
     parser.add_argument("--tables", default="", help="comma-separated table names (default: all)")
+    parser.add_argument(
+        "--show-ids",
+        action="store_true",
+        help="also print the primary keys (never the values) of rows no configured key decrypts",
+    )
     return parser.parse_args(argv)
 
 
 def _err(message):
     print(f"rotate: {message}", file=sys.stderr)
+
+
+def _print_ids(report):
+    for (table_name, column_name), entries in report.undecryptable_ids.items():
+        for names, values in entries:
+            key = " ".join(f"{n}={v}" for n, v in zip(names, values))
+            print(f"rotate: undecryptable row {table_name}.{column_name} {key}")
+        if len(entries) >= MAX_SHOWN_IDS:
+            print(f"rotate: {table_name}.{column_name}: only the first {MAX_SHOWN_IDS} ids are shown")
 
 
 def main(argv=None, *, engine=None, service=None) -> int:
@@ -259,7 +281,12 @@ def main(argv=None, *, engine=None, service=None) -> int:
             service = EncryptionService(settings.encryption_key_list)
         if engine is None:
             from app.core.database import engine
-        if service.key_count < 2:
+        if service.distinct_key_count < service.key_count:
+            _err(
+                "warning: ENCRYPTION_KEYS lists the same key more than once; each key counts once "
+                f"({service.distinct_key_count} distinct of {service.key_count})"
+            )
+        if service.distinct_key_count < 2:
             reason = (
                 "only one encryption key is configured (ENCRYPTION_KEYS has fewer than two keys, or is empty "
                 "and the development key derived from SECRET_KEY is in use): single key, nothing to rotate to"
@@ -272,7 +299,7 @@ def main(argv=None, *, engine=None, service=None) -> int:
                 return 1
         print(
             f"rotate: {'APPLY' if args.apply else 'dry run (nothing is written; pass --apply)'}; "
-            f"{service.key_count} key(s) configured"
+            f"{service.distinct_key_count} distinct key(s) configured"
         )
         report = rotate_database(
             engine, service, apply=args.apply, batch_size=args.batch_size,
@@ -281,6 +308,8 @@ def main(argv=None, *, engine=None, service=None) -> int:
     except RotationError as exc:
         for line in exc.report.lines():
             print(line)
+        if args.show_ids:
+            _print_ids(exc.report)
         _err(str(exc))
         return 1
     except ValueError as exc:
@@ -298,6 +327,8 @@ def main(argv=None, *, engine=None, service=None) -> int:
 
     for line in report.lines():
         print(line)
+    if args.show_ids:
+        _print_ids(report)
     totals = report.totals()
     if totals.undecryptable:
         _err(f"{totals.undecryptable} row(s) cannot be decrypted with any configured key")

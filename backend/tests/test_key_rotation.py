@@ -606,3 +606,106 @@ def test_script_treats_the_derived_development_key_as_single_key(sqlite_engine, 
 
     assert result.returncode == 1
     assert "single" in result.stderr.lower()
+
+
+# --- guards (each test fails when its guard is removed from the script) ------------------
+
+
+def test_row_rewritten_by_the_app_during_the_batch_is_left_alone(db_engine, keys):
+    """The UPDATE is guarded on the value that was read: a value the app wrote between the
+    read and the write (through another connection) survives, counted as changed_during_run."""
+    k1, k2, _ = keys
+    seed(db_engine, EncryptionService([k1]))
+    service = EncryptionService([k2, k1])
+    real_encrypt = service.encrypt
+    app_value = EncryptionService([k2]).encrypt("written by the app during rotation")
+    target = {}
+
+    def encrypt_and_race(plaintext):
+        if not target:
+            # The app rewrites this very row through a second connection, mid-batch.
+            with db_engine.connect() as other:
+                for pk, stored in other.execute(text("SELECT id, notes FROM periods")):
+                    if stored and EncryptionService([k1]).decrypt(stored) == plaintext:
+                        target["pk"] = norm(pk)
+                        other.execute(text("UPDATE periods SET notes = :v WHERE id = :pk"), {"v": app_value, "pk": pk})
+                        other.commit()
+                        break
+        return real_encrypt(plaintext)
+
+    service.encrypt = encrypt_and_race
+    report = rotate_database(db_engine, service, apply=True, batch_size=100, encrypt_legacy=False, tables=["periods"])
+
+    counts = report.columns[("periods", "notes")]
+    assert counts.changed_during_run == 1
+    assert counts.rotated == ROWS_PER_TABLE - 1
+    stored = raw_values(db_engine, "periods")
+    assert stored[("periods", "notes", target["pk"])] == app_value
+    assert all(decrypts_with(k2, v) for v in stored.values())
+
+
+@pytest.mark.parametrize("bad", ["other_plaintext", "old_key"])
+def test_a_re_encrypted_value_that_fails_verification_aborts_without_writing(sqlite_engine, keys, bad):
+    k1, k2, _ = keys
+    seed(sqlite_engine, EncryptionService([k1]))
+    service = EncryptionService([k2, k1])
+    real_encrypt = service.encrypt
+    if bad == "other_plaintext":
+        service.encrypt = lambda value: real_encrypt(value + " tampered")
+    else:
+        service.encrypt = lambda value: EncryptionService([k1]).encrypt(value)  # not under the newest key
+    before = checksum(sqlite_engine)
+
+    with pytest.raises(RotationError) as excinfo:
+        rotate_database(sqlite_engine, service, apply=True, batch_size=100, encrypt_legacy=False)
+
+    assert "verification" in str(excinfo.value)
+    assert SENTINEL not in str(excinfo.value)
+    assert checksum(sqlite_engine) == before
+
+
+@pytest.mark.parametrize("which", ["single", "duplicate"])
+def test_rotate_database_refuses_to_write_with_one_distinct_key(sqlite_engine, keys, which):
+    k1, _, _ = keys
+    seed(sqlite_engine, EncryptionService([k1]), rows=2)
+    service = EncryptionService([k1] if which == "single" else [k1, k1])
+    before = checksum(sqlite_engine)
+    with pytest.raises(RotationError) as excinfo:
+        rotate_database(sqlite_engine, service, apply=True, batch_size=10, encrypt_legacy=False)
+    assert "fewer than two" in str(excinfo.value)
+    assert checksum(sqlite_engine) == before
+    # Counting is allowed.
+    report = rotate_database(sqlite_engine, service, apply=False, batch_size=10, encrypt_legacy=False)
+    assert report.columns[("periods", "notes")].already_current == 2
+
+
+def test_cli_duplicate_keys_warn_and_count_once(sqlite_engine, keys, capsys, caplog):
+    k1, k2, _ = keys
+    seed(sqlite_engine, EncryptionService([k1]), rows=1)
+    code, output = run_cli([], sqlite_engine, EncryptionService([k1, k1]), capsys, caplog)
+    assert code == 1 and "--allow-single-key" in output
+    assert "more than once" in output
+    assert_no_secrets(output, k1)
+    # Duplicates next to a real second key: a warning only, exit codes unchanged.
+    code, output = run_cli([], sqlite_engine, EncryptionService([k2, k1, k2]), capsys, caplog)
+    assert code == 2 and "more than once" in output
+    assert_no_secrets(output, k1, k2)
+
+
+def test_cli_show_ids_prints_primary_keys_only(sqlite_engine, keys, capsys, caplog):
+    k1, k2, k3 = keys
+    seed(sqlite_engine, EncryptionService([k1]), rows=3)
+    rogue = first_key("chat_messages", "content", raw_values(sqlite_engine))
+    set_raw(sqlite_engine, *rogue, EncryptionService([k3]).encrypt(f"{SENTINEL} rogue"))
+    service = EncryptionService([k2, k1])
+
+    code, output = run_cli([], sqlite_engine, service, capsys, caplog)
+    assert code == 1 and rogue[2] not in output.replace("-", "") and rogue[2] not in output
+    for args in (["--show-ids"], ["--show-ids", "--apply"]):
+        code, output = run_cli(args, sqlite_engine, service, capsys, caplog)
+        assert code == 1
+        id_lines = [line for line in output.splitlines() if "undecryptable row" in line]
+        assert len(id_lines) == 1, output
+        assert "chat_messages.content" in id_lines[0]
+        assert rogue[2] in id_lines[0].replace("-", "") or rogue[2] in id_lines[0]
+        assert_no_secrets(output, k1, k2, k3)
