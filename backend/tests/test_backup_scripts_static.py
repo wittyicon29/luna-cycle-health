@@ -10,6 +10,7 @@ pg_restore, docker and age and record whether they were called.
 import os
 import re
 import shutil
+import signal
 import stat
 import subprocess
 import time
@@ -780,3 +781,52 @@ def test_backup_default_lock_wait_timeout_in_dry_run(tmp_path, shims):
     result = _run(BACKUP, env)
     assert result.returncode == 0, result.stderr
     assert "--lock-wait-timeout=60s" in result.stdout
+
+
+def _alive(pid):
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    # A zombie (exited, not yet reaped by its parent) no longer runs.
+    state = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True).stdout.strip()
+    return bool(state) and not state.startswith("Z")
+
+
+@needs_bash
+@pytest.mark.parametrize("sig", [signal.SIGTERM, signal.SIGINT])
+def test_interrupted_restore_leaves_no_age_or_pg_restore_running(tmp_path, shims, sig):
+    """SIGTERM/SIGINT mid-restore: every process of the age | pg_restore pipeline is gone
+    afterwards, even where pkill is missing or fails (stand-in pkill exits 1)."""
+    shim_dir, log = shims
+    dump, key = _restore_files(tmp_path)
+    age_pid, restore_pid, calls = tmp_path / "age.pid", tmp_path / "pg_restore.pid", tmp_path / "age.calls"
+    (shim_dir / "psql").write_text("#!/bin/sh\ncat > /dev/null\necho 0\n")
+    # First age call = the decrypt check (succeeds); the second one feeds pg_restore slowly.
+    (shim_dir / "age").write_text(
+        f'#!/bin/sh\necho x >> "{calls}"\n'
+        f'[ "$(wc -l < "{calls}")" -ge 2 ] || exit 0\n'
+        f'echo $$ > "{age_pid}"\nexec sleep 60\n'
+    )
+    (shim_dir / "pg_restore").write_text(f'#!/bin/sh\necho $$ > "{restore_pid}"\nexec cat > /dev/null\n')
+    (shim_dir / "pkill").write_text("#!/bin/sh\nexit 1\n")
+    for name in ("psql", "age", "pg_restore", "pkill"):
+        (shim_dir / name).chmod(0o755)
+    proc = subprocess.Popen([BASH, str(RESTORE), "--file", str(dump), "--identity", str(key),
+                             "--target-url", "postgresql://luna@db.example.com/restore"],
+                            env=_env(tmp_path, shim_dir), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    deadline = time.time() + 20
+    while not (age_pid.exists() and restore_pid.exists() and age_pid.read_text().strip() and restore_pid.read_text().strip()):
+        assert time.time() < deadline and proc.poll() is None, proc.communicate()
+        time.sleep(0.05)
+    pids = [int(age_pid.read_text()), int(restore_pid.read_text())]
+    proc.send_signal(sig)
+    out, err = proc.communicate(timeout=20)
+    assert proc.returncode == 128 + sig, out + err
+    deadline = time.time() + 5
+    while any(_alive(pid) for pid in pids) and time.time() < deadline:
+        time.sleep(0.05)
+    leftovers = [pid for pid in pids if _alive(pid)]
+    for pid in leftovers:
+        os.kill(pid, signal.SIGKILL)
+    assert leftovers == []

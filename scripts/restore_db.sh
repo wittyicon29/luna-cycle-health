@@ -381,7 +381,8 @@ cleanup() {
     local rc=$?
     trap - EXIT INT TERM HUP
     if [ -n "$pipeline_pid" ]; then
-        pkill -TERM -P "$pipeline_pid" 2> /dev/null || kill -TERM "$pipeline_pid" 2> /dev/null || true
+        # The whole process group (see step 3); the subshell alone as a fallback.
+        kill -TERM -- "-$pipeline_pid" 2> /dev/null || kill -TERM "$pipeline_pid" 2> /dev/null || true
         wait "$pipeline_pid" 2> /dev/null || true
     fi
     if [ "$finished" != 1 ]; then
@@ -439,11 +440,15 @@ fi
 
 log "restoring into $target_db"
 status=0
+# The pipeline runs in its own process group (job control on just for this start), so
+# the traps can stop age, pg_restore (or the docker client) all at once: kill -- -PGID.
+set -m
 (
     set -o pipefail
     age -d -i "$identity" "$file" | "${restore_cmd[@]}"
 ) &
 pipeline_pid=$!
+set +m
 wait "$pipeline_pid" || status=$?
 pipeline_pid=""
 if [ "$status" != 0 ]; then
