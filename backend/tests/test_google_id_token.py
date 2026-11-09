@@ -513,3 +513,41 @@ def test_non_rsa_jwk_for_the_kid_is_rejected(client, db, keypair, monkeypatch):
 )
 def test_malformed_tokens_are_400_not_500(client, db, token):
     _assert_invalid(client, db, token)
+
+
+def test_key_rotation_refetches_once_and_accepts_the_new_key(client, keypair, monkeypatch):
+    # Google rotates: our cache holds [k1] (fresh), a token arrives signed with the new k2.
+    # The unknown kid forces one re-fetch, which now returns [k1, k2], and the token verifies.
+    new_private = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    k2 = json.loads(RSAAlgorithm.to_jwk(new_private.public_key()))
+    k2.update({"alg": "RS256", "kid": "kid-2", "use": "sig"})
+    published = {"keys": [keypair[1]]}
+    fetches = {"n": 0}
+
+    async def fetch():
+        fetches["n"] += 1
+        return list(published["keys"])
+
+    monkeypatch.setattr(google_id_token, "_fetch_google_keys", fetch)
+
+    assert post(client, make_token(keypair)).status_code == 200  # warms the cache with [k1]
+    assert fetches["n"] == 1
+
+    published["keys"] = [keypair[1], k2]
+    # The cache is still fresh (TTL 1 h); only the forced-refresh cooldown has passed.
+    monkeypatch.setattr(google_id_token, "_last_fetch_attempt",
+                        time.time() - google_id_token._FORCED_REFRESH_COOLDOWN_SECONDS - 1)
+    rotated = jwt.encode(_claims(email="rotated@gmail.com"), new_private, algorithm="RS256",
+                         headers={"kid": "kid-2"})
+    assert post(client, rotated).status_code == 200
+    assert fetches["n"] == 2
+    assert [k["kid"] for k in google_id_token._cache["keys"]] == ["kid-1", "kid-2"]
+
+    # More unknown kids right after that stay inside the cooldown: no further fetch.
+    unknown = jwt.encode(_claims(), new_private, algorithm="RS256", headers={"kid": "kid-3"})
+    for _ in range(2):  # 5 requests in total: the test AUTH_RATE_LIMIT is 5/minute
+        assert post(client, unknown).status_code == 400
+    assert fetches["n"] == 2
+    # ...and the rotated key keeps working from the cache.
+    assert post(client, rotated).status_code == 200
+    assert fetches["n"] == 2
