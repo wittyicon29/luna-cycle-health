@@ -113,7 +113,7 @@ def test_allowlisted_findings_pass_by_id_or_alias(tmp_path):
 
 def test_stale_allowlist_entries_are_reported_not_fatal(tmp_path):
     allow = "GHSA-xv26-6w52-cph6  # websocket-driver: dev server only, not shipped; revisit 2027-01\n"
-    result = _run(tmp_path, "pip", {"dependencies": []}, allow)
+    result = _run(tmp_path, "pip", {"dependencies": [{"name": "x", "version": "1", "vulns": []}]}, allow)
     assert result.returncode == 0
     assert "GHSA-xv26-6w52-cph6 matches nothing" in result.stdout
 
@@ -166,3 +166,39 @@ def test_repository_allowlist_is_valid_and_starts_empty():
     assert isinstance(entries, dict)
     text = ALLOWLIST.read_text(encoding="utf-8")
     assert "justification" in text.lower()
+
+
+def test_a_pip_report_without_dependencies_is_an_error(tmp_path):
+    """An empty dependency list means pip-audit checked nothing (resolution failed)."""
+    result = _run(tmp_path, "pip", {"dependencies": [], "fixes": []})
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert "no dependencies" in result.stderr
+
+
+NO_GHSA = {
+    "vulnerabilities": {
+        "legacy-pkg": {"via": [{"source": 1098765, "name": "legacy-pkg", "title": "t", "url": "https://www.npmjs.com/advisories/1098765",
+                                "severity": "high", "range": "<2"}], "fixAvailable": False},
+    }
+}
+
+
+def test_npm_advisory_without_a_ghsa_url_gets_a_stable_id(tmp_path):
+    findings = gate.npm_findings(NO_GHSA, "high")
+    assert [f["id"] for f in findings] == ["npm-1098765"]
+    result = _run(tmp_path, "npm", NO_GHSA)
+    assert result.returncode == 1 and "npm-1098765" in result.stdout
+    result = _run(tmp_path, "npm", NO_GHSA, "npm-1098765  # legacy-pkg is only used by a dev script; revisit 2027-01\n")
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_npm_advisory_without_any_id_is_an_error(tmp_path):
+    report = {"vulnerabilities": {"x": {"via": [{"name": "x", "severity": "high", "url": ""}]}}}
+    result = _run(tmp_path, "npm", report)
+    assert result.returncode == 2, result.stdout + result.stderr
+
+
+def test_allowlist_header_documents_the_id_formats():
+    text = ALLOWLIST.read_text(encoding="utf-8")
+    for needle in ("GHSA-", "PYSEC-", "CVE-", "npm-"):
+        assert needle in text, needle

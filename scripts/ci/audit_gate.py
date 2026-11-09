@@ -11,7 +11,8 @@ counts; npm advisories count from --min-severity up (default high, like
 
 The allowlist (default .github/audit-allowlist.txt) has one advisory id per line followed
 by `# justification`; the justification is mandatory. An id matches a finding when it is
-the advisory id or one of its aliases (CVE/GHSA/PYSEC). Only ids are printed, never
+the advisory id or one of its aliases (CVE/GHSA/PYSEC). npm advisories are identified by
+the GHSA id in their URL, or `npm-<source>` (npm's numeric advisory id) when there is none. Only ids are printed, never
 anything from the environment.
 
 Exit codes: 0 no unallowlisted finding, 1 unallowlisted findings, 2 usage error, unreadable
@@ -27,7 +28,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_ALLOWLIST = REPO / ".github" / "audit-allowlist.txt"
 SEVERITIES = ["info", "low", "moderate", "high", "critical"]
-ID_PATTERN = re.compile(r"^(GHSA(-[23456789cfghjmpqrvwx]{4}){3}|PYSEC-\d{4}-\d+|CVE-\d{4}-\d{4,}|OSV-[\w-]+)$")
+ID_PATTERN = re.compile(r"^(GHSA(-[23456789cfghjmpqrvwx]{4}){3}|PYSEC-\d{4}-\d+|CVE-\d{4}-\d{4,}|OSV-[\w-]+|npm-\d+)$")
 
 
 class GateError(Exception):
@@ -58,6 +59,8 @@ def pip_findings(report):
     """pip-audit JSON -> sorted unique findings [{id, aliases, package, version, severity, fix}]."""
     if not isinstance(report, dict) or not isinstance(report.get("dependencies"), list):
         raise GateError("not a pip-audit JSON report (no 'dependencies' list)")
+    if not report["dependencies"]:
+        raise GateError("pip-audit report lists no dependencies (did dependency resolution fail?)")
     found = {}
     for dep in report["dependencies"]:
         if not isinstance(dep, dict):
@@ -104,8 +107,14 @@ def npm_findings(report, min_severity):
                 raise GateError(f"npm audit report: unknown severity {severity!r}")
             if SEVERITIES.index(severity) < threshold:
                 continue
-            match = re.search(r"GHSA(-[0-9a-z]{4}){3}", via.get("url", ""))
-            advisory = match.group(0) if match else f"npm-{via.get('source')}"
+            # GHSA id from the advisory URL; otherwise npm's numeric advisory id ("source").
+            match = re.search(r"GHSA(-[0-9a-z]{4}){3}", via.get("url") or "")
+            if match:
+                advisory = match.group(0)
+            elif isinstance(via.get("source"), int):
+                advisory = f"npm-{via['source']}"
+            else:
+                raise GateError(f"npm audit report: advisory for {via.get('name', name)} has neither a GHSA url nor a source id")
             found.setdefault(
                 advisory,
                 {

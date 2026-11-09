@@ -1,9 +1,12 @@
 # Dependency audit allowlist, read by scripts/ci/audit_gate.py (.github/workflows/audit.yml).
 #
-# One advisory per line: the advisory id (GHSA-..., PYSEC-..., CVE-...), then "#" and a
+# One advisory per line: the advisory id, then "#" and a
 # MANDATORY justification: why it does not affect Luna Health or why it cannot be fixed
 # yet, and when to look again. An entry without a justification fails the audit.
 #   GHSA-xxxx-xxxx-xxxx  # build tooling only (react-scripts dev server), not shipped; revisit 2027-01
+# Id formats: GHSA-xxxx-xxxx-xxxx, PYSEC-YYYY-N, CVE-YYYY-N (pip-audit ids and aliases), and
+# for npm the GHSA id from the advisory URL, or npm-<number> (the report's "source") for an
+# advisory without one. The gate prints the id to use for every finding.
 # An id matches a finding when it equals the advisory id or one of its aliases. Entries
 # that no longer match anything are reported so they can be removed.
 #
