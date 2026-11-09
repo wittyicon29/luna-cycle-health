@@ -1,7 +1,9 @@
+import json
 import time
 
+import jwt
 import pytest
-from jose import jwt
+from jwt.algorithms import RSAAlgorithm
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
@@ -20,15 +22,9 @@ def keypair():
         serialization.PrivateFormat.PKCS8,
         serialization.NoEncryption(),
     )
-    from jose import jwk
-
-    jwk_public = jwk.RSAKey(
-        algorithm="RS256",
-        key=private.public_key().public_bytes(
-            serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
-        ).decode(),
-    ).to_dict()
-    jwk_public["kid"] = "kid-1"
+    # The shape Google publishes at oauth2/v3/certs: kty, n, e, alg, kid (and use).
+    jwk_public = json.loads(RSAAlgorithm.to_jwk(private.public_key()))
+    jwk_public.update({"alg": "RS256", "kid": "kid-1", "use": "sig"})
     return pem.decode(), jwk_public
 
 
@@ -302,3 +298,256 @@ def test_hs256_token_claiming_rs256_header_is_rejected(client, db, keypair):
     sig = b64(hmac.new(keypair[1]["n"].encode(), signing, hashlib.sha256).digest())
     assert post(client, f"{header}.{body}.{sig}").status_code == 400
     assert db.query(User).count() == 0
+
+
+# --- PyJWT migration: token semantics pinned explicitly ----------------------------------------
+
+INVALID = "Google sign-in could not be verified"
+
+
+def _b64(raw: bytes) -> str:
+    import base64
+
+    return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+
+
+def _claims(**overrides):
+    claims = {"iss": "https://accounts.google.com", "aud": AUD, "sub": "123", "email": "native@gmail.com",
+              "email_verified": True, "iat": int(time.time()), "exp": int(time.time()) + 600}
+    claims.update(overrides)
+    return {k: v for k, v in claims.items() if v is not None}
+
+
+def _sign_rs256(keypair, claims, header=None) -> str:
+    """Sign without PyJWT's encode-time claim checks, to forge claims it refuses to encode."""
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.asymmetric import padding
+
+    private = serialization.load_pem_private_key(keypair[0].encode(), password=None)
+    head = _b64(json.dumps(header or {"alg": "RS256", "kid": "kid-1", "typ": "JWT"}).encode())
+    body = _b64(json.dumps(claims).encode())
+    signing = f"{head}.{body}".encode()
+    return f"{head}.{body}.{_b64(private.sign(signing, padding.PKCS1v15(), hashes.SHA256()))}"
+
+
+def test_raw_signer_produces_valid_tokens(client, keypair):
+    assert post(client, _sign_rs256(keypair, _claims())).status_code == 200
+
+
+def _assert_invalid(client, db, token):
+    from app.models.models import User
+
+    response = post(client, token)
+    assert response.status_code == 400, response.text
+    assert response.json()["detail"] == INVALID
+    assert db.query(User).count() == 0
+
+
+def _public_pem(keypair) -> bytes:
+    key = RSAAlgorithm.from_jwk(keypair[1])
+    return key.public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
+
+
+def test_valid_token_round_trip_returns_claims(keypair):
+    import asyncio
+
+    claims = asyncio.run(google_id_token.verify_google_id_token(make_token(keypair)))
+    assert claims["email"] == "native@gmail.com" and claims["aud"] == AUD and claims["sub"] == "123"
+
+
+def test_both_google_issuer_spellings_are_accepted(client, keypair):
+    assert post(client, make_token(keypair, iss="accounts.google.com")).status_code == 200
+
+
+def test_tampered_payload_is_rejected(client, db, keypair):
+    head, _, sig = make_token(keypair).split(".")
+    forged = _b64(json.dumps(_claims(email="victim@gmail.com")).encode())
+    _assert_invalid(client, db, f"{head}.{forged}.{sig}")
+
+
+def test_expired_token_is_rejected(client, db, keypair):
+    _assert_invalid(client, db, make_token(keypair, iat=int(time.time()) - 7200, exp=int(time.time()) - 1))
+
+
+def test_no_leeway_on_exp(client, db, keypair):
+    _assert_invalid(client, db, make_token(keypair, exp=int(time.time()) - 2))
+
+
+def test_not_yet_valid_nbf_is_rejected(client, db, keypair):
+    _assert_invalid(client, db, make_token(keypair, nbf=int(time.time()) + 600))
+
+
+def test_iat_slightly_in_the_future_is_accepted_as_before(client, keypair):
+    # python-jose never compared iat with the clock; PyJWT does unless verify_iat is off. A few
+    # seconds of clock skew against Google must not break sign-in.
+    assert post(client, make_token(keypair, iat=int(time.time()) + 30)).status_code == 200
+
+
+@pytest.mark.parametrize("iat", ["not-a-number", [1], {"t": 1}])
+def test_non_integer_iat_is_rejected(client, db, keypair, iat):
+    _assert_invalid(client, db, _sign_rs256(keypair, _claims(iat=iat)))
+
+
+@pytest.mark.parametrize("exp", ["soon", [1]])
+def test_non_integer_exp_is_rejected(client, db, keypair, exp):
+    _assert_invalid(client, db, _sign_rs256(keypair, _claims(exp=exp)))
+
+
+@pytest.mark.parametrize("aud", ["someone-elses-client", "", [AUD, "other"], {"aud": AUD}, 5])
+def test_wrong_or_non_string_audience_is_rejected(client, db, keypair, aud):
+    _assert_invalid(client, db, make_token(keypair, aud=aud))
+
+
+def test_missing_audience_is_rejected(client, db, keypair):
+    claims = _claims()
+    del claims["aud"]
+    _assert_invalid(client, db, jwt.encode(claims, keypair[0], algorithm="RS256", headers={"kid": "kid-1"}))
+
+
+@pytest.mark.parametrize("iss", ["https://evil.example.com", "https://accounts.google.com/", "",
+                                 ["https://accounts.google.com"], {"iss": "accounts.google.com"}, 7])
+def test_wrong_or_non_string_issuer_is_rejected(client, db, keypair, iss):
+    _assert_invalid(client, db, _sign_rs256(keypair, _claims(iss=iss)))
+
+
+def test_missing_issuer_is_rejected(client, db, keypair):
+    claims = _claims()
+    del claims["iss"]
+    _assert_invalid(client, db, jwt.encode(claims, keypair[0], algorithm="RS256", headers={"kid": "kid-1"}))
+
+
+@pytest.mark.parametrize("sub", [123, ["123"], None])
+def test_non_string_sub_is_rejected(client, db, keypair, sub):
+    claims = _claims()
+    claims["sub"] = sub  # None stays in the payload as JSON null
+    _assert_invalid(client, db, _sign_rs256(keypair, claims))
+
+
+@pytest.mark.parametrize("header", [{"alg": "none", "kid": "kid-1"}, {"alg": "None", "kid": "kid-1"},
+                                    {"alg": "RS256", "kid": "kid-1"}])
+def test_unsigned_tokens_are_rejected(client, db, header, keypair):
+    head = _b64(json.dumps(header).encode())
+    body = _b64(json.dumps(_claims()).encode())
+    _assert_invalid(client, db, f"{head}.{body}.")
+
+
+def test_hs256_signed_with_the_public_key_pem_is_rejected(client, db, keypair):
+    # The classic RS256 -> HS256 confusion: the attacker HMACs with the public key's PEM bytes.
+    import hashlib
+    import hmac
+
+    pem = _public_pem(keypair)
+    for alg in ("HS256", "RS256"):
+        head = _b64(json.dumps({"alg": alg, "kid": "kid-1", "typ": "JWT"}).encode())
+        body = _b64(json.dumps(_claims()).encode())
+        sig = _b64(hmac.new(pem, f"{head}.{body}".encode(), hashlib.sha256).digest())
+        _assert_invalid(client, db, f"{head}.{body}.{sig}")
+
+
+def test_hs256_header_is_refused_before_any_key_lookup(client, db, keypair, configured):
+    token = jwt.encode(_claims(), "x" * 32, algorithm="HS256", headers={"kid": "kid-1"})
+    _assert_invalid(client, db, token)
+    assert configured["n"] == 0  # rejected on the header alone
+
+
+@pytest.mark.parametrize("alg", ["RS384", "RS512", "PS256"])
+def test_other_rsa_algorithms_are_rejected(client, db, keypair, alg):
+    _assert_invalid(client, db, jwt.encode(_claims(), keypair[0], algorithm=alg, headers={"kid": "kid-1"}))
+
+
+def test_es256_token_is_rejected(client, db):
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    key = ec.generate_private_key(ec.SECP256R1())
+    _assert_invalid(client, db, jwt.encode(_claims(), key, algorithm="ES256", headers={"kid": "kid-1"}))
+
+
+def test_token_signed_by_another_key_with_a_known_kid_is_rejected(client, db):
+    other = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    _assert_invalid(client, db, jwt.encode(_claims(), other, algorithm="RS256", headers={"kid": "kid-1"}))
+
+
+def test_key_is_selected_by_kid_among_several(client, keypair, monkeypatch):
+    other = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    decoy = json.loads(RSAAlgorithm.to_jwk(other.public_key()))
+    decoy.update({"alg": "RS256", "kid": "kid-0", "use": "sig"})
+
+    async def fake():
+        return [decoy, keypair[1]]
+
+    monkeypatch.setattr(google_id_token, "_fetch_google_keys", fake)
+    assert post(client, make_token(keypair)).status_code == 200
+    # the same token claiming the decoy's kid fails: the kid picks the key, nothing else is tried
+    wrong = jwt.encode(_claims(), keypair[0], algorithm="RS256", headers={"kid": "kid-0"})
+    assert post(client, wrong).status_code == 400
+
+
+@pytest.mark.parametrize("kid", [None, "", 5, ["kid-1"]])
+def test_missing_or_non_string_kid_is_rejected(client, db, keypair, kid):
+    header = {"alg": "RS256", "typ": "JWT"}
+    if kid is not None:
+        header["kid"] = kid
+    _assert_invalid(client, db, _sign_rs256(keypair, _claims(), header))
+
+
+def test_non_rsa_jwk_for_the_kid_is_rejected(client, db, keypair, monkeypatch):
+    async def fake():
+        return [{"kty": "oct", "k": _b64(b"k" * 32), "kid": "kid-1", "alg": "HS256"}]
+
+    monkeypatch.setattr(google_id_token, "_fetch_google_keys", fake)
+    _assert_invalid(client, db, make_token(keypair))
+
+
+@pytest.mark.parametrize(
+    "token",
+    [
+        "not-a-jwt-at-all-but-long-enough",
+        "aaaaaaaaaa.bbbbbbbbbb.cccccccccc",
+        "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxIn0",  # two segments
+        "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxIn0.c2ln.ZXh0cmE",  # four segments
+        _b64(b"[1, 2]") + "." + _b64(b"{}") + ".c2lnbmF0dXJl",  # header is not an object
+        _b64(b"{not json") + "." + _b64(b"{}") + ".c2lnbmF0dXJl",
+        _b64(json.dumps({"alg": "RS256", "kid": "kid-1"}).encode()) + "." + _b64(b"[1]") + ".c2lnbmF0dXJl",
+        _b64(json.dumps({"alg": "RS256", "kid": "kid-1"}).encode()) + ".!!!!.c2lnbmF0dXJl",
+    ],
+)
+def test_malformed_tokens_are_400_not_500(client, db, token):
+    _assert_invalid(client, db, token)
+
+
+def test_key_rotation_refetches_once_and_accepts_the_new_key(client, keypair, monkeypatch):
+    # Google rotates: our cache holds [k1] (fresh), a token arrives signed with the new k2.
+    # The unknown kid forces one re-fetch, which now returns [k1, k2], and the token verifies.
+    new_private = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    k2 = json.loads(RSAAlgorithm.to_jwk(new_private.public_key()))
+    k2.update({"alg": "RS256", "kid": "kid-2", "use": "sig"})
+    published = {"keys": [keypair[1]]}
+    fetches = {"n": 0}
+
+    async def fetch():
+        fetches["n"] += 1
+        return list(published["keys"])
+
+    monkeypatch.setattr(google_id_token, "_fetch_google_keys", fetch)
+
+    assert post(client, make_token(keypair)).status_code == 200  # warms the cache with [k1]
+    assert fetches["n"] == 1
+
+    published["keys"] = [keypair[1], k2]
+    # The cache is still fresh (TTL 1 h); only the forced-refresh cooldown has passed.
+    monkeypatch.setattr(google_id_token, "_last_fetch_attempt",
+                        time.time() - google_id_token._FORCED_REFRESH_COOLDOWN_SECONDS - 1)
+    rotated = jwt.encode(_claims(email="rotated@gmail.com"), new_private, algorithm="RS256",
+                         headers={"kid": "kid-2"})
+    assert post(client, rotated).status_code == 200
+    assert fetches["n"] == 2
+    assert [k["kid"] for k in google_id_token._cache["keys"]] == ["kid-1", "kid-2"]
+
+    # More unknown kids right after that stay inside the cooldown: no further fetch.
+    unknown = jwt.encode(_claims(), new_private, algorithm="RS256", headers={"kid": "kid-3"})
+    for _ in range(2):  # 5 requests in total: the test AUTH_RATE_LIMIT is 5/minute
+        assert post(client, unknown).status_code == 400
+    assert fetches["n"] == 2
+    # ...and the rotated key keeps working from the cache.
+    assert post(client, rotated).status_code == 200
+    assert fetches["n"] == 2

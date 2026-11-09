@@ -12,6 +12,8 @@ const NOT_USER_FACING = {
   'Invalid or expired refresh token': 'handled by the session-expiry flow (silent sign-out), the text is never rendered',
   'Invalid token': 'access-token failure leads to the refresh / session-expiry flow, the text is never rendered',
   'Invalid user ID': 'malformed access token, treated as session expiry, the text is never rendered',
+  'Not authenticated': "FastAPI's HTTPBearer answer for a request without a Bearer token, spelled out in api/auth.py (LunaHTTPBearer) since FastAPI 0.122 changed it; the app sends the token on every authenticated call, the text is never rendered",
+  'Invalid authentication credentials': 'HTTPBearer answer for a non-Bearer Authorization scheme (api/auth.py, LunaHTTPBearer); the app only sends Bearer, the text is never rendered',
   'We need at least 2 completed cycles to make predictions. Continue tracking to build your pattern.': 'internal prediction-service result; the periods API drops it and returns an empty prediction',
   'Billing is not enabled': 'the app only calls /billing/verify when /billing/status says billing is enabled; the text is never rendered',
   'Period id is already in use': 'only the offline sync engine sends client period ids; it treats this as an id conflict and drops the queued item, the text is never rendered',

@@ -1,12 +1,16 @@
-fastapi==0.115.0
+# fastapi is held below 0.137: from 0.137 scope["route"] is the router's own route with the
+# include prefix dropped, which breaks the access log's route template (_route_template in
+# app/core/middleware.py; tests/test_dependency_upgrade_compat.py guards it).
+fastapi==0.136.3
+starlette==1.10.0
 uvicorn[standard]==0.30.6
 gunicorn==23.0.0
 sqlalchemy==2.0.35
 alembic==1.13.3
 psycopg2-binary==2.9.9
-python-jose[cryptography]==3.3.0
+pyjwt[crypto]==2.15.1
 passlib[bcrypt]==1.7.4
-python-multipart==0.0.12
+python-multipart==0.0.33
 pydantic==2.9.2
 pydantic-settings==2.5.2
 email-validator==2.2.0
@@ -16,6 +20,6 @@ scipy==1.14.1
 redis==5.1.1
 slowapi==0.1.9
 sentry-sdk==2.74.0
-python-dotenv==1.0.1
-cryptography==42.0.5
+python-dotenv==1.2.4
+cryptography==50.0.2
 tzdata==2024.2

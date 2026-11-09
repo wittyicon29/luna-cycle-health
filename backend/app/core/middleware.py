@@ -194,9 +194,13 @@ def cors_headers_for(request_headers) -> dict:
     """The headers CORSMiddleware adds to a simple (non-preflight) response for these request
     headers (ASGI header list), or {} when there is no Origin or it is not allowed.
 
-    Uses Starlette's own CORSMiddleware config and origin check (exact match; '*' -> '*' unless a
-    cookie is sent, then the origin is echoed; Vary: Origin when echoed). Unlike CORSMiddleware nothing at all,
-    not even Allow-Credentials, is added for a disallowed origin.
+    Uses Starlette's own CORSMiddleware config and origin check (exact match) and follows its
+    send() for an allowed Origin (Starlette 1.x): the simple headers, then the Origin echoed with
+    Vary: Origin, except for '*' without credentials, which keeps Allow-Origin '*' (plus Vary).
+    The app always sets allow_credentials, so '*' would echo every Origin; config refuses '*'
+    outside development/testing. Unlike CORSMiddleware nothing at all, not even
+    Allow-Credentials or Vary, is added for a disallowed or missing origin.
+    tests/test_cors_on_errors.py compares this with a real CORSMiddleware.
     """
     headers = Headers(raw=list(request_headers or ()))
     origin = headers.get("origin")
@@ -205,11 +209,10 @@ def cors_headers_for(request_headers) -> dict:
     cors = _cors()
     if not (cors.allow_all_origins or cors.is_allowed_origin(origin=origin)):
         return {}
-    # Same steps as CORSMiddleware.send(), from its own precomputed simple headers.
     result = {k.lower(): v for k, v in cors.simple_headers.items()}
-    if not cors.allow_all_origins or "cookie" in headers:
+    if not cors.allow_all_origins or cors.allow_credentials:
         result["access-control-allow-origin"] = origin
-        result["vary"] = "Origin"
+    result["vary"] = "Origin"
     return result
 
 

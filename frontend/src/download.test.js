@@ -4,12 +4,16 @@ import { Filesystem } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 
 jest.mock('./platform', () => ({ isNative: jest.fn() }));
+// `virtual: true` makes jest match these mocks by module NAME instead of by resolved file path. download.js loads the
+// plugins with a dynamic import(), and when that resolved to a different file than this test's static import
+// (the plugins ship `exports` for import/require) the mock was skipped: the REAL web plugin ran and every native
+// test failed with "This browser doesn't support IndexedDB" in roughly one full run in three.
 jest.mock('@capacitor/filesystem', () => ({
   Filesystem: { writeFile: jest.fn(), deleteFile: jest.fn() },
   Directory: { Cache: 'CACHE' },
   Encoding: { UTF8: 'utf8' },
-}));
-jest.mock('@capacitor/share', () => ({ Share: { share: jest.fn() } }));
+}), { virtual: true });
+jest.mock('@capacitor/share', () => ({ Share: { share: jest.fn() } }), { virtual: true });
 
 beforeEach(() => {
   jest.clearAllMocks();

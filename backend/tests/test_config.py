@@ -126,3 +126,48 @@ def test_engine_options_skip_pool_settings_for_sqlite(url):
     from app.core.database import engine_options
 
     assert engine_options(url, Settings(_env_file=None, APP_ENV="testing")) == {"pool_pre_ping": True}
+
+
+# --- ALLOWED_ORIGINS wildcard and ALGORITHM (2026-11 dependency upgrades review) -----------------
+
+
+@pytest.mark.parametrize("origins", ["*", "https://app.example.in,*", " * ", "https://app.example.in, *"])
+def test_production_refuses_a_wildcard_origin(origins):
+    # Starlette 1.x echoes every Origin (with Allow-Credentials) when '*' is combined with
+    # allow_credentials=True, so '*' would let any site make credentialed requests.
+    with pytest.raises(ValueError) as excinfo:
+        build(ALLOWED_ORIGINS=origins)
+    assert "ALLOWED_ORIGINS" in str(excinfo.value)
+    assert "app.example.in" not in str(excinfo.value)
+
+
+@pytest.mark.parametrize("env", ["prod", "staging", ""])
+def test_wildcard_origin_is_refused_outside_development_and_testing(env):
+    with pytest.raises(ValueError):
+        build(APP_ENV=env, ALLOWED_ORIGINS="*")
+
+
+@pytest.mark.parametrize("env", ["development", "testing"])
+def test_development_and_testing_accept_a_wildcard_origin(env):
+    assert build(APP_ENV=env, ALLOWED_ORIGINS="*").ALLOWED_ORIGINS == "*"
+
+
+def test_production_accepts_explicit_origins():
+    origins = "https://app.example.in,capacitor://localhost"
+    assert build(ALLOWED_ORIGINS=origins).ALLOWED_ORIGINS == origins
+
+
+@pytest.mark.parametrize("env", ["production", "development", "testing"])
+def test_hs256_is_the_default_algorithm(env):
+    assert build(APP_ENV=env).ALGORITHM == "HS256"
+
+
+@pytest.mark.parametrize("env", ["production", "development", "testing"])
+@pytest.mark.parametrize("algorithm", ["HS512", "RS256", "none", "hs256", "", "HS256,none"])
+def test_only_hs256_is_accepted(env, algorithm):
+    with pytest.raises(ValueError) as excinfo:
+        build(APP_ENV=env, ALGORITHM=algorithm)
+    message = str(excinfo.value)
+    assert "ALGORITHM must be HS256" in message
+    if algorithm and algorithm != "HS256":
+        assert f"'{algorithm}'" not in message and f"input_value={algorithm!r}" not in message

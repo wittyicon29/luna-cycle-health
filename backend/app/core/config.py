@@ -173,6 +173,11 @@ class Settings(BaseSettings):
             for name in ("SMTP_SERVER", "SMTP_USER", "SMTP_PASSWORD", "SUPPORT_EMAIL"):
                 if not getattr(self, name):
                     raise ValueError(f"{name} must be set in production")
+            # Starlette's CORSMiddleware with allow_credentials=True echoes ANY Origin for '*'.
+            if any(entry.strip() == "*" for entry in self.ALLOWED_ORIGINS.split(",")):
+                raise ValueError(
+                    "ALLOWED_ORIGINS must list explicit origins in production ('*' is only allowed in development and testing)"
+                )
             if not any(entry.strip() for entry in self.ALLOWED_HOSTS.split(",")):
                 raise ValueError(
                     "ALLOWED_HOSTS must be set in production (the public API domain, or '*' to allow any host)"
@@ -181,6 +186,15 @@ class Settings(BaseSettings):
         for key in self._split_keys():
             Fernet(key)  # raises ValueError for malformed keys
         return self
+
+    @field_validator("ALGORITHM")
+    @classmethod
+    def _check_algorithm(cls, value):
+        # Access tokens are HMAC-signed with SECRET_KEY; any other algorithm would either fail
+        # at runtime or misuse the secret. The value is not echoed.
+        if value != "HS256":
+            raise ValueError("ALGORITHM must be HS256")
+        return value
 
     @field_validator("RATE_LIMIT_STORAGE", mode="before")
     @classmethod

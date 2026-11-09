@@ -12,7 +12,7 @@ from typing import Any, Callable, Optional
 from urllib.parse import quote
 
 import httpx
-from jose import jwt
+import jwt
 
 from ...core.config import settings
 from .verifier import SubscriptionInfo, VerifierError, to_naive_utc

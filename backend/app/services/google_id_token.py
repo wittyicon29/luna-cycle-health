@@ -3,7 +3,8 @@ from typing import Optional
 
 import httpx
 from fastapi import HTTPException
-from jose import JWTError, jwt
+import jwt
+from jwt.algorithms import RSAAlgorithm
 
 from ..core.config import settings
 
@@ -67,13 +68,30 @@ def _find_key(keys: list, kid: Optional[str]) -> Optional[dict]:
     return next((k for k in keys if kid and k.get("kid") == kid), None)
 
 
+def _issued_at_is_integer(claims: dict) -> bool:
+    try:
+        int(claims["iat"])
+    except (KeyError, TypeError, ValueError, OverflowError):
+        return False
+    return True
+
+
 async def verify_google_id_token(id_token: str) -> dict:
+    """Verify a Google ID token and return its claims; 400 for anything invalid.
+
+    RS256 only: the header must say RS256 before any key is looked up, the key is the JWKS
+    entry with the header's kid, and decode() is pinned to algorithms=["RS256"] (so an HS256
+    token HMAC-signed with the public key, or alg=none, never verifies). exp and iat are
+    required, exp and nbf are checked without leeway; iat must be an integer but is not
+    compared with the clock (python-jose never did; clock skew must not break sign-in).
+    iss must be one of GOOGLE_ISSUERS and aud a single string in the configured allowlist.
+    """
     audiences = allowed_audiences()
     if not audiences:
         raise HTTPException(status_code=503, detail="Google sign-in is not configured")
     try:
         header = jwt.get_unverified_header(id_token)
-    except JWTError:
+    except jwt.PyJWTError:
         raise _invalid()
     if header.get("alg") != "RS256":
         raise _invalid()
@@ -85,15 +103,21 @@ async def verify_google_id_token(id_token: str) -> dict:
         raise _invalid()
 
     try:
+        public_key = RSAAlgorithm.from_jwk(key)
         claims = jwt.decode(
             id_token,
-            key,
+            public_key,
             algorithms=["RS256"],
-            options={"verify_aud": False, "require_exp": True, "require_iat": True},
+            options={"verify_aud": False, "verify_iat": False, "require": ["exp", "iat"]},
         )
-    except (JWTError, ValueError, KeyError):
+    except (jwt.PyJWTError, ValueError, KeyError, TypeError):
         raise _invalid()
 
-    if claims.get("iss") not in GOOGLE_ISSUERS or claims.get("aud") not in audiences:
+    if not _issued_at_is_integer(claims):
+        raise _invalid()
+    issuer, audience = claims.get("iss"), claims.get("aud")
+    if not isinstance(issuer, str) or issuer not in GOOGLE_ISSUERS:
+        raise _invalid()
+    if not isinstance(audience, str) or audience not in audiences:
         raise _invalid()
     return claims
