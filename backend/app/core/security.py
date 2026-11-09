@@ -47,5 +47,5 @@ def decode_access_token(token: str):
             algorithms=[settings.ALGORITHM],
             options={"require": ["exp"]},
         )
-    except jwt.PyJWTError:
+    except (jwt.PyJWTError, ValueError):  # ValueError: e.g. a lone surrogate cannot be encoded
         return None

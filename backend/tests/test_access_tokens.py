@@ -214,3 +214,9 @@ def test_api_answers_are_unchanged(client, token, detail):
     response = client.get(STATUS, headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 401
     assert response.json() == {"detail": detail}
+
+
+def test_lone_surrogate_returns_none_instead_of_raising():
+    # Not reachable over HTTP (headers are latin-1, JSON bodies refuse lone surrogates), but
+    # decode_access_token promises None for anything invalid.
+    assert decode_access_token("\ud800.a.b") is None
