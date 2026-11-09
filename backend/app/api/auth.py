@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Query, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.security.utils import get_authorization_scheme_param
@@ -39,14 +40,19 @@ class LunaHTTPBearer(HTTPBearer):
     authenticated" and a non-Bearer scheme is 403 "Invalid authentication credentials", both
     without WWW-Authenticate. Newer FastAPI answers 401, which clients read as "access token
     rejected, refresh it"; a bad Bearer token stays 401 "Invalid token" (get_current_user).
+    auto_error=False returns None instead of raising, as in FastAPI.
     """
 
-    async def __call__(self, request: Request) -> HTTPAuthorizationCredentials:
+    async def __call__(self, request: Request) -> Optional[HTTPAuthorizationCredentials]:
         authorization = request.headers.get("Authorization")
         scheme, credentials = get_authorization_scheme_param(authorization)
         if not (authorization and scheme and credentials):
+            if not self.auto_error:
+                return None
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authenticated")
         if scheme.lower() != "bearer":
+            if not self.auto_error:
+                return None
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid authentication credentials")
         return HTTPAuthorizationCredentials(scheme=scheme, credentials=credentials)
 

@@ -63,3 +63,78 @@ def test_json_body_with_text_plain_is_still_rejected(client, make_user):
     body = b'{"email": "textplain@gmail.com", "password": "password123"}'
     response = client.post(LOGIN, content=body, headers={"Content-Type": "text/plain"})
     assert response.status_code == 422
+
+
+# The access log's route template must be the full, prefixed path. fastapi is pinned below 0.137
+# for this: from 0.137 scope["route"] is the router's own route, without the include prefix.
+PIN_HINT = (
+    "access-log route template lost its router prefix: fastapi>=0.137 changed scope['route']; "
+    "keep the fastapi==0.136.3 pin in backend/requirements.txt or rework "
+    "_route_template in backend/app/core/middleware.py"
+)
+
+
+@pytest.mark.parametrize(
+    "method, path, template",
+    [
+        ("GET", "/api/v1/periods/00000000-0000-4000-8000-000000000000", "/api/v1/periods/{period_id}"),
+        ("PUT", "/api/v1/logs/2026-10-01", "/api/v1/logs/{log_date}"),
+        ("GET", "/api/v1/auth/status", "/api/v1/auth/status"),
+        ("POST", "/api/v1/auth/login", "/api/v1/auth/login"),
+    ],
+)
+def test_route_template_keeps_the_router_prefix(client, monkeypatch, method, path, template):
+    from app.core import middleware
+
+    seen = []
+    original = middleware._route_template
+
+    def spy(scope):
+        seen.append(original(scope))
+        return seen[-1]
+
+    monkeypatch.setattr(middleware, "_route_template", spy)
+    client.request(method, path, json={})
+    assert seen == [template], PIN_HINT
+
+
+def test_unmatched_paths_still_log_the_placeholder(client, monkeypatch):
+    from app.core import middleware
+
+    seen = []
+    original = middleware._route_template
+    monkeypatch.setattr(middleware, "_route_template", lambda scope: seen.append(original(scope)) or seen[-1])
+    client.get("/api/v1/no-such-route/123")
+    assert seen == [middleware.UNMATCHED_ROUTE]
+
+
+# LunaHTTPBearer honours auto_error like FastAPI's HTTPBearer (the app uses the default, True).
+def _request(authorization=None):
+    from starlette.requests import Request
+
+    headers = [(b"authorization", authorization.encode())] if authorization is not None else []
+    return Request({"type": "http", "method": "GET", "path": "/", "headers": headers, "query_string": b""})
+
+
+@pytest.mark.parametrize("value", [None, "", "Basic dXNlcjpwYXNz"])
+def test_bearer_without_auto_error_returns_none(value):
+    import asyncio
+
+    from app.api.auth import LunaHTTPBearer
+
+    assert asyncio.run(LunaHTTPBearer(auto_error=False)(_request(value))) is None
+
+
+def test_bearer_without_auto_error_still_returns_credentials():
+    import asyncio
+
+    from app.api.auth import LunaHTTPBearer
+
+    creds = asyncio.run(LunaHTTPBearer(auto_error=False)(_request("Bearer abc.def.ghi")))
+    assert (creds.scheme, creds.credentials) == ("Bearer", "abc.def.ghi")
+
+
+def test_app_bearer_errors_by_default():
+    from app.api.auth import security
+
+    assert security.auto_error is True
