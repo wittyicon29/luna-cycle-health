@@ -13,7 +13,7 @@ import httpx
 import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from jose import jwt
+import jwt
 
 from app.services.billing.google import (
     ANDROID_PUBLISHER_SCOPE,
@@ -155,13 +155,18 @@ def test_get_request_shape_and_jwt_assertion(sa_file, keypair):
     form = token_call["data"]
     assert form["grant_type"] == "urn:ietf:params:oauth:grant-type:jwt-bearer"
     assert jwt.get_unverified_header(form["assertion"])["alg"] == "RS256"
+    # The fake clock is in 2027, so the assertion's iat is in the future: skip only that check
+    # (python-jose never compared iat with the clock; signature, aud and exp are still verified).
     claims = jwt.decode(
-        form["assertion"], keypair[1], algorithms=["RS256"], audience="https://oauth2.googleapis.com/token"
+        form["assertion"], keypair[1], algorithms=["RS256"], audience="https://oauth2.googleapis.com/token",
+        options={"verify_iat": False},
     )
     assert claims["iss"] == CLIENT_EMAIL
     assert claims["scope"] == ANDROID_PUBLISHER_SCOPE == "https://www.googleapis.com/auth/androidpublisher"
     assert claims["aud"] == TOKEN_URL == "https://oauth2.googleapis.com/token"
     assert claims["iat"] == int(clock.t)
+    assert isinstance(claims["iat"], int) and isinstance(claims["exp"], int)
+    assert jwt.get_unverified_header(form["assertion"]) == {"alg": "RS256", "kid": "throwaway-kid", "typ": "JWT"}
     assert 0 < claims["exp"] - claims["iat"] <= 3600
 
     assert api_call["method"] == "GET"
