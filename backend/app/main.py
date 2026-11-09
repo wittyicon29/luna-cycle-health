@@ -43,6 +43,10 @@ app = FastAPI(
     docs_url="/docs" if _DEVELOPMENT else None,
     redoc_url="/redoc" if _DEVELOPMENT else None,
     openapi_url="/openapi.json" if _DEVELOPMENT else None,
+    # FastAPI 0.13x defaults to parsing JSON bodies only with a JSON Content-Type. Keep the
+    # earlier behaviour (a body without any Content-Type is parsed as JSON) so existing clients
+    # see no change; a non-JSON Content-Type is still not parsed as JSON.
+    strict_content_type=False,
 )
 
 # Rate limiting
