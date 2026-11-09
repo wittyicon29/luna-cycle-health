@@ -125,10 +125,48 @@ def test_helper_exact_match_only(monkeypatch):
     assert cors_headers_for([]) == {}
 
 
-def test_helper_wildcard_like_starlette(monkeypatch):
-    monkeypatch.setattr(settings, "ALLOWED_ORIGINS", "*")
-    plain = cors_headers_for(_h(origin=DISALLOWED))
-    assert plain["access-control-allow-origin"] == "*"
-    with_cookie = cors_headers_for(_h(origin=DISALLOWED, cookie="a=b"))
-    assert with_cookie["access-control-allow-origin"] == DISALLOWED
-    assert "Origin" in with_cookie["vary"]
+def _starlette_cors_headers(request_headers: dict) -> dict:
+    """The CORS headers a real Starlette CORSMiddleware, built with the app's options, adds to a
+    simple (non-preflight) response."""
+    from starlette.applications import Starlette
+    from starlette.middleware import Middleware
+    from starlette.middleware.cors import CORSMiddleware
+    from starlette.responses import PlainTextResponse
+    from starlette.routing import Route
+
+    from app.core.middleware import cors_options
+
+    async def ok(request):
+        return PlainTextResponse("ok")
+
+    reference = Starlette(routes=[Route("/", ok)], middleware=[Middleware(CORSMiddleware, **cors_options())])
+    response = TestClient(reference).get("/", headers=request_headers)
+    return {k: v for k, v in response.headers.items() if k.startswith("access-control-") or k == "vary"}
+
+
+ORIGIN_CASES = [
+    pytest.param({"origin": ALLOWED}, id="allowed"),
+    pytest.param({"origin": ALLOWED, "cookie": "a=b"}, id="allowed-with-cookie"),
+    pytest.param({"origin": "capacitor://localhost"}, id="second-allowed"),
+    pytest.param({"origin": DISALLOWED}, id="disallowed"),
+    pytest.param({"origin": DISALLOWED, "cookie": "a=b"}, id="disallowed-with-cookie"),
+    pytest.param({"origin": ALLOWED + "/"}, id="near-miss"),
+    pytest.param({}, id="no-origin"),
+]
+
+
+@pytest.mark.parametrize("allowed_origins", [ALLOWED, f"{ALLOWED},capacitor://localhost", "*"],
+                         ids=["single", "list", "wildcard-development"])
+@pytest.mark.parametrize("request_headers", ORIGIN_CASES)
+def test_helper_matches_a_real_starlette_cors_middleware(monkeypatch, allowed_origins, request_headers):
+    # '*' is only possible in development/testing (config refuses it elsewhere).
+    monkeypatch.setattr(settings, "ALLOWED_ORIGINS", allowed_origins)
+    real = _starlette_cors_headers(request_headers)
+    helper = cors_headers_for(_h(**request_headers))
+    if "access-control-allow-origin" in real:
+        # An allowed Origin: exactly what CORSMiddleware would have added.
+        assert helper == real
+    else:
+        # Disallowed or missing Origin: CORSMiddleware adds no Allow-Origin (only Vary and
+        # Allow-Credentials); the helper deliberately adds nothing at all.
+        assert helper == {}
