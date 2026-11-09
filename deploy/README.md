@@ -121,6 +121,10 @@ PATH=/usr/local/bin:/usr/bin:/bin
 17 3 * * * deploy cd /srv/luna && scripts/backup_db.sh --env-file deploy/backup.env >> /var/log/luna-backup.log 2>&1
 ```
 
+Do not deploy or migrate while a backup runs: the backup holds read locks on every table,
+a migration's `ALTER TABLE` waits for them, and the backup gives up after
+`BACKUP_LOCK_WAIT_TIMEOUT` (default `60s`, exit `1`) instead of hanging.
+
 The log contains file names and counts only, never connection strings or passwords. Alert
 on a non-zero exit (or on the newest `luna-*.dump.age` being older than a day).
 
@@ -135,7 +139,10 @@ without taking a backup.
 **Off-site copy.** A backup on the same disk as the database does not survive the server.
 Set `BACKUP_UPLOAD_CMD` to a command that copies `$1` (the dump) and `$2` (the counts) to
 another provider, for example `rclone copy "$1" offsite:luna-backups/` (rclone configured
-separately). The files are already encrypted, so the storage does not need to be trusted.
+separately). The files are already encrypted, so the storage does not need to be trusted
+for confidentiality; it does for integrity (age does not authenticate who encrypted a file,
+so anyone who can write there could plant a forged backup): restrict write access and keep
+a local checksum list (see `docs/superpowers/runbook.md`, section 4.1).
 If the hook fails the script exits `4` and keeps the local backup.
 
 **Restore and drills.** `scripts/restore_db.sh` needs `age` and the PostgreSQL 16 client

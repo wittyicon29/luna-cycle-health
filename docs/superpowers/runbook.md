@@ -60,12 +60,15 @@ newest key in `ENCRYPTION_KEYS`. Usage (from its `--help`):
 ```
 python scripts/rotate_encryption_keys.py [--apply] [--batch-size BATCH_SIZE]
                                          [--encrypt-legacy] [--allow-single-key] [--tables TABLES]
+                                         [--show-ids]
 ```
 
 It is a dry run unless `--apply` is given; it prints counts per column only; exit codes are
 `0` nothing pending / done, `1` refused or failed (any undecryptable row), `2` dry run found
 work pending. It refuses to run with fewer than two keys unless `--allow-single-key` (then it
-only reports). It is safe to rerun: rows already under the newest key are skipped.
+only reports); a key listed twice counts once. `--show-ids` adds the primary keys (never
+values) of undecryptable rows. It is safe to rerun: rows already under the newest key are
+skipped.
 
 In the compose stack the script runs in a one-off `migrate` container, which has
 `DATABASE_URL` and `ENCRYPTION_KEYS` from `deploy/.env`. *(untested here: Docker)*
@@ -86,12 +89,27 @@ In the compose stack the script runs in a one-off `migrate` container, which has
 6. Dry run again: it must exit `0`. Legacy plaintext rows (reported as `legacy_plaintext`)
    are only encrypted with `--encrypt-legacy`.
 7. Take a backup (it now holds data under the new key only).
-8. **Removing the old key.** Backups taken before step 5 still need the old key. Keep it
-   in `ENCRYPTION_KEYS` for at least 7 days (time to notice problems), then remove it from
-   the server (`ENCRYPTION_KEYS=NEW`, `up -d --force-recreate api`), and run the dry run
-   once more (exit `0`). Keep the old key **archived offline** until the last backup made
-   before the rotation has been deleted everywhere (`BACKUP_KEEP_DAYS`, default 30, plus
-   whatever the off-site copy keeps).
+8. **Check that the new key alone reads everything.** Run the script with only NEW
+   configured (single key, so it needs `--allow-single-key` and only reports). It must exit
+   `0`; exit `1` means rows that NEW cannot decrypt (listed as `undecryptable`; add
+   `--show-ids` for their ids). Type the key at a prompt instead of on the command line, so
+   it stays out of the shell history and the process list (`-e NAME` without a value passes
+   the variable from your shell): *(untested here: Docker)*
+   ```
+   read -rs ENCRYPTION_KEYS && export ENCRYPTION_KEYS   # paste NEW only; nothing is echoed
+   docker compose -f deploy/compose.prod.yml --env-file deploy/.env run --rm -e ENCRYPTION_KEYS migrate python scripts/rotate_encryption_keys.py --allow-single-key
+   unset ENCRYPTION_KEYS
+   ```
+   This is also what catches keys entered in the wrong order. With `ENCRYPTION_KEYS=OLD,NEW`
+   the "newest" key is OLD, so the dry runs in steps 4 and 6 report nothing pending, and
+   removing OLD afterwards would make every row unreadable. The NEW-only check fails
+   loudly in that case.
+9. **Remove the old key.** Wait at least 7 days (time to notice problems), run step 8 again
+   **immediately before** removing it (exit `0`), then set `ENCRYPTION_KEYS=NEW` in
+   `deploy/.env` and `up -d --force-recreate api`. Keep the old key **archived offline**
+   until the last backup taken before step 6 passed has been deleted everywhere
+   (`BACKUP_KEEP_DAYS`, default 30, plus whatever the off-site copy keeps): those backups
+   still need it.
 
 ## 4. Backups
 
@@ -112,8 +130,19 @@ usage/config error (nothing contacted), `3` another backup holds the lock, `4` b
   newest backup is never deleted. Retention alone:
   `scripts/backup_db.sh --env-file deploy/backup.env --prune-only`.
 - Off-site: set `BACKUP_UPLOAD_CMD` (for example `rclone copy "$1" offsite:luna-backups/`;
-  copy `$2`, the counts file, too). The files are encrypted, so the storage need not be
-  trusted. *(untested here: rclone)*
+  copy `$2`, the counts file, too). *(untested here: rclone)* The files are encrypted, so
+  the storage does not need to be trusted **for confidentiality**. It does need to be
+  trusted for integrity: age does not authenticate who encrypted a file (the recipient key
+  is public), so anyone with write access to the off-site storage could plant a forged
+  backup that decrypts fine with your key. Give the server write-only/append-only
+  credentials where the provider supports it, keep other write access to yourself, and
+  keep a local list of checksums, e.g. with
+  `BACKUP_UPLOAD_CMD='sha256sum "$1" "$2" >> /var/backups/luna-SHA256SUMS && rclone copy "$1" offsite:luna-backups/ && rclone copy "$2" offsite:luna-backups/'`,
+  which you compare before a restore (section 5, step 1).
+- **Do not deploy or migrate during the backup window.** The backup holds read locks on
+  every table while it runs; a migration's `ALTER TABLE` then waits for it, and the backup
+  gives up after `BACKUP_LOCK_WAIT_TIMEOUT` (default `60s`, exit `1`, nothing left behind)
+  rather than hanging. Schedule the cron job away from deploys.
 - Before every update and every key rotation: one manual run.
 
 ### 4.2 Verification (weekly, 2 minutes)
@@ -146,7 +175,9 @@ still in use then). Without (a) the backup cannot be opened; without (b) the hea
 it cannot be read. Find both before you stop anything.
 
 1. Pick the backup: the newest one from before the problem. Copy its `.dump.age` and
-   `.counts.json` to the server's `BACKUP_DIR` if they are not there.
+   `.counts.json` to the server's `BACKUP_DIR` if they are not there. If it came from the
+   off-site storage, compare its `sha256sum` with your local checksum list first
+   (section 4.1): age cannot tell you who made the file.
 2. Put the private key on the server in RAM only, readable by you:
    `install -m 600 /dev/null /dev/shm/luna-backup.key`, paste the key into it.
 3. Stop the API so nothing writes during the restore:
@@ -160,6 +191,11 @@ it cannot be read. Find both before you stop anything.
    file: exit `1`, nothing created), restores in one transaction (failure: the new database
    is dropped), and compares the row counts with the manifest (exit `0` only if all match).
    *(untested here: real Docker; tested with a stand-in for `docker`)*
+   **Exit `4` (row counts differ): stop here and do not swap the databases.** The restored
+   `luna_restored` is kept for inspection. Investigate first: the wrong `.counts.json` next
+   to the dump, a damaged or truncated manifest, or a backup that is not what you think it
+   is. Until then, either keep the API stopped or start it again on the untouched live
+   database (`up -d`) if that database is still usable.
 6. Swap the databases, keeping the old one for forensics:
    `docker compose -f deploy/compose.prod.yml --env-file deploy/.env exec -T db psql -U luna -d postgres -c 'ALTER DATABASE luna RENAME TO luna_before_restore'`
    then
@@ -204,6 +240,10 @@ a downgrade drops or rewrites columns, which loses the data written since the up
 running old code against a newer schema can fail or silently misbehave.
 
 - Release without schema changes: `git checkout v1.1.0`, `up -d --build`. Done.
+- Rolling back the code of a release **with** schema changes without restoring the
+  database does not work: the database is stamped with an Alembic revision the older code
+  does not know, so `migrate` fails and the API does not start (compose waits for
+  `migrate` to succeed).
 - Release with schema changes: the safe rollback is **the backup from step 1 plus the
   previous release**: `git checkout v1.1.0`, then the restore procedure in
   [section 5](#5-restore-procedure-production) with that backup, then `up -d --build`.
@@ -280,6 +320,11 @@ Not set up by this repository; add them before launch:
       `scripts/android/release.sh`.
 - [ ] Monitoring from [section 8](#8-monitoring-and-alerts-to-add) in place.
 - [ ] Dependency audit findings triaged ([section 10](#10-ci)).
+- [ ] Branch protection on `main` updated: `test.yml` is gone, so remove its old required
+      check and require the **Backend** (`pytest (Python 3.11, PostgreSQL 16, Redis 7)`) and
+      **Frontend** (`i18n, jest and build`) jobs. Do **not** require the Docker image or
+      Dependency audit jobs: they are path-filtered, and a required check that does not run
+      blocks the merge.
 
 ## 10. CI
 
