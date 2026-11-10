@@ -197,7 +197,8 @@ As `billing-owner-checklist.md` 2:
    data and manage orders and subscriptions for this app.
 4. Hand over: the JSON file goes to the server as `deploy/secrets/<file>.json` (readable by uid
    10001), `GOOGLE_PLAY_SERVICE_ACCOUNT_FILE` points to its in-container path,
-   `GOOGLE_PLAY_PACKAGE_NAME=<app ID>`, `BILLING_PRODUCT_IDS=luna_ai_monthly,luna_ai_yearly`,
+   and uncomment the `./secrets/play-service-account.json:/run/secrets/...:ro` volume line in
+   `deploy/compose.prod.yml` (lines ~97-98), `GOOGLE_PLAY_PACKAGE_NAME=<app ID>`, `BILLING_PRODUCT_IDS=luna_ai_monthly,luna_ai_yearly`,
    `BILLING_ACCOUNT_SECRET` (`openssl rand -hex 32`, set once, never change), then
    `BILLING_MODE=google`.
 
@@ -420,6 +421,8 @@ the fallback), but the Luna AI plan sells exactly these features, so do not enab
   (**verify on the model page**).
 - Concern for engineering: the code calls the old `api-inference.huggingface.co` host, which
   community reports say now returns 410 in favour of `router.huggingface.co` (store-prep 7.3 item 7).
+  If it fails, the MedGemma step is skipped silently (`llm_service.py`: empty medical analysis) and
+  Groq still writes a report from statistics alone, so the user is not told. Official Hugging Face docs (<https://huggingface.co/docs/inference-providers/providers/hf-inference>, checked 2026-11-10) say HF Inference now focuses on CPU models and list no text-generation task, so MedGemma is likely not served there at all. Options: a third-party provider that serves it (named in the policy), a dedicated Inference Endpoint, or dropping the step.
   Through the router, requests can be served by third-party inference providers, each with its own
   data terms: find out which provider would serve the model and read its terms before the privacy
   policy names the recipient.
@@ -515,7 +518,9 @@ Decisions and values engineering cannot produce:
 - [ ] **SMTP provider** and the from-address.
 - [ ] **Web client ID** (non-secret) after step 3.
 - [ ] **Retention numbers** for the policy and deletion page: backup days (`BACKUP_KEEP_DAYS`,
-      default 30, plus the off-site copy's retention), log days, unverified-account purge (if wanted).
+      default 30, plus the off-site copy's retention; the backup script never deletes the newest
+      backup and does not prune off-site copies, so set an expiry on the off-site bucket), log days,
+      unverified-account purge (if wanted).
 - [ ] **AI decisions**: Groq ZDR on (yes/no), Data safety Option A or B (store-prep 1.3), and the
       Hugging Face path (keep, migrate, or drop the first Insights step).
 - [ ] **Sentry**: off at launch, or provider and region.

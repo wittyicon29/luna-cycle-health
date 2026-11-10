@@ -64,11 +64,11 @@ checked 2026-11-10). Key definitions from that page:
 | Refresh-token hashes | Luna API | Yes, until account deletion | `models.py` `RefreshToken` |
 | Client IP address and request path | Caddy access log (stdout, JSON); request headers, query `code`/`token` and bodies are dropped | Docker log, **no rotation configured** | `deploy/Caddyfile`, `deploy/compose.prod.yml` |
 | Reminder preferences, discreet-mode choice, offline cache and outbox | **Device only** (offline cache encrypted with a key in Android secure storage) | Not collected | `frontend/android/README.md` "Reminders", `frontend/src/offline/vault.js` |
-| Font request to `fonts.googleapis.com` (IP and user agent go to Google) | Google Fonts | Not by Luna | `@import` in `frontend/src/App.js` |
 
 Not present in the app (checked in `frontend/package.json` and the manifest): no ads SDK, no
 analytics SDK, no crash-reporting SDK, no location, contacts, camera, microphone or files access.
-`reportWebVitals()` is called without a handler, so nothing is sent.
+`reportWebVitals()` is called without a handler, so nothing is sent. Web fonts are self-hosted
+(PR #20), so no font request goes to Google.
 
 ### 1.2 Answers, question by question
 
@@ -78,7 +78,7 @@ the Help Center article; exact wording **verify in the console**.
 | # | Question | Answer | Notes |
 | --- | --- | --- | --- |
 | 1 | Does your app collect or share any of the required user data types? | **Yes** | |
-| 2 | Is all of the user data collected by your app encrypted in transit? | **Yes** | The API is HTTPS only (Caddy, HSTS); `android:usesCleartextTraffic="false"`; `scripts/android/release.sh` refuses a non-`https://` API base. Google Fonts is also HTTPS. |
+| 2 | Is all of the user data collected by your app encrypted in transit? | **Yes** | The API is HTTPS only (Caddy, HSTS); `android:usesCleartextTraffic="false"`; `scripts/android/release.sh` refuses a non-`https://` API base. |
 | 3 | Account creation methods | **Username/email and password**, **OAuth: Sign in with Google** | Wording of the options: verify in the console. |
 | 4 | Account deletion URL | `https://api.example.com/account-deletion` (or the web frontend page, see [section 3](#3-account-deletion-in-app-path-and-web-resource)) | The page exists in code but its text must be corrected first. |
 | 5 | Can users request deletion of some data without deleting the account? | **Yes** (optional to answer) | Individual periods, day logs and medications can be deleted in the app (`DELETE /periods/{id}`, `/logs/{date}`, `/medications/{id}`), AI consent can be withdrawn. Chat history has no separate delete: verify before claiming "chat history" here. |
@@ -118,9 +118,11 @@ consent (enforced server-side by `require_plan("ai")` → `require_consent("ai_p
 - the user's message (max 1000 characters);
 - because the app always sends `include_context: true` (`frontend/src/App.js`), a context block:
   average cycle length, cycle variation, health score, next predicted period date, number of
-  cycles tracked; from the latest health profile: age, BMI (computed from weight and height),
-  pain severity, whether PMS interferes with daily life; from the latest analysis: up to two
-  health insights, the risk flags and the cycle health score.
+  cycles tracked; from the latest health profile: age, pain severity, whether PMS interferes
+  with daily life; from the latest analysis: up to two health insights, the risk flags (AI-flagged
+  risk factors) and the cycle health score. (The code also tries to send BMI, but
+  `backend/app/api/chat.py` reads a property that is not stored, so Groq always receives
+  "BMI: N/A"; weight and height are not sent by chat.)
 - Not sent: email, account id, name, previous chat messages, period or day-log notes,
   medication names.
 
@@ -131,8 +133,10 @@ consent (enforced server-side by `require_plan("ai")` → `require_consent("ai_p
    `google/medgemma-1.5-4b-it`): cycle statistics, prediction range and confidence, up to the six
    latest periods (start/end date, cycle length, flow, pain level, symptoms; **not** notes), and
    the **complete latest health profile JSON**, including age, biological sex, weight, height,
-   all symptom answers and the optional free-text note.
-2. → **Groq**: the Hugging Face result, the statistics, prediction range and confidence.
+   all symptom answers and the optional free-text note (this input is also stored, encrypted, as
+   `Analysis.input_data`).
+2. → **Groq**: the Hugging Face result, the health-score breakdown, statistics, prediction range,
+   confidence and probabilistic notes (no raw period records, no profile).
 
 The in-app consent text (`frontend/src/AiConsentModal.js`) says "your messages, a summary of
 your recent cycle data and your health profile". For Insights, "summary" understates what is
@@ -223,7 +227,9 @@ Screenshots are blocked inside the app on purpose (FLAG_SECURE) to protect healt
 Apps targeting API 33+ must declare whether they use the advertising ID (form under App content;
 **verify in the console**). Answer **No**. Before answering, check the merged manifest of the
 release build for `com.google.android.gms.permission.AD_ID`; if a library adds it, remove it with
-`tools:node="remove"` (code change) so the declaration matches.
+`tools:node="remove"` (code change) so the declaration matches. The Facebook SDK (the usual
+`AD_ID` source) is excluded only when building through `npm run android:sync` (the social-login
+hook writes `socialLogin.facebook.include=false`); never build a release with a bare `./gradlew`.
 
 ### 2.5 Content rating (IARC questionnaire)
 
@@ -264,12 +270,12 @@ Expect a low age rating from IARC; that is independent of the 18+ target audienc
 Required for every app (<https://support.google.com/googleplay/android-developer/answer/14738291>,
 checked 2026-11-10).
 
-- Tick **Health and fitness > Period Tracking** (the page describes it as menstrual, ovulation
-  and fertility tracking; Luna shows estimated cycle phases, including an estimated ovulation
-  phase/date in the journey and Insights).
-- Consider **Medical > Medication and Treatment Management**: Luna has a medication list and a
-  "medications taken" field in day logs, but no medication reminders or treatment guidance.
-  Read the console's description of that category; tick it if it covers intake logging.
+- Tick **Health and fitness > Period Tracking** (console description: "Tools that empower users
+  to monitor and manage their menstrual health"; Luna also shows estimated cycle phases,
+  including an estimated ovulation phase/date in the journey and Insights).
+- **Medical > Medication and Treatment Management: probably do not tick.** The console describes
+  it as managing medication schedules, pharmacy services and treatment adherence; Luna only logs
+  intake (medication list and a "medications taken" field in day logs).
 - Do **not** tick Medical Device Apps: Luna is not regulated as a medical device (Terms: "not
   a medical device").
 - The Health Content and Services policy requires, for apps not approved by a health authority,
@@ -348,7 +354,8 @@ From "Understanding Google Play's app account deletion requirements"
    `BACKUP_KEEP_DAYS`/`BACKUP_KEEP_LAST` in `deploy/backup.env.example`, plus whatever the off-site
    copy keeps), proxy access logs (no rotation configured today), records Google Play keeps about
    purchases, and AI-provider retention (Groq up to 30 days for abuse/troubleshooting unless Zero
-   Data Retention is on).
+   Data Retention is on). Note that the backup script never deletes the newest backup and does
+   not prune off-site copies: set an expiry (lifecycle rule) on the off-site bucket.
 3. It does not mention that **deleting the account does not cancel a Google Play subscription**.
 4. It does not show the developer name, and it falls back to "our support team" if
    `SUPPORT_EMAIL` is empty (production refuses to start without it, so this is only a dev issue).
@@ -410,7 +417,7 @@ users consent again (open follow-up in the billing checklist).
 | No hosted URL yet (web frontend not deployed) | Play needs a public URL (2.1) |
 | No identity of the data fiduciary/controller or developer name; contact falls back to "the support address listed in the app store listing" when `REACT_APP_SUPPORT_EMAIL` is empty | Users and Play need a real contact; set `REACT_APP_SUPPORT_EMAIL` in the build |
 | No retention periods (account data, backups, logs, deleted accounts, unverified accounts) | Required by the account deletion policy ("clearly inform users about your data retention practices") |
-| Processors not listed: hosting provider, e-mail provider, Google (sign-in, Play billing, Fonts), optional error reporting | Comprehensive disclosure required by the Health Content and Services policy |
+| Processors not listed: hosting provider, e-mail provider, Google (sign-in, Play billing), optional error reporting | Comprehensive disclosure required by the Health Content and Services policy |
 | AI section says "a summary of your recent cycle data" | Insights sends the last six period records and the full health profile incl. free-text note (1.3) |
 | Encryption claim lists notes, chat, profile, analysis text | Accurate but incomplete: daily logs, medication names and purchase tokens are also encrypted; period dates/flow/symptoms are not column-encrypted. Do not overstate |
 | Health profile fields not listed (age, biological sex, weight, height) | Disclosure |
@@ -449,12 +456,12 @@ users consent again (open follow-up in the billing checklist).
 > AI features are optional and off until you allow them. If you allow them:
 > - **Chat:** your message, together with a short summary of your cycle (average length,
 >   variation, next expected period, number of cycles tracked), a few health-profile values (age,
->   BMI, pain severity, whether premenstrual symptoms affect daily life) and the latest insight
->   results, is sent to **Groq** to write a reply.
+>   pain severity, whether premenstrual symptoms affect daily life) and the latest insight
+>   results, including any flagged risk factors, is sent to **Groq** to write a reply.
 > - **Insights:** your last six periods (dates, cycle length, flow, pain, symptoms; not your notes)
 >   and your full health profile, including its optional note, are sent to **Hugging Face**
->   `<or the inference provider that actually serves the model>`; the result is then sent to
->   **Groq** to write the report.
+>   `<or the inference provider that actually serves the model>`; its result, with statistics
+>   and the prediction range, is then sent to **Groq** to write the report.
 > - We do not send your e-mail address or account id to these services. They may process the data
 >   on servers outside India (Groq states its servers are in the United States). `<Retention and
 >   training terms of each provider, once confirmed.>`
@@ -466,9 +473,7 @@ users consent again (open follow-up in the billing checklist).
 > We use these service providers, only to run Luna:
 > - `<hosting provider>`, `<region>`: servers and database.
 > - `<e-mail provider>`: verification and password-reset e-mails (your e-mail address).
-> - Google: Sign in with Google (if you use it), Google Play billing (purchases), Google Fonts
->   (the app loads fonts from Google's servers, which receive your IP address) `<remove the Fonts
->   line if fonts are self-hosted>`.
+> - Google: Sign in with Google (if you use it) and Google Play billing (purchases).
 > - Groq and Hugging Face: AI features, only with your consent (see above).
 > - `<Only if SENTRY_DSN is set:>` `<error-reporting provider>`: technical error reports that
 >   contain no personal or health data.
@@ -699,8 +704,8 @@ Optional: a 7-inch/10-inch tablet set is not required; the app is phone-first.
 ## 6. Permissions rationale
 
 Declared in `frontend/android/app/src/main/AndroidManifest.xml`, plus permissions added by
-plugins (documented in `frontend/android/README.md`). `node_modules` was not available where this
-was written, so **confirm the final list from the merged manifest of the release bundle**
+plugins (documented in `frontend/android/README.md`). Plugin manifests were checked in
+`frontend/node_modules`; **confirm the final list from the merged manifest of the release bundle**
 (Android Studio "Merged Manifest", or `bundletool dump manifest --bundle app-release.aab`).
 
 | Permission | Source | Why Luna needs it | Runtime prompt | Play declaration |
@@ -711,15 +716,20 @@ was written, so **confirm the final list from the merged manifest of the release
 | `android.permission.POST_NOTIFICATIONS` | `@capacitor/local-notifications` 7.0.7 | Show reminders; requested only when the user turns a reminder on (Android 13+) | Yes | None |
 | `android.permission.RECEIVE_BOOT_COMPLETED` | `@capacitor/local-notifications` (non-exported boot receiver) | Re-create scheduled reminders after a reboot | No | None |
 | `android.permission.WAKE_LOCK` | `@capacitor/local-notifications` | Deliver alarms while the device is idle | No | None |
-| `android.permission.VIBRATE` | Expected from `@capacitor/haptics` (**verify in merged manifest**) | Haptic feedback (turned off by "Quiet") | No | None |
+| `android.permission.VIBRATE` | `@capacitor/haptics` (confirmed in its manifest) | Haptic feedback (turned off by "Quiet") | No | None |
+| `android.permission.USE_CREDENTIALS` | `@capgo/capacitor-social-login` | Google sign-in via Credential Manager | No | None |
+| `android.permission.USE_BIOMETRIC`, `android.permission.USE_FINGERPRINT` | Transitive Google sign-in / credentials libraries | Not used by Luna | No | None; optionally remove with `tools:node="remove"` after testing sign-in |
+| `<app ID>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | androidx.core | Signature-level, internal to the app | No | None |
 | `com.google.android.gms.permission.AD_ID` | Must **not** be present (**verify in merged manifest**) | Not used | | Advertising ID declaration: No (2.4) |
 
 Not requested: `SCHEDULE_EXACT_ALARM` / `USE_EXACT_ALARM` (reminders are inexact on purpose, so
 no exact-alarm declaration is needed), location, camera, storage, contacts, phone, SMS. Other
 manifest facts reviewers may ask about: `android:allowBackup="false"` (health data is never in
 Android cloud backups), `FLAG_SECURE` (no screenshots), `usesCleartextTraffic="false"`,
-`MainActivity` not exported (only the six launcher aliases are), FileProvider not exported (used
-for the data export share sheet).
+`MainActivity` not exported; in the app manifest only the six launcher aliases are exported
+(libraries add two permission-protected exported components: Google sign-in's revocation service
+and androidx `ProfileInstallReceiver`); FileProvider not exported (used for the data export share
+sheet); `dataExtractionRules` also excludes device-to-device transfer.
 
 ---
 
@@ -732,8 +742,9 @@ Owner-only steps are detailed in [`owner-setup-guide.md`](owner-setup-guide.md).
 
 | Fact | Source (checked 2026-11-10) |
 | --- | --- |
-| New apps and updates must target **Android 16 (API 36)** since 2026-08-31. Luna targets **API 35** (`frontend/android/variables.gradle`) | <https://developer.android.com/google/play/requirements/target-sdk>, <https://support.google.com/googleplay/android-developer/answer/11926878> |
-| New personal accounts (created after 2023-11-13) need a closed test with **at least 12 testers opted in for the last 14 continuous days** before applying for production; that review "usually takes seven days or less" | <https://support.google.com/googleplay/android-developer/answer/14151465> |
+| New apps and updates must target **Android 16 (API 36)** since 2026-08-31; the extension option ran only to 2026-11-01, already past. Luna targets **API 35** (`frontend/android/variables.gradle`). Verified again by the fact-check 2026-11-10 | <https://developer.android.com/google/play/requirements/target-sdk>, <https://support.google.com/googleplay/android-developer/answer/11926878> |
+| New personal accounts (created after 2023-11-13) need a closed test with **at least 12 testers opted in for the last 14 continuous days** before applying for production; that review "usually takes seven days or less". Verified again by the fact-check 2026-11-10 | <https://support.google.com/googleplay/android-developer/answer/14151465> |
+| A personal account that monetises shows the developer's **full address** on Google Play. Verified by the fact-check 2026-11-10 | <https://support.google.com/googleplay/android-developer/answer/13628312> |
 | Internal testing: up to 100 testers, builds arrive within minutes, may skip full review | <https://support.google.com/googleplay/android-developer/answer/9845334> |
 | New apps are enrolled in Play App Signing by default (Google holds the app signing key; you keep the upload key, which Google can reset) | <https://support.google.com/googleplay/android-developer/answer/9842756> |
 | Pre-launch report runs automatically on bundle upload where capacity permits; test credentials go under Pre-launch report > Settings | <https://support.google.com/googleplay/android-developer/answer/9842757> |
@@ -804,18 +815,61 @@ Owner-only steps are detailed in [`owner-setup-guide.md`](owner-setup-guide.md).
 | 1 | Raise `compileSdkVersion`/`targetSdkVersion` to 36: upgrade to Capacitor 8 (Capacitor documents target SDK 36 for Android 8.x: <https://capacitorjs.com/docs/next/android/setting-target-sdk>, checked 2026-11-10), lift the `androidx.browser` 1.8.0 pin, re-test edge-to-edge (Capacitor 8 reportedly removes `adjustMarginsForEdgeToEdge`), the keyboard resize, and every plugin (social login, native purchases, secure storage) for Capacitor 8 versions | Play refuses API 35 uploads for new apps since 2026-08-31 | Any upload |
 | 2 | R8: `minifyEnabled true`, `proguard-android-optimize.txt`, `-assumenosideeffects` for `Log.d/i/v`, keep rules (exact text in `billing-owner-checklist.md` "Release build") | The billing plugin logs purchase tokens | Release |
 | 3 | In-app "report this reply" (or flag) control for Chat and Insights, sending the message id and reason to the backend, stored for review | Play AI-Generated Content policy | Release |
-| 4 | Host the web frontend build (e.g. a second Caddy site for `app.example.com` serving `frontend/build` with SPA fallback, or static hosting) and add its origin to `ALLOWED_ORIGINS` | Privacy URL; e-mail verification and password reset links open web routes | Sign-up works at all; Play listing |
+| 4 | Host the web frontend build (e.g. a second Caddy site for `app.example.com` serving `frontend/build` with SPA fallback, or static hosting) and add its origin to `ALLOWED_ORIGINS` | Privacy URL; e-mail sign-up cannot complete at all: the password is chosen on the web `/verify-email` page (`auth.py` register stores an empty hash) and the app has no App Links; password reset also opens a web route | Sign-up works at all; Play listing |
 | 5 | Fix `/account-deletion` text (3.3, 3.4), add Hindi | Play account deletion policy | Data safety |
 | 6 | Apply the reviewed privacy policy text (section 4) and AI consent text (accuracy of what Insights sends); decide the `PRIVACY_POLICY_VERSION` bump | Disclosure accuracy | Release |
-| 7 | Hugging Face endpoint: the code calls `https://api-inference.huggingface.co/models/...`. Community reports (search 2026-11-10, e.g. <https://discuss.huggingface.co/t/error-https-api-inference-huggingface-co-is-no-longer-supported-please-use-https-router-huggingface-co-hf-inference-instead/169870/1>) say that host now answers 410 and the router `https://router.huggingface.co` replaces it; not confirmed from official Hugging Face docs here. Test with the real key; if it fails, Insights silently uses the MedGemma fallback (`llm_service.py`). If migrating, check which provider serves the model, because that provider then receives the data and must be named in the policy | Insights quality and disclosure accuracy | Insights |
+| 7 | Hugging Face endpoint: the code calls `https://api-inference.huggingface.co/models/...`. Community reports (search 2026-11-10, e.g. <https://discuss.huggingface.co/t/error-https-api-inference-huggingface-co-is-no-longer-supported-please-use-https-router-huggingface-co-hf-inference-instead/169870/1>) say that host now answers 410 and the router `https://router.huggingface.co` replaces it; not confirmed from official Hugging Face docs here. Test with the real key: if it fails, the MedGemma step is skipped silently (`llm_service.py`: empty medical analysis) and Groq still writes a report from statistics alone, so the user is not told. Official Hugging Face docs (<https://huggingface.co/docs/inference-providers/providers/hf-inference>, checked 2026-11-10) say HF Inference now focuses on CPU models and list no text-generation task, so MedGemma is likely not served there at all. Options: a third-party provider that serves it (named in the policy), a dedicated Inference Endpoint, or dropping the step. If migrating, check which provider serves the model, because that provider then receives the data and must be named in the policy | Insights quality and disclosure accuracy | Insights |
 | 8 | Docker log rotation (`logging: driver json-file, options max-size/max-file`) for `proxy` and `api` in `deploy/compose.prod.yml`, matching the retention stated in the policy | Retention promise | Policy text |
-| 9 | Merged-manifest check; remove `AD_ID` if any library adds it | Advertising ID declaration | Release |
+| 9 | Merged-manifest check; remove `AD_ID` if any library adds it. The Facebook SDK (the usual `AD_ID` source) is excluded only when building through `npm run android:sync` (the social-login hook writes `socialLogin.facebook.include=false`); never build a release with a bare `./gradlew` | Advertising ID declaration | Release |
 | 10 | Optional: request only the `email` scope in `nativeGoogle.js` (drop `profile`) so no name reaches the server | Simpler Data safety | No |
-| 11 | Optional: self-host the Google Fonts (`App.js`, `LandingPage.js`, `EmailVerification.js` `@import`); Devanagari is already self-hosted in `public/fonts` | No IP to Google, fonts work offline | No |
 | 12 | Optional: purge never-verified accounts after N days; replace the React default `public/logo192.png`, `logo512.png`, `favicon.ico` | Retention; web polish | No |
 | 13 | Reviewer access to paid features (2.2): promo code or a server-side allowlist | Review of Insights/Chat | Review |
 | 14 | Device runs of the offline and billing checklists on the minified build (not yet done on a device) | Known follow-up | Release |
 | 15 | Native Hindi review of in-app strings (`frontend/src/i18n/hi-review.md`, `npm run i18n:review`) and of the Hindi listing copy | Known follow-up | Release |
+
+### 7.4 Confirmed product blockers and gaps
+
+De-duplicated list after an independent fact-check against the code (2026-11-10), in priority
+order. Details for each are in 7.3 and the sections referenced.
+
+**Blockers (no release until fixed)**
+
+1. `targetSdk` 35 vs the required 36: Play refuses new uploads since 2026-08-31
+   (<https://developer.android.com/google/play/requirements/target-sdk>). Needs Capacitor 8 and an
+   edge-to-edge retest.
+2. Web frontend not hosted: e-mail sign-up and password reset cannot complete (the password is
+   chosen on the web `/verify-email` page), no public privacy URL, no App Links.
+3. No in-app report/flag control for AI output (Play AI-Generated Content policy,
+   <https://support.google.com/googleplay/android-developer/answer/13985936>).
+4. `/account-deletion` page (`backend/app/api/legal.py:21-26`) gives the wrong in-app path (real:
+   Profile → Privacy & data → Delete my account), no developer name, no retention/retained-data
+   text, no subscription note (Play account deletion requirement,
+   <https://support.google.com/googleplay/android-developer/answer/13327111>).
+5. Release build logs purchase tokens (`minifyEnabled false`; billing plugin `Log` calls).
+
+**Should fix before launch**
+
+6. Hugging Face MedGemma step probably dead and silently degraded (7.3 #7).
+7. AI consent text and privacy policy understate what is sent: Insights sends up to six raw period
+   records plus the full profile including the free-text note, weight, height and sex; Groq also
+   gets analysis data; chat gets AI risk flags.
+8. Privacy policy lacks retention statements, a processors list and developer identity; it says
+   "deleted immediately" while backups are kept up to 30 days.
+9. No log rotation (Caddy IP/path logs kept indefinitely).
+10. Unverified registrations are never purged.
+11. No reviewer access mechanism for paid features.
+12. Chat "BMI" is always N/A (bug in `backend/app/api/chat.py`).
+
+**Nice to have**
+
+13. Create React App default `logo192.png` / `logo512.png` / `favicon.ico` in `frontend/public/`
+    (render the 512 Play icon from `frontend/resources/icon.svg`).
+14. `FLAG_SECURE` makes store and pre-launch screenshots black (use a local build without it for
+    captures).
+15. The Google `profile` scope is not needed (the server reads only the email).
+16. Google sign-in accepts only `@gmail.com` addresses (`backend/app/services/google_oauth.py:127`),
+    so Google Workspace testers cannot use it.
+17. Remove the transitive `USE_BIOMETRIC` / `USE_FINGERPRINT` permissions after testing sign-in.
 
 ---
 
@@ -847,5 +901,7 @@ All checked 2026-11-10.
 - Play App Signing: <https://support.google.com/googleplay/android-developer/answer/9842756>
 - Pre-launch report: <https://support.google.com/googleplay/android-developer/answer/9842757>
 - Groq data handling: <https://console.groq.com/docs/your-data>
-- Hugging Face Inference Providers: <https://huggingface.co/docs/inference-providers/index>
+- Hugging Face Inference Providers: <https://huggingface.co/docs/inference-providers/index>,
+  <https://huggingface.co/docs/inference-providers/providers/hf-inference>
+- Account information / public address: <https://support.google.com/googleplay/android-developer/answer/13628312>
 - Capacitor target SDK: <https://capacitorjs.com/docs/next/android/setting-target-sdk>
