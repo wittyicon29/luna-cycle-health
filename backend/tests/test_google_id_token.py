@@ -383,6 +383,36 @@ def test_iat_slightly_in_the_future_is_accepted_as_before(client, keypair):
     assert post(client, make_token(keypair, iat=int(time.time()) + 30)).status_code == 200
 
 
+def test_iat_four_minutes_in_the_future_is_accepted(client, keypair):
+    # Up to 5 minutes of clock skew against Google is tolerated.
+    assert post(client, make_token(keypair, iat=int(time.time()) + 240)).status_code == 200
+
+
+@pytest.mark.parametrize("ahead", [360, 3600, 10 * 365 * 24 * 3600])
+def test_iat_more_than_five_minutes_in_the_future_is_rejected(client, db, keypair, ahead):
+    _assert_invalid(client, db, make_token(keypair, iat=int(time.time()) + ahead))
+
+
+def test_future_iat_as_a_numeric_string_is_rejected(client, db, keypair):
+    _assert_invalid(client, db, _sign_rs256(keypair, _claims(iat=str(int(time.time()) + 3600))))
+
+
+def test_future_iat_is_rejected_by_verify_google_id_token_itself(keypair):
+    import asyncio
+
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as excinfo:
+        asyncio.run(google_id_token.verify_google_id_token(make_token(keypair, iat=int(time.time()) + 3600)))
+    assert excinfo.value.status_code == 400 and excinfo.value.detail == INVALID
+
+
+def test_missing_iat_is_still_rejected(client, db, keypair):
+    claims = _claims()
+    del claims["iat"]
+    _assert_invalid(client, db, _sign_rs256(keypair, claims))
+
+
 @pytest.mark.parametrize("iat", ["not-a-number", [1], {"t": 1}])
 def test_non_integer_iat_is_rejected(client, db, keypair, iat):
     _assert_invalid(client, db, _sign_rs256(keypair, _claims(iat=iat)))

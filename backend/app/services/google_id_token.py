@@ -12,6 +12,8 @@ GOOGLE_CERTS_URL = "https://www.googleapis.com/oauth2/v3/certs"
 GOOGLE_ISSUERS = {"https://accounts.google.com", "accounts.google.com"}
 _CERTS_TTL_SECONDS = 3600
 _FORCED_REFRESH_COOLDOWN_SECONDS = 60
+# Clock skew tolerated between Google and this server for a token's iat.
+_MAX_IAT_SKEW_SECONDS = 300
 
 _cache = {"fetched_at": 0.0, "keys": []}
 _last_fetch_attempt = 0.0
@@ -68,12 +70,13 @@ def _find_key(keys: list, kid: Optional[str]) -> Optional[dict]:
     return next((k for k in keys if kid and k.get("kid") == kid), None)
 
 
-def _issued_at_is_integer(claims: dict) -> bool:
+def _issued_at_is_acceptable(claims: dict) -> bool:
+    """iat is an integer and not more than _MAX_IAT_SKEW_SECONDS in the future."""
     try:
-        int(claims["iat"])
+        issued_at = int(claims["iat"])
     except (KeyError, TypeError, ValueError, OverflowError):
         return False
-    return True
+    return issued_at <= time.time() + _MAX_IAT_SKEW_SECONDS
 
 
 async def verify_google_id_token(id_token: str) -> dict:
@@ -82,8 +85,10 @@ async def verify_google_id_token(id_token: str) -> dict:
     RS256 only: the header must say RS256 before any key is looked up, the key is the JWKS
     entry with the header's kid, and decode() is pinned to algorithms=["RS256"] (so an HS256
     token HMAC-signed with the public key, or alg=none, never verifies). exp and iat are
-    required, exp and nbf are checked without leeway; iat must be an integer but is not
-    compared with the clock (python-jose never did; clock skew must not break sign-in).
+    required, exp and nbf are checked without leeway; iat must be an integer and at most
+    _MAX_IAT_SKEW_SECONDS (5 minutes) in the future, so ordinary clock skew against Google
+    does not break sign-in but a token issued in the future is refused (PyJWT's own iat
+    check is off because it allows no skew at all).
     iss must be one of GOOGLE_ISSUERS and aud a single string in the configured allowlist.
     """
     audiences = allowed_audiences()
@@ -113,7 +118,7 @@ async def verify_google_id_token(id_token: str) -> dict:
     except (jwt.PyJWTError, ValueError, KeyError, TypeError):
         raise _invalid()
 
-    if not _issued_at_is_integer(claims):
+    if not _issued_at_is_acceptable(claims):
         raise _invalid()
     issuer, audience = claims.get("iss"), claims.get("aud")
     if not isinstance(issuer, str) or issuer not in GOOGLE_ISSUERS:
