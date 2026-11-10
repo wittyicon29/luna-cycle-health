@@ -11,7 +11,6 @@ const utf8Bytes = value => unescape(encodeURIComponent(value)).length;
 
 // Styles
 const STYLES = `
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Outfit:wght@300;400;500;600&family=Fira+Code:wght@300;400;500&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#1A0F2E;--s1:#241539;--s2:#2E1D45;--s3:#3D2860;
@@ -68,7 +67,6 @@ body{font-family:'Outfit','Noto Sans Devanagari',sans-serif;background:var(--bg)
 .vpw-toggle{position:absolute;top:50%;right:0;transform:translateY(-50%);width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1rem;border-radius:var(--r)}
 .vpw-toggle:hover{color:var(--cream)}
 .vpw-toggle:focus-visible{outline:2px solid #FF8A80;outline-offset:-2px}
-@font-face{font-family:'Noto Sans Devanagari';font-weight:400 600;font-display:swap;unicode-range:U+0900-097F,U+1CD0-1CF9,U+200C-200D,U+20A8,U+20B9,U+25CC,U+A830-A839,U+A8E0-A8FF;src:url('/fonts/NotoSansDevanagari-Variable.woff2') format('woff2')}
 :lang(hi) body{line-height:1.7}
 :lang(hi) .btn,:lang(hi) .chip,:lang(hi) .dk .dl{line-height:1.4}
 `;

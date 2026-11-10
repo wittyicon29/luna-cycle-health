@@ -167,7 +167,6 @@ function computePeriodStats(periods) {
 
 // ─── STYLES ───────────────────────────────────────────────────────────────────
 const STYLES = `
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Outfit:wght@300;400;500;600&family=Fira+Code:wght@300;400;500&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#1A0F2E;--s1:#241539;--s2:#2E1D45;--s3:#3D2860;
@@ -384,7 +383,6 @@ body{font-family:'Outfit','Noto Sans Devanagari',sans-serif;background:var(--bg)
 .drawer-handle{width:36px;height:4px;border-radius:2px;background:rgba(255,255,255,.13);margin:10px auto 0;flex-shrink:0;cursor:pointer}
 .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.5rem .75rem;flex-shrink:0;border-bottom:1px solid var(--border)}
 .drawer-title{font-family:'Cormorant Garamond','Noto Sans Devanagari',serif;font-size:1.4rem;font-weight:500;letter-spacing:.01em}
-@font-face{font-family:'Noto Sans Devanagari';font-weight:100 900;font-display:swap;unicode-range:U+0900-097F,U+1CD0-1CF9,U+200C-200D,U+20A8,U+20B9,U+25CC,U+A830-A839,U+A8E0-A8FF;src:url('/fonts/NotoSansDevanagari-Variable.woff2') format('woff2')}
 :lang(hi) body{line-height:1.7}
 :lang(hi) .btn,:lang(hi) .chip,:lang(hi) .dk .dl{line-height:1.4}
 :lang(hi) .auth-logo h1,:lang(hi) .auth-logo p,:lang(hi) .auth-tab,:lang(hi) .f label,:lang(hi) .tlogo,:lang(hi) .phase-pill,:lang(hi) .month-lbl,:lang(hi) .phase-sep-lbl,:lang(hi) .beacon-lbl,:lang(hi) .ph-card-title,:lang(hi) .ph-card-sub,:lang(hi) .st-val,:lang(hi) .st-lbl,:lang(hi) .dk .dl,:lang(hi) .drawer-title,:lang(hi) .ch-lbl,:lang(hi) .bname,:lang(hi) .tk-hd,:lang(hi) .ins-lbl,:lang(hi) .score-num .s,:lang(hi) .pred-lbl,:lang(hi) .badge,:lang(hi) .q-sec-title,:lang(hi) .intro-pill{letter-spacing:0}
