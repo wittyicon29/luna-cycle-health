@@ -176,12 +176,33 @@ def test_backend_installs_the_backup_tools_and_runs_everything():
     runs = _runs(data)
     assert re.search(r"apt-get install [^\n]*\bage\b[^\n]*\bpostgresql-client-16\b", runs)
     assert "/usr/lib/postgresql/16/bin" in runs and "pg_dump --version" in runs
-    assert "pip install -r requirements-dev.txt" in runs
+    assert "pip install --require-hashes --no-deps -r requirements-dev.lock" in runs
+    assert "pip check" in runs
+    assert not re.search(r"pip install (?:-r )?requirements[\w-]*\.txt", runs)
     assert "shellcheck -x scripts/*.sh deploy/smoke.sh" in runs
     assert re.search(r"pytest tests/[^\n]*--cov=app", runs)
     assert "GITHUB_STEP_SUMMARY" in runs and "coverage report --format=markdown" in runs
     # Service-backed tests must not skip silently in CI.
     assert "TEST_POSTGRES_URL" in runs and "junit.xml" in runs
+
+
+def test_backend_checks_the_lock_files_are_in_sync():
+    data = _load("backend.yml")
+    job = data["jobs"]["test"]
+    assert job["env"]["LUNA_REQUIRE_LOCK_CHECK"] == "1"  # the sync check fails instead of skipping
+    steps = [step for _, step in _steps(data)]
+    runs = [step.get("run", "") for step in steps]
+    install = next(i for i, run in enumerate(runs) if "requirements-dev.lock" in run)
+    check = next(i for i, run in enumerate(runs) if "pytest tests/test_requirements_lock.py" in run)
+    suite = next(i for i, run in enumerate(runs) if re.search(r"pytest tests/ ", run))
+    assert install < check < suite
+    # The main run does not repeat the (network-bound) re-lock.
+    assert "--deselect tests/test_requirements_lock.py::test_locks_are_in_sync_with_their_inputs" in runs[suite]
+
+
+def test_docker_job_checks_the_image_against_the_lock():
+    runs = _runs(_load("docker.yml"))
+    assert "pip check && pip freeze --all" in runs and "backend/requirements.lock" in runs
 
 
 # --- frontend ---------------------------------------------------------------------------
@@ -219,13 +240,17 @@ def test_audit_triggers():
     assert on["schedule"] and "cron" in on["schedule"][0]
     assert "workflow_dispatch" in on
     paths = on["pull_request"]["paths"]
-    for needed in ("backend/requirements*.txt", "frontend/package.json", "frontend/package-lock.json", ".github/audit-allowlist.txt"):
+    for needed in ("backend/requirements*.txt", "backend/requirements*.lock", "frontend/package.json",
+                   "frontend/package-lock.json", ".github/audit-allowlist.txt"):
         assert needed in paths
 
 
 def test_audit_runs_both_audits_through_the_gate():
     runs = _runs(_load("audit.yml"))
-    assert "pip-audit -r backend/requirements.txt -f json" in runs
+    assert "pip-audit -r backend/requirements.lock --disable-pip -f json" in runs
+    assert "pip-audit -r backend/requirements-dev.lock --disable-pip -f json" in runs
+    assert "pip-audit -r backend/requirements.txt" not in runs
+    assert len(re.findall(r"audit_gate\.py pip ", runs)) == 2
     assert "npm audit --omit=dev --audit-level=high --json" in runs
     assert re.search(r"audit_gate\.py pip [^\n]*--allowlist \.github/audit-allowlist\.txt", runs)
     assert re.search(r"audit_gate\.py npm [^\n]*--min-severity high[^\n]*--allowlist \.github/audit-allowlist\.txt", runs)

@@ -336,7 +336,13 @@ to commit SHAs, superseded PR runs cancelled):
 | `backend.yml` | push / PR to `main`, `develop` | shellcheck of `scripts/*.sh` and `deploy/smoke.sh`; pytest with coverage (job summary) against PostgreSQL 16 and Redis 7 service containers, so the migration, rotation and backup/restore drills run; fails if any of them skipped |
 | `frontend.yml` | push / PR to `main`, `develop` | `npm ci`, `npm run i18n:check`, jest, production build with at most 15 ESLint warnings (`frontend/scripts/check-build-warnings.js`) |
 | `docker.yml` | push / PR touching `backend/`, `deploy/` | builds `backend/Dockerfile`, runs `backend/scripts/migrate.py` (twice) and the image's gunicorn with a generated production env; `/health` and `/ready` 200, `/docs` 404, wrong `Host` 400 |
-| `audit.yml` | weekly, manual, PRs touching dependency files | `pip-audit -r backend/requirements.txt` and `npm audit --omit=dev --audit-level=high`, judged by `scripts/ci/audit_gate.py` |
+| `audit.yml` | weekly, manual, PRs touching dependency files | `pip-audit` of `backend/requirements.lock` and `backend/requirements-dev.lock`, and `npm audit --omit=dev --audit-level=high`, judged by `scripts/ci/audit_gate.py` |
+
+- **Backend lock files.** `backend.yml` installs `backend/requirements-dev.lock` with
+  `--require-hashes --no-deps` and fails if either lock is out of date with its
+  requirements file (`backend/tests/test_requirements_lock.py`); `docker.yml` checks that
+  the image holds exactly `backend/requirements.lock`. See
+  [section 12](#12-updating-dependencies).
 
 - **Audit allowlist.** `.github/audit-allowlist.txt`: one advisory id per line with a
   `# justification` (why it does not apply or cannot be fixed yet, and when to look again).
@@ -361,6 +367,78 @@ to commit SHAs, superseded PR runs cancelled):
 | `scripts/android/release.sh` | guarded, signed release build (`--check-only` to validate) |
 | `scripts/android/test-release-guards.sh` | tests of the release guards |
 | `scripts/android/test-launcher-aliases.sh` | checks the launcher aliases in a built APK |
+
+## 12. Updating dependencies
+
+The backend has two kinds of requirements files:
+
+| File | Edited by | Contents |
+| --- | --- | --- |
+| `backend/requirements.txt` | you | direct runtime dependencies, each pinned exactly (`name==version`) |
+| `backend/requirements-dev.txt` | you | `-r requirements.txt` plus the test and lock tools, pinned exactly |
+| `backend/requirements.lock` | pip-compile | every runtime package (transitive ones included) with its version and sha256 hashes |
+| `backend/requirements-dev.lock` | pip-compile | the same for runtime + dev |
+
+The image installs `requirements.lock` with `pip install --require-hashes --no-deps
+--only-binary=:all:` (`backend/Dockerfile`) and CI installs `requirements-dev.lock` the same
+way, so a release that was not locked here can never be installed, and a package whose
+files change on PyPI fails the hash check. Never edit a lock file by hand.
+
+The locks are resolved for **Linux and Python 3.11** (the image and CI): pip-compile drops
+packages whose environment markers do not match the machine it runs on (greenlet, a
+SQLAlchemy dependency, is only installed on x86_64/aarch64 Linux), so a lock compiled on
+macOS is wrong. Regenerate them in a throwaway `python:3.11-slim` container (or on a
+Linux machine with Python 3.11 and `requirements-dev.lock` installed, running the two
+`python -m piptools compile` commands from `backend/`).
+
+1. Edit `backend/requirements.txt` (or `backend/requirements-dev.txt`): change the exact pin,
+   add or remove a line. Read the release notes of everything you bump.
+2. Regenerate both locks, from the repository root (pip-tools 7.6.2 is the version pinned
+   in `backend/requirements-dev.txt`):
+
+   ```sh
+   docker run --rm -v "$PWD/backend:/src" -w /src -e HOME=/tmp -e PIP_DISABLE_PIP_VERSION_CHECK=1 \
+     --user "$(id -u):$(id -g)" python:3.11-slim sh -ec '
+       pip install --quiet --user pip-tools==7.6.2
+       python -m piptools compile --quiet --generate-hashes --allow-unsafe --strip-extras \
+         --output-file=requirements.lock requirements.txt
+       python -m piptools compile --quiet --generate-hashes --allow-unsafe --strip-extras \
+         --output-file=requirements-dev.lock requirements-dev.txt'
+   ```
+
+   This is slow: pip-tools 7.6.2 hashes every file of every locked release by downloading
+   it (its PyPI JSON lookup does not match pypi.org's URLs), several gigabytes for numpy and
+   scipy alone. Add `-v "$HOME/.cache/luna-pip:/tmp/.cache"` to the `docker run` line to
+   keep the download cache between runs. pip-compile records every file PyPI lists for a
+   release (all platforms, wheels and sdists), so the locks install on amd64 and arm64.
+   pip-compile keeps every existing pin that still satisfies the inputs, so only what you
+   changed (and what it needs) moves. To bump a transitive package without touching the
+   inputs, add `--upgrade-package NAME` to both commands; `--upgrade` re-resolves everything
+   to the newest releases (review the whole diff then).
+3. Review `git diff backend/requirements*.lock`: only the packages you expected changed.
+4. Audit both locks exactly as `audit.yml` does (pip-audit 2.10.1 in a scratch venv):
+
+   ```sh
+   pip-audit -r backend/requirements.lock --disable-pip -f json -o /tmp/pip-audit.json
+   python3 scripts/ci/audit_gate.py pip /tmp/pip-audit.json --allowlist .github/audit-allowlist.txt
+   pip-audit -r backend/requirements-dev.lock --disable-pip -f json -o /tmp/pip-audit-dev.json
+   python3 scripts/ci/audit_gate.py pip /tmp/pip-audit-dev.json --allowlist .github/audit-allowlist.txt
+   ```
+
+5. Reinstall the dev venv from the lock and run the tests:
+
+   ```sh
+   cd backend
+   .venv/bin/pip install --require-hashes --no-deps -r requirements-dev.lock && .venv/bin/pip check
+   .venv/bin/python -m pytest -q
+   ```
+
+   `tests/test_requirements_lock.py` checks that every direct pin is locked at the same
+   version and that both locks carry hashes; its re-lock comparison (pinned versions, no
+   hashes, so it takes seconds) only runs on Linux with Python 3.11 (it skips on macOS, and
+   runs in `backend.yml`).
+6. Commit the requirements file(s) and both locks together. The Docker image workflow
+   (`docker.yml`) builds the image from the new lock on the pull request.
 
 ## Untested here
 

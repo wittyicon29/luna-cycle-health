@@ -1,4 +1,4 @@
-# Dependency audits: pip-audit for the backend runtime requirements and npm audit for the
+# Dependency audits: pip-audit for the backend lock files and npm audit for the
 # frontend's non-dev dependencies (high and critical advisories). Findings fail the job
 # unless their advisory id is in .github/audit-allowlist.txt with a justification;
 # scripts/ci/audit_gate.py applies the allowlist to the JSON reports.
@@ -11,6 +11,7 @@ on:
   pull_request:
     paths:
       - backend/requirements*.txt
+      - backend/requirements*.lock
       - frontend/package.json
       - frontend/package-lock.json
       - .github/audit-allowlist.txt
@@ -20,6 +21,7 @@ on:
     branches: [main]
     paths:
       - backend/requirements*.txt
+      - backend/requirements*.lock
       - frontend/package.json
       - frontend/package-lock.json
       - .github/audit-allowlist.txt
@@ -39,7 +41,7 @@ defaults:
 
 jobs:
   pip-audit:
-    name: pip-audit (backend/requirements.txt)
+    name: pip-audit (backend/requirements.lock, backend/requirements-dev.lock)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
@@ -53,17 +55,27 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-          cache-dependency-path: backend/requirements*.txt
+          cache-dependency-path: backend/requirements*.lock
 
       - name: Install pip-audit
         run: pip install pip-audit==2.10.1
 
-      - name: Audit
+      # The locks pin every package (transitive ones included) with hashes, so pip-audit reads
+      # them as they are (--disable-pip): nothing is resolved, installed or built.
+      - name: Audit the runtime lock
         run: |
           # pip-audit exits 1 when it finds anything; the gate decides (and fails on a missing report).
-          pip-audit -r backend/requirements.txt -f json -o "$RUNNER_TEMP/pip-audit.json" ||
+          pip-audit -r backend/requirements.lock --disable-pip -f json -o "$RUNNER_TEMP/pip-audit.json" ||
             echo "pip-audit exited with $?; the gate below judges the report"
           python scripts/ci/audit_gate.py pip "$RUNNER_TEMP/pip-audit.json" --allowlist .github/audit-allowlist.txt
+
+      # Test and lock tooling runs in CI with the code checked out, so it is audited too.
+      - name: Audit the dev lock
+        if: ${{ !cancelled() }}
+        run: |
+          pip-audit -r backend/requirements-dev.lock --disable-pip -f json -o "$RUNNER_TEMP/pip-audit-dev.json" ||
+            echo "pip-audit exited with $?; the gate below judges the report"
+          python scripts/ci/audit_gate.py pip "$RUNNER_TEMP/pip-audit-dev.json" --allowlist .github/audit-allowlist.txt
 
   npm-audit:
     name: npm audit (frontend, non-dev, high+)

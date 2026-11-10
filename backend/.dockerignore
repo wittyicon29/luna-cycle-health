@@ -4,7 +4,7 @@
 !alembic
 !alembic.ini
 !scripts
-!requirements.txt
+!requirements.lock
 
 # Never send these, even from inside the allowed directories.
 .env

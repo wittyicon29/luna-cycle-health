@@ -234,7 +234,7 @@ def test_dockerfile_copies_only_runtime_files():
             continue
         sources.extend(s.rstrip("/") for s in parts[:-1])
     assert sources
-    assert set(sources) <= {"app", "alembic", "alembic.ini", "scripts", "requirements.txt"}
+    assert set(sources) <= {"app", "alembic", "alembic.ini", "scripts", "requirements.lock"}
     text = _read(DOCKERFILE)
     assert not re.search(r"(?m)^\s*COPY\s+\.\s", text)
     assert ".env" not in " ".join(copies)
@@ -255,6 +255,19 @@ def test_dockerfile_env_healthcheck_and_cmd():
     assert "--worker-tmp-dir /dev/shm" in cmd[0]
     assert "uvicorn-worker" in text  # note about the deprecated uvicorn.workers module
     assert any(line.startswith("ENV ") and "WEB_CONCURRENCY=2" in line for line in _dockerfile_instructions())
+
+
+def test_dockerfile_installs_the_hash_pinned_lock_only():
+    runs = [line for line in _dockerfile_instructions() if line.upper().startswith("RUN ") and "pip install" in line]
+    assert len(runs) == 1, runs
+    assert "pip install --require-hashes --no-deps --only-binary=:all: -r /tmp/requirements.lock" in runs[0]
+    assert "pip check" in runs[0]
+    text = _read(DOCKERFILE)
+    assert "COPY requirements.lock /tmp/requirements.lock" in text
+    assert "requirements.txt" not in " ".join(_dockerfile_instructions())
+    assert "requirements-dev" not in " ".join(_dockerfile_instructions())
+    allowed = {line.strip() for line in _read(DOCKERIGNORE).splitlines() if line.startswith("!")}
+    assert "!requirements.lock" in allowed and "!requirements.txt" not in allowed
 
 
 def test_gunicorn_is_pinned():

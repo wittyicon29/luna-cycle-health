@@ -1,4 +1,7 @@
 -r requirements.txt
-pytest
-pytest-cov
+pytest==9.2.0
+pytest-cov==7.1.0
 fakeredis[lua]==2.40.0
+# pip-compile: regenerates requirements.lock and requirements-dev.lock and checks that they
+# are in sync with these files (tests/test_requirements_lock.py; runbook "Updating dependencies").
+pip-tools==7.6.2
