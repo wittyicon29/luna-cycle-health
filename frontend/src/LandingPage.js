@@ -64,7 +64,6 @@ const MARQUEE_ITEMS = [
 
 // ─── INJECT STYLES ────────────────────────────────────────────────────────────
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Outfit:wght@300;400;500;600&family=Fira+Code:wght@300;400;500&display=swap');
 .lp*,.lp *{box-sizing:border-box;margin:0;padding:0}
 .lp{font-family:'Outfit','Noto Sans Devanagari',sans-serif;background:#07080C;color:#EAE5DC;overflow-x:hidden}
 .lp ::-webkit-scrollbar{width:3px;height:3px}

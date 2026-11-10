@@ -12,6 +12,13 @@
     <meta name="apple-mobile-web-app-title" content="Luna" />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <!--
+      Self-hosted fonts (no third-party font host). The two faces every first screen
+      needs are preloaded; the rest load on demand from fonts.css.
+    -->
+    <link rel="preload" href="%PUBLIC_URL%/fonts/Outfit-Latin-Variable.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="%PUBLIC_URL%/fonts/CormorantGaramond-Latin-500.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="%PUBLIC_URL%/fonts.css" />
+    <!--
       manifest.json provides metadata used when your web app is installed on a
       user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
     -->
