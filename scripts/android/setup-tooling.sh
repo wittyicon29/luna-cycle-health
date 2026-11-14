@@ -17,7 +17,7 @@ case "$(uname -m)" in
   *) echo "Unsupported arch $(uname -m)" >&2; exit 1 ;;
 esac
 
-# 1. JDK 21 (>= 21 required by Capacitor 7)
+# 1. JDK 21 (>= 21 required by Capacitor 8)
 find_java() { find "$TOOLS/jdk" -type d -path '*/Contents/Home' -maxdepth 4 2>/dev/null | head -1; }
 java_major() {
   "$1/bin/java" -version 2>&1 | sed -n '1s/.*version "\([0-9]*\).*/\1/p'
@@ -39,7 +39,8 @@ else
   mv "$TOOLS/jdk-extract" "$TOOLS/jdk"
   rm -f "$TOOLS/jdk.tar.gz"
 fi
-export JAVA_HOME="$(find_java)"
+JAVA_HOME="$(find_java)"
+export JAVA_HOME
 export PATH="$JAVA_HOME/bin:$PATH"
 
 # 2. Android command-line tools
@@ -61,13 +62,21 @@ export PATH="$SDK/cmdline-tools/latest/bin:$SDK/platform-tools:$SDK/emulator:$PA
 
 # 3. Licences + packages
 yes | sdkmanager --licenses >/dev/null || true
-IMG="system-images;android-35;google_apis;${ABI}"
-sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0" "emulator" "$IMG"
+# Capacitor 8 compiles and targets API 36. build-tools 35.0.0 stays: test-launcher-aliases.sh uses its aapt.
+IMG="system-images;android-36;google_apis;${ABI}"
+sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "build-tools;35.0.0" "emulator" "$IMG"
 
-# 4. Emulator AVD
-if ! avdmanager list avd -c | grep -qx luna_test; then
-  echo no | avdmanager create avd -n luna_test -k "$IMG" -d pixel_6
+# 4. Emulator AVD (recreated when it still uses an older system image; it holds only test data)
+AVD_CONFIG="${ANDROID_AVD_HOME:-$HOME/.android/avd}/luna_test.avd/config.ini"
+if avdmanager list avd -c | grep -qx luna_test; then
+  if grep -q "system-images/android-36/" "$AVD_CONFIG" 2>/dev/null; then
+    echo "AVD luna_test already present (API 36)."
+  else
+    echo "AVD luna_test uses an older system image; recreating it on API 36."
+    avdmanager delete avd -n luna_test
+    echo no | avdmanager create avd -n luna_test -k "$IMG" -d pixel_6
+  fi
 else
-  echo "AVD luna_test already present."
+  echo no | avdmanager create avd -n luna_test -k "$IMG" -d pixel_6
 fi
 echo "Done. Use: source scripts/android/env.sh"

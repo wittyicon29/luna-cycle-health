@@ -4,8 +4,7 @@
   "webDir": "build",
   "loggingBehavior": "none",
   "android": {
-    "allowMixedContent": false,
-    "adjustMarginsForEdgeToEdge": "auto"
+    "allowMixedContent": false
   },
   "plugins": {
     "SplashScreen": {
@@ -25,8 +24,10 @@
       "smallIcon": "ic_stat_luna",
       "iconColor": "#7C66C0"
     },
-    "Keyboard": {
-      "resizeOnFullScreen": true
+    "SystemBars": {
+      "insetsHandling": "css",
+      "style": "DARK",
+      "hidden": false
     }
   }
 }

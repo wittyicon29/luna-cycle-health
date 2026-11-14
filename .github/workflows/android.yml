@@ -1,0 +1,150 @@
+# Builds the Android debug APK (Capacitor shell) so native changes are verified in CI.
+# The runner image ships JDK 21 and Android platform/build-tools 36; the signed release
+# bundle is built locally by scripts/android/release.sh (release signing never reaches CI).
+# The debug APK is signed with the public debug key in frontend/android/app so builds from
+# different runs install over each other.
+name: Android
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - "scripts/android/**"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+    inputs:
+      api_base:
+        description: >-
+          API base URL baked into the debug APK. Debug builds may use plain http only for
+          loopback: http://localhost:8000/api/v1 reaches a backend on your computer through
+          `adb reverse tcp:8000 tcp:8000` (a LAN address such as http://192.168.1.20:8000 is
+          blocked as mixed content by the WebView).
+        type: string
+        default: https://api.example.com
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+    working-directory: frontend
+
+jobs:
+  debug-apk:
+    name: Debug APK and lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      # Set only by a manual run (workflow_dispatch, write access needed); validated below.
+      REACT_APP_API_BASE: ${{ inputs.api_base || 'https://api.example.com' }}
+    steps:
+      - name: Validate the API base URL
+        working-directory: .
+        run: |
+          re='^https?://[A-Za-z0-9.:_-]+(/[A-Za-z0-9._~/-]*)?$'
+          if [[ ! "$REACT_APP_API_BASE" =~ $re ]]; then
+            echo "::error::api_base must look like https://host[:port][/path] or http://localhost:8000/api/v1"
+            exit 1
+          fi
+          echo "API base: $REACT_APP_API_BASE"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+          cache-dependency-path: |
+            frontend/android/**/*.gradle*
+            frontend/android/gradle/wrapper/gradle-wrapper.properties
+            frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build the web app and sync it into the Android project
+        env:
+          # react-scripts turns ESLint warnings into errors when CI=true; warnings are gated by the Frontend workflow.
+          CI: "false"
+        run: npm run android:sync
+
+      - name: Assemble the debug APK
+        working-directory: frontend/android
+        run: ./gradlew --no-daemon --stacktrace assembleDebug
+
+      - name: Assert the APK targets API 36
+        run: |
+          # Newest build-tools on the runner (the image ships 36.x; do not hard-code a patch release).
+          BT="$(find "${ANDROID_HOME}/build-tools" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort -V | tail -1 || true)"
+          BT="${BT:+${BT}/}"
+          if [ -z "$BT" ] || [ ! -x "${BT}aapt2" ]; then
+            echo "::error::no Android build-tools with aapt2 under ${ANDROID_HOME}/build-tools"
+            exit 1
+          fi
+          echo "BUILD_TOOLS=${BT}" >> "$GITHUB_ENV"
+          APK=android/app/build/outputs/apk/debug/app-debug.apk
+          # Write to a file first: under pipefail, `| head` could SIGPIPE the writer and fail the step.
+          "${BT}aapt2" dump badging "$APK" > /tmp/badging.txt
+          head -5 /tmp/badging.txt
+          grep -q "targetSdkVersion:'36'" /tmp/badging.txt
+          grep -q "compileSdkVersion='36'" /tmp/badging.txt || grep -q "platformBuildVersionCode='36'" /tmp/badging.txt
+
+      - name: Assert no exact-alarm or advertising-ID permission
+        run: |
+          "${BUILD_TOOLS}aapt2" dump permissions android/app/build/outputs/apk/debug/app-debug.apk > /tmp/permissions.txt
+          cat /tmp/permissions.txt
+          # Reminders are inexact on purpose (store-prep.md); Luna never uses the advertising ID.
+          if grep -E "android.permission.SCHEDULE_EXACT_ALARM|com.google.android.gms.permission.AD_ID" /tmp/permissions.txt; then
+            echo "::error::the merged manifest requests SCHEDULE_EXACT_ALARM or AD_ID"
+            exit 1
+          fi
+
+      - name: Assert the APK has no native libraries
+        run: |
+          # No .so files means Play's 16 KB page-size requirement does not apply to this app.
+          unzip -l android/app/build/outputs/apk/debug/app-debug.apk > /tmp/apk-files.txt
+          if grep -E "\.so$" /tmp/apk-files.txt; then
+            echo "::error::the APK now contains native libraries; check 16 KB page-size alignment"
+            exit 1
+          fi
+
+      - name: Print the debug signing certificate
+        run: |
+          # Compare this fingerprint between runs: equal values mean the APKs install over each other.
+          "${BUILD_TOOLS}apksigner" verify --print-certs android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Android lint (fails on lint errors; warnings are in the uploaded report)
+        working-directory: frontend/android
+        run: ./gradlew --no-daemon lintDebug
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: luna-debug-apk
+          path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: luna-lint-report
+          path: frontend/android/app/build/reports/lint-results-debug.html
+          if-no-files-found: ignore
+          retention-days: 7

@@ -1,4 +1,4 @@
-// The native client talks to @capgo/native-purchases 7.19.3. The shapes below are the plugin's real Android
+// The native client talks to @capgo/native-purchases 8.6.0. The shapes below are the plugin's real Android
 // output (NativePurchasesPlugin.java): one entry per subscription offer, `identifier` = base plan id,
 // `planIdentifier` = subscription product id, price fields from the offer's first pricing phase, no
 // subscriptionPeriod / introductoryPrice; rejections carry only a message (cancel = "Purchase is not purchased").

@@ -349,6 +349,12 @@ to commit SHAs, superseded PR runs cancelled):
   Prefer upgrading. Remove entries the gate reports as matching nothing.
 - **Warning baseline.** The build had 15 ESLint warnings when the gate was added. Fixing
   warnings is welcome; lower `--max` in `frontend.yml` when you do. New code must not add any.
+- **Android build.** `android.yml` (push to `main`, PRs touching `frontend/`,
+  `scripts/android/` or itself) builds the web app, syncs it into `frontend/android` and
+  runs `./gradlew assembleDebug` and `lintDebug` on JDK 21. The debug APK is the
+  `luna-debug-apk` artifact and the lint report is `luna-lint-report` (both kept 7 days;
+  open the run, "Artifacts"). Lint does not fail the job yet; read the report. Release
+  builds stay local: `scripts/android/release.sh` signs the bundle on the owner's machine.
 - **Node version.** `frontend/.nvmrc` (CI reads it).
 
 ## 11. Scripts

@@ -8,8 +8,8 @@ if (!(lunaVersionCodeRaw ==~ /[1-9][0-9]{0,8}/)) {
 def lunaVersionName = System.getenv("LUNA_VERSION_NAME") != null ? System.getenv("LUNA_VERSION_NAME") : "1.0"
 
 android {
-    namespace "app.placeholder.luna"
-    compileSdk rootProject.ext.compileSdkVersion
+    namespace = "app.placeholder.luna"
+    compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
         applicationId "app.placeholder.luna"
         minSdkVersion rootProject.ext.minSdkVersion
@@ -20,7 +20,18 @@ android {
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
-            ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    // Debug builds use the PUBLIC debug key committed next to this file (password 'android', no secret),
+    // so debug APKs from different machines and CI runs install over each other. Never use it for release.
+    signingConfigs {
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+            storeType 'pkcs12'
         }
     }
     // Release signing comes from the environment (LUNA_KEYSTORE, LUNA_KEYSTORE_PASSWORD,
@@ -38,6 +49,9 @@ android {
         }
     }
     buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
         release {
             if (lunaKeystore) {
                 signingConfig signingConfigs.release

@@ -19,7 +19,7 @@ from app.core.config import Settings
 
 REPO = Path(__file__).resolve().parents[2]
 WORKFLOWS = REPO / ".github" / "workflows"
-NAMES = ["backend.yml", "frontend.yml", "audit.yml", "docker.yml"]
+NAMES = ["backend.yml", "frontend.yml", "audit.yml", "docker.yml", "android.yml"]
 RUNBOOK = REPO / "docs" / "superpowers" / "runbook.md"
 ALLOWLIST = REPO / ".github" / "audit-allowlist.txt"
 NVMRC = REPO / "frontend" / ".nvmrc"
@@ -399,6 +399,148 @@ def test_untested_list_names_what_could_not_run_here():
     section = _text(RUNBOOK).split("## Untested here", 1)[1].lower()
     for needle in ("docker", "caddy", "age", "cron", "rclone", "github actions"):
         assert needle in section, needle
+
+
+# --- android -------------------------------------------------------------------------------
+
+
+def test_android_workflow_builds_the_debug_apk_on_jdk_21():
+    data = _load("android.yml")
+    assert data["defaults"]["run"]["working-directory"] == "frontend"
+    uses = [s["uses"].split("@")[0] for _, s in _steps(data) if "uses" in s]
+    assert "actions/setup-java" in uses and "actions/upload-artifact" in uses
+    java = [s for _, s in _steps(data) if s.get("uses", "").startswith("actions/setup-java@")][0]
+    assert str(java["with"]["java-version"]) == "21"
+    assert java["with"]["distribution"] == "temurin"
+    runs = [s.get("run", "") for _, s in _steps(data)]
+    assert any("npm run android:sync" in r for r in runs)
+    assert any("./gradlew" in r and "assembleDebug" in r for r in runs)
+    assert any("lintDebug" in r for r in runs)
+
+
+def test_android_workflow_only_runs_for_android_relevant_paths():
+    data = _load("android.yml")
+    paths = data["on"]["pull_request"]["paths"]
+    assert "frontend/**" in paths and ".github/workflows/android.yml" in paths
+
+
+def test_android_workflow_uploads_only_the_debug_apk_and_lint_report():
+    text = _text(WORKFLOWS / "android.yml")
+    assert "app-debug.apk" in text
+    assert "bundleRelease" not in text and "keystore" not in text.lower()
+    uploads = [s["with"] for _, s in _steps(_load("android.yml")) if s.get("uses", "").startswith("actions/upload-artifact@")]
+    assert [(u["name"], u["path"]) for u in uploads] == [
+        ("luna-debug-apk", "frontend/android/app/build/outputs/apk/debug/app-debug.apk"),
+        ("luna-lint-report", "frontend/android/app/build/reports/lint-results-debug.html"),
+    ]
+
+
+def test_android_sync_step_runs_with_ci_false():
+    """CI=true makes react-scripts fail the build on the baseline ESLint warnings."""
+    steps = [s for _, s in _steps(_load("android.yml")) if "npm run android:sync" in s.get("run", "")]
+    assert len(steps) == 1 and steps[0]["env"]["CI"] == "false"
+
+
+def _android_steps():
+    return [s for _, s in _steps(_load("android.yml"))]
+
+
+def _android_step(name):
+    matches = [s for s in _android_steps() if s.get("name") == name]
+    assert len(matches) == 1, name
+    return matches[0]
+
+
+def test_android_workflow_asserts_target_sdk_36():
+    steps = _android_steps()
+    names = [s.get("name") for s in steps]
+    assert "Assemble the debug APK" in names and "Assert the APK targets API 36" in names
+    i = names.index("Assemble the debug APK")
+    assert names[i + 1] == "Assert the APK targets API 36"
+    step = steps[i + 1]
+    assert "continue-on-error" not in step
+    run = step["run"]
+    assert "aapt2" in run and "targetSdkVersion:'36'" in run
+    # The newest build-tools directory is chosen, never a hard-coded patch release.
+    assert "build-tools/36.0.0" not in run and "sort -V" in run and "exit 1" in run
+
+
+def test_android_workflow_guards_permissions_native_libs_and_prints_the_signer():
+    perms = _android_step("Assert no exact-alarm or advertising-ID permission")
+    assert "dump permissions" in perms["run"]
+    assert "SCHEDULE_EXACT_ALARM" in perms["run"] and "com.google.android.gms.permission.AD_ID" in perms["run"]
+    libs = _android_step("Assert the APK has no native libraries")
+    assert "unzip -l" in libs["run"] and ".so$" in libs["run"]
+    signer = _android_step("Print the debug signing certificate")
+    assert "apksigner\" verify --print-certs" in signer["run"]
+    for step in (perms, libs, signer):
+        assert "continue-on-error" not in step, step["name"]
+    for step in (perms, libs):
+        assert "exit 1" in step["run"], step["name"]
+
+
+def test_android_lint_fails_the_job_on_errors():
+    lint = [s for s in _android_steps() if "lintDebug" in s.get("run", "")]
+    assert len(lint) == 1 and "continue-on-error" not in lint[0]
+
+
+def test_android_gradle_cache_key_includes_the_npm_lock():
+    """Plugin Gradle modules live in node_modules, so the lock file changes what Gradle builds."""
+    java = [s for s in _android_steps() if s.get("uses", "").startswith("actions/setup-java@")][0]
+    assert "frontend/package-lock.json" in java["with"]["cache-dependency-path"]
+
+
+APP_GRADLE = REPO / "frontend" / "android" / "app" / "build.gradle"
+
+
+def _gradle_block(text, header):
+    """Body of the first `header {` block (brace-matched), or None."""
+    m = re.search(rf"(?m)^\s*{re.escape(header)}\s*\{{", text)
+    if not m:
+        return None
+    depth, i = 1, m.end()
+    while depth:
+        depth += {"{": 1, "}": -1}.get(text[i], 0)
+        i += 1
+    return text[m.end():i - 1]
+
+
+def test_debug_builds_use_the_committed_debug_key_and_release_never_does():
+    text = _text(APP_GRADLE)
+    debug_cfg = _gradle_block(_gradle_block(text, "signingConfigs"), "debug")
+    assert "storeFile file('debug.keystore')" in debug_cfg
+    assert "keyAlias 'androiddebugkey'" in debug_cfg and "storeType 'pkcs12'" in debug_cfg
+    build_types = _gradle_block(text, "buildTypes")
+    assert "signingConfig signingConfigs.debug" in _gradle_block(build_types, "debug")
+    release = _gradle_block(build_types, "release")
+    # Release is signed only from LUNA_KEYSTORE (the environment), never with the public debug key.
+    assert re.findall(r"signingConfig\s+\S+", release) == ["signingConfig signingConfigs.release"]
+    assert "if (lunaKeystore)" in release and "debug" not in release
+    assert (REPO / "frontend" / "android" / "app" / "debug.keystore").is_file()
+
+
+def test_workflow_dispatch_only_on_audit_and_android():
+    for name in NAMES:
+        has = "workflow_dispatch" in _load(name)["on"]
+        assert has == (name in ("audit.yml", "android.yml")), name
+
+
+def test_android_manual_run_takes_a_validated_api_base():
+    data = _load("android.yml")
+    inp = data["on"]["workflow_dispatch"]["inputs"]["api_base"]
+    assert inp["type"] == "string" and inp["default"] == "https://api.example.com"
+    env = data["jobs"]["debug-apk"]["env"]["REACT_APP_API_BASE"]
+    assert env == "${{ inputs.api_base || 'https://api.example.com' }}"
+    first = data["jobs"]["debug-apk"]["steps"][0]
+    assert first["name"] == "Validate the API base URL"
+    assert "$REACT_APP_API_BASE" in first["run"] and "exit 1" in first["run"]
+    assert "^https?://[A-Za-z0-9.:_-]+(/[A-Za-z0-9._~/-]*)?$" in first["run"]
+
+
+def test_no_run_block_reads_inputs(workflow):
+    name, data = workflow
+    for job_id, step in _steps(data):
+        assert "inputs." not in step.get("run", ""), (name, job_id, step.get("name"))
 
 
 # --- hygiene -----------------------------------------------------------------------------------

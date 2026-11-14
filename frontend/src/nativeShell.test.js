@@ -1,16 +1,19 @@
 import { initNativeShell } from './nativeShell';
 import { isNative } from './platform';
+import fs from 'fs';
+import path from 'path';
 import { App } from '@capacitor/app';
-import { StatusBar, Style } from '@capacitor/status-bar';
+import { SystemBars, SystemBarsStyle } from '@capacitor/core';
 import { SplashScreen } from '@capacitor/splash-screen';
 
 jest.mock('./platform', () => ({ isNative: jest.fn() }));
 jest.mock('@capacitor/app', () => ({
   App: { addListener: jest.fn(), minimizeApp: jest.fn() },
 }));
-jest.mock('@capacitor/status-bar', () => ({
-  StatusBar: { setStyle: jest.fn(), setBackgroundColor: jest.fn() },
-  Style: { Dark: 'DARK', Light: 'LIGHT' },
+jest.mock('@capacitor/core', () => ({
+  ...jest.requireActual('@capacitor/core'),
+  SystemBars: { setStyle: jest.fn() },
+  SystemBarsStyle: { Dark: 'DARK', Light: 'LIGHT', Default: 'DEFAULT' },
 }));
 jest.mock('@capacitor/splash-screen', () => ({
   SplashScreen: { hide: jest.fn() },
@@ -23,7 +26,7 @@ describe('initNativeShell', () => {
     isNative.mockReturnValue(false);
     await initNativeShell();
     expect(App.addListener).not.toHaveBeenCalled();
-    expect(StatusBar.setStyle).not.toHaveBeenCalled();
+    expect(SystemBars.setStyle).not.toHaveBeenCalled();
     expect(SplashScreen.hide).not.toHaveBeenCalled();
   });
 
@@ -58,17 +61,23 @@ describe('initNativeShell', () => {
       back.mockRestore();
     });
 
-  test('styles the status bar and hides the splash', async () => {
+  test('styles the system bars and hides the splash', async () => {
     isNative.mockReturnValue(true);
     await initNativeShell();
-    expect(StatusBar.setStyle).toHaveBeenCalledWith({ style: Style.Dark });
-    expect(StatusBar.setBackgroundColor).toHaveBeenCalledWith({ color: '#1A0F2E' });
+    expect(SystemBars.setStyle).toHaveBeenCalledWith({ style: SystemBarsStyle.Dark });
     expect(SplashScreen.hide).toHaveBeenCalledTimes(1);
   });
 
-  test('still hides splash if status bar is unsupported', async () => {
+  test('does not import the retired @capacitor/status-bar plugin', () => {
+    // Its setBackgroundColor does nothing under Android 15+ edge-to-edge; the
+    // strips behind the bars show the Activity window background instead.
+    const source = fs.readFileSync(path.join(__dirname, 'nativeShell.js'), 'utf8');
+    expect(source).not.toMatch(/@capacitor\/status-bar/);
+  });
+
+  test('still hides splash if the system bars call is unsupported', async () => {
     isNative.mockReturnValue(true);
-    StatusBar.setStyle.mockRejectedValueOnce(new Error('unsupported'));
+    SystemBars.setStyle.mockRejectedValueOnce(new Error('unsupported'));
     await initNativeShell();
     expect(SplashScreen.hide).toHaveBeenCalledTimes(1);
   });
@@ -80,11 +89,11 @@ describe('initNativeShell', () => {
     expect(App.addListener).toHaveBeenCalledTimes(1);
   });
 
-  test('a rejecting addListener does not skip status bar and splash', async () => {
+  test('a rejecting addListener does not skip system bars and splash', async () => {
     isNative.mockReturnValue(true);
     App.addListener.mockRejectedValueOnce(new Error('boom'));
     await initNativeShell();
-    expect(StatusBar.setStyle).toHaveBeenCalled();
+    expect(SystemBars.setStyle).toHaveBeenCalled();
     expect(SplashScreen.hide).toHaveBeenCalledTimes(1);
   });
 });

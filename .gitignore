@@ -44,6 +44,8 @@ docs/superpowers/*
 docs/superpowers/launch/*
 !docs/superpowers/launch/store-prep.md
 !docs/superpowers/launch/owner-setup-guide.md
+!docs/superpowers/launch/capacitor-8-edge-to-edge-probe.md
+!docs/superpowers/launch/capacitor-8-device-checklist.md
 node_modules/
 frontend/node_modules/
 frontend/build/
@@ -52,6 +54,8 @@ coverage/
 .android-tooling/
 *.keystore
 *.jks
+# Public debug signing key (password 'android'): tracked so CI debug APKs install over each other.
+!frontend/android/app/debug.keystore
 local.properties
 frontend/android/app/build/
 frontend/android/build/

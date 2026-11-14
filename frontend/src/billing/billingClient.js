@@ -1,7 +1,7 @@
 import { isNative } from '../platform';
 import { t, tn } from '../i18n';
 
-// A thin client over Google Play Billing (@capgo/native-purchases 7.19.3, pinned).
+// A thin client over Google Play Billing (@capgo/native-purchases 8.6.0, pinned: 8.6.1+ prices offers by their recurring phase, breaking toPlans' trial check).
 //
 // Interface (nativeClient, webClient and fakeClient all implement it):
 //   isAvailable(): Promise<boolean>
