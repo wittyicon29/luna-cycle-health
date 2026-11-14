@@ -406,8 +406,8 @@ def test_untested_list_names_what_could_not_run_here():
 
 def test_android_workflow_builds_the_debug_apk_on_jdk_21():
     data = _load("android.yml")
-    steps = _steps(data)
-    uses = [s["uses"].split("@")[0] for _, s in steps if "uses" in s]
+    assert data["defaults"]["run"]["working-directory"] == "frontend"
+    uses = [s["uses"].split("@")[0] for _, s in _steps(data) if "uses" in s]
     assert "actions/setup-java" in uses and "actions/upload-artifact" in uses
     java = [s for _, s in _steps(data) if s.get("uses", "").startswith("actions/setup-java@")][0]
     assert str(java["with"]["java-version"]) == "21"
@@ -428,6 +428,17 @@ def test_android_workflow_uploads_only_the_debug_apk_and_lint_report():
     text = _text(WORKFLOWS / "android.yml")
     assert "app-debug.apk" in text
     assert "bundleRelease" not in text and "keystore" not in text.lower()
+    uploads = [s["with"] for _, s in _steps(_load("android.yml")) if s.get("uses", "").startswith("actions/upload-artifact@")]
+    assert [(u["name"], u["path"]) for u in uploads] == [
+        ("luna-debug-apk", "frontend/android/app/build/outputs/apk/debug/app-debug.apk"),
+        ("luna-lint-report", "frontend/android/app/build/reports/lint-results-debug.html"),
+    ]
+
+
+def test_android_sync_step_runs_with_ci_false():
+    """CI=true makes react-scripts fail the build on the baseline ESLint warnings."""
+    steps = [s for _, s in _steps(_load("android.yml")) if "npm run android:sync" in s.get("run", "")]
+    assert len(steps) == 1 and steps[0]["env"]["CI"] == "false"
 
 
 # --- hygiene -----------------------------------------------------------------------------------

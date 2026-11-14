@@ -56,6 +56,9 @@ jobs:
         run: npm ci --no-audit --no-fund
 
       - name: Build the web app and sync it into the Android project
+        env:
+          # react-scripts turns ESLint warnings into errors when CI=true; warnings are gated by the Frontend workflow.
+          CI: "false"
         run: npm run android:sync
 
       - name: Assemble the debug APK
