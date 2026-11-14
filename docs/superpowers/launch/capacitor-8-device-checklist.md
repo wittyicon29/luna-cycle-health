@@ -78,18 +78,19 @@ screen (for example Profile > a sub-page) and go Back.
 Expected: on the first screen the app goes to the background (it does not close and ask
 anything); on a nested screen Back returns to the previous screen. [ ] pass [ ] fail
 
-**T10. Disguise icon.** Profile > the launcher appearance (disguise) setting. Pick another name
-and icon.
+**T10. Disguise icon.** Open Profile (the "Open profile" button at the top), then
+**App appearance**. Pick another name and icon and confirm the change.
 Expected: the icon and name on the home screen or app list change, and the app still opens from
 the new icon. Switch it back to Luna Health at the end. [ ] pass [ ] fail
 
-**T11. Reminder notification.** Profile > reminders. Turn one on, allow notifications if asked,
+**T11. Reminder notification.** Profile > **Reminders**. Turn one on (for example "Daily check-in nudge"), allow notifications if asked,
 and set the time two minutes ahead. Lock the phone and wait.
 Expected: a notification arrives within a few minutes ("Time for your check-in." unless you chose
 explicit wording). Delivery can be a few minutes late; that is by design. Android must not open
 an "Alarms & reminders" settings screen at any point. [ ] pass [ ] fail
 
-**T12. Share sheet.** Use Export my data (or any Share button).
+**T12. Share sheet.** Profile > **Privacy & data** > **Download my data** (this may need a signed-in
+account: if it needs the backend, mark "skipped"; any other Share button also works).
 Expected: the system share sheet opens. [ ] pass [ ] fail
 
 **T13. Buzz.** Tap buttons with phone not on silent, and Quiet mode off.
