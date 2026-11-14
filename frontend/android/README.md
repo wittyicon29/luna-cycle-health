@@ -59,6 +59,12 @@ adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 adb shell monkey -p <app-id> --pct-syskeys 0 -c android.intent.category.LAUNCHER 1
 ```
 
+Debug builds (local and CI) are signed with the public debug key `app/debug.keystore` (password
+`android`, committed on purpose), so a newer debug APK installs over an older one. It is never used
+for release. CI uploads the APK as the `luna-debug-apk` artifact; a manual run of the Android
+workflow takes an `api_base` input, e.g. `http://localhost:8000/api/v1` for a phone on
+`adb reverse` (see `docs/superpowers/launch/capacitor-8-device-checklist.md`, section 2b).
+
 Use the real application id in the last command (see `capacitor.config.json`). `MainActivity` is
 not exported, so `am start -n <app-id>/.MainActivity` fails from the shell; start the enabled
 launcher alias instead (`.LauncherDefault`, or the active `.Launcher<Key>`).
@@ -73,7 +79,7 @@ keytool -genkeypair -v -storetype PKCS12 -keystore ~/luna-release.keystore \
   -alias luna -keyalg RSA -keysize 2048 -validity 10000
 ```
 
-Never commit a keystore or its passwords.
+Never commit a release keystore or its passwords (only the public `app/debug.keystore` is tracked).
 
 ## Release build
 

@@ -705,7 +705,11 @@ Optional: a 7-inch/10-inch tablet set is not required; the app is phone-first.
 
 Declared in `frontend/android/app/src/main/AndroidManifest.xml`, plus permissions added by
 plugins (documented in `frontend/android/README.md`). Plugin manifests were re-derived from `frontend/node_modules`
-on 2026-11-14 for the Capacitor 8 plugin set (the status-bar plugin was removed; its manifest was empty); **confirm the final list from the merged manifest of the release bundle**
+on 2026-11-14 for the Capacitor 8 plugin set (the status-bar plugin was removed; its manifest was empty). The table
+was then confirmed against the merged manifest of the CI debug APK (Android workflow run on commit `bccc49e`): no
+`AD_ID`, no `SCHEDULE_EXACT_ALARM`; `USE_CREDENTIALS`, `USE_BIOMETRIC`, `USE_FINGERPRINT` and the
+`DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` present. CI now fails if `AD_ID` or `SCHEDULE_EXACT_ALARM` appears.
+**Still confirm the final list from the merged manifest of the release bundle**
 (Android Studio "Merged Manifest", or `bundletool dump manifest --bundle app-release.aab`).
 
 | Permission | Source | Why Luna needs it | Runtime prompt | Play declaration |
@@ -775,7 +779,7 @@ Owner-only steps are detailed in [`owner-setup-guide.md`](owner-setup-guide.md).
 
 **B. Code work that blocks any upload (engineering, see 7.3)**
 
-- [x] targetSdk 36 (Capacitor 8.6.0 upgrade, draft PR #23; pending the owner's device checklist, [`capacitor-8-device-checklist.md`](capacitor-8-device-checklist.md)).
+- [x] targetSdk 36 (Capacitor 8.6.0 upgrade, the Capacitor 8 PR; pending the owner's device checklist, [`capacitor-8-device-checklist.md`](capacitor-8-device-checklist.md)).
 - [ ] R8 minify + log stripping in the release build.
 - [ ] In-app AI content reporting.
 - [ ] Web frontend hosted (privacy, terms, verify-email, reset-password).

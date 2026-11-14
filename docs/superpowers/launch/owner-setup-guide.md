@@ -495,7 +495,7 @@ Steps with calendar time that nobody can speed up, so start them first:
 | App review of the first production release | Not published; can be several days for new apps | **verify in the console** |
 | Legal review of policy texts | Your lawyer's schedule | |
 | Native Hindi review | Your reviewer's schedule | `frontend/src/i18n/hi-review.md` |
-| Engineering blockers (R8, AI reporting, web hosting, policy pages; target SDK 36 is done in draft PR #23, pending your phone test) | About 2-3 weeks of work (estimate) | store-prep 7.3 |
+| Engineering blockers (R8, AI reporting, web hosting, policy pages; target SDK 36 is done in the Capacitor 8 PR, pending your phone test; its permission list was confirmed against the merged manifest of the CI debug APK, store-prep 6) | About 2-3 weeks of work (estimate) | store-prep 7.3 |
 | DNS propagation, TLS certificate | Minutes to hours | |
 
 Example calendar if you start today (2026-11-10) and nothing slips; every date after week 1 moves
