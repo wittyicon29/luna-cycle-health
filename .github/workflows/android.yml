@@ -65,6 +65,16 @@ jobs:
         working-directory: frontend/android
         run: ./gradlew --no-daemon --stacktrace assembleDebug
 
+      - name: Assert the APK targets API 36
+        run: |
+          AAPT2="${ANDROID_HOME}/build-tools/36.0.0/aapt2"
+          APK=android/app/build/outputs/apk/debug/app-debug.apk
+          # Write to a file first: under pipefail, `| head` could SIGPIPE the writer and fail the step.
+          "$AAPT2" dump badging "$APK" > /tmp/badging.txt
+          head -5 /tmp/badging.txt
+          grep -q "targetSdkVersion:'36'" /tmp/badging.txt
+          grep -q "compileSdkVersion='36'" /tmp/badging.txt || grep -q "platformBuildVersionCode='36'" /tmp/badging.txt
+
       - name: Android lint (reports; errors reviewed by hand until a baseline exists)
         working-directory: frontend/android
         continue-on-error: true

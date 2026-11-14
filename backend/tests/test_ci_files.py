@@ -441,6 +441,11 @@ def test_android_sync_step_runs_with_ci_false():
     assert len(steps) == 1 and steps[0]["env"]["CI"] == "false"
 
 
+def test_android_workflow_asserts_target_sdk_36():
+    text = _text(WORKFLOWS / "android.yml")
+    assert "targetSdkVersion:'36'" in text and "aapt2" in text
+
+
 # --- hygiene -----------------------------------------------------------------------------------
 
 
