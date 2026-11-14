@@ -10,9 +10,14 @@ ENV PIP_NO_CACHE_DIR=1 \
 RUN python -m venv /opt/venv
 ENV PATH=/opt/venv/bin:$PATH
 
-# Runtime requirements only (requirements-dev.txt and tests are never installed or copied).
-COPY requirements.txt /tmp/requirements.txt
-RUN pip install -r /tmp/requirements.txt
+# Runtime requirements only (the dev lock and tests are never installed or copied), from the
+# hash-pinned lock generated from requirements.txt (docs/superpowers/runbook.md, "Updating
+# dependencies"): every package, transitive ones included, is pinned to an exact version and
+# its sha256 hashes, --no-deps installs nothing the lock does not list, and --only-binary
+# means wheels only, so no package's build code runs here. pip check proves the set is complete.
+COPY requirements.lock /tmp/requirements.lock
+RUN pip install --require-hashes --no-deps --only-binary=:all: -r /tmp/requirements.lock \
+    && pip check
 
 # --- runtime -----------------------------------------------------------------------------
 FROM python:3.11-slim AS runtime
@@ -30,7 +35,7 @@ RUN groupadd --system --gid 10001 app \
 COPY --from=builder /opt/venv /opt/venv
 
 WORKDIR /app
-COPY requirements.txt alembic.ini ./
+COPY requirements.lock alembic.ini ./
 COPY alembic/ ./alembic/
 COPY scripts/ ./scripts/
 COPY app/ ./app/

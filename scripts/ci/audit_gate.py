@@ -4,7 +4,7 @@
     python scripts/ci/audit_gate.py pip REPORT.json [--allowlist FILE]
     python scripts/ci/audit_gate.py npm REPORT.json [--allowlist FILE] [--min-severity high]
 
-REPORT.json is the output of `pip-audit -r backend/requirements.txt -f json` or of
+REPORT.json is the output of `pip-audit -r backend/requirements.lock -f json` or of
 `npm audit --omit=dev --json`. pip-audit reports carry no severity, so every pip finding
 counts; npm advisories count from --min-severity up (default high, like
 `npm audit --audit-level=high`).

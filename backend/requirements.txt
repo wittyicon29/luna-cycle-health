@@ -9,7 +9,8 @@ sqlalchemy==2.0.35
 alembic==1.13.3
 psycopg2-binary==2.9.9
 pyjwt[crypto]==2.15.1
-passlib[bcrypt]==1.7.4
+# Password hashing: app/core/security.py calls bcrypt directly (tests/test_password_hashing.py).
+bcrypt==5.0.0
 python-multipart==0.0.33
 pydantic==2.9.2
 pydantic-settings==2.5.2
