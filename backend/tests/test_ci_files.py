@@ -442,8 +442,14 @@ def test_android_sync_step_runs_with_ci_false():
 
 
 def test_android_workflow_asserts_target_sdk_36():
-    text = _text(WORKFLOWS / "android.yml")
-    assert "targetSdkVersion:'36'" in text and "aapt2" in text
+    steps = [s for _, s in _steps(_load("android.yml"))]
+    names = [s.get("name") for s in steps]
+    assert "Assemble the debug APK" in names and "Assert the APK targets API 36" in names
+    i = names.index("Assemble the debug APK")
+    assert names[i + 1] == "Assert the APK targets API 36"
+    step = steps[i + 1]
+    assert "continue-on-error" not in step
+    assert "aapt2" in step["run"] and "targetSdkVersion:'36'" in step["run"]
 
 
 # --- hygiene -----------------------------------------------------------------------------------
