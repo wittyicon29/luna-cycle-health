@@ -40,6 +40,10 @@ docs/superpowers/*
 !docs/superpowers/offline-emulator-checklist.md
 !docs/superpowers/billing-owner-checklist.md
 !docs/superpowers/runbook.md
+!docs/superpowers/launch/
+docs/superpowers/launch/*
+!docs/superpowers/launch/store-prep.md
+!docs/superpowers/launch/owner-setup-guide.md
 node_modules/
 frontend/node_modules/
 frontend/build/
