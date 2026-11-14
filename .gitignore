@@ -54,6 +54,8 @@ coverage/
 .android-tooling/
 *.keystore
 *.jks
+# Public debug signing key (password 'android'): tracked so CI debug APKs install over each other.
+!frontend/android/app/debug.keystore
 local.properties
 frontend/android/app/build/
 frontend/android/build/

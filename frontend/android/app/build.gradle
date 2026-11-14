@@ -23,6 +23,17 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Debug builds use the PUBLIC debug key committed next to this file (password 'android', no secret),
+    // so debug APKs from different machines and CI runs install over each other. Never use it for release.
+    signingConfigs {
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+            storeType 'pkcs12'
+        }
+    }
     // Release signing comes from the environment (LUNA_KEYSTORE, LUNA_KEYSTORE_PASSWORD,
     // LUNA_KEY_ALIAS, LUNA_KEY_PASSWORD) so secrets never appear on a command line.
     // Without LUNA_KEYSTORE the release build stays unsigned.
@@ -38,6 +49,9 @@ android {
         }
     }
     buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
         release {
             if (lunaKeystore) {
                 signingConfig signingConfigs.release
