@@ -19,7 +19,7 @@ from app.core.config import Settings
 
 REPO = Path(__file__).resolve().parents[2]
 WORKFLOWS = REPO / ".github" / "workflows"
-NAMES = ["backend.yml", "frontend.yml", "audit.yml", "docker.yml"]
+NAMES = ["backend.yml", "frontend.yml", "audit.yml", "docker.yml", "android.yml"]
 RUNBOOK = REPO / "docs" / "superpowers" / "runbook.md"
 ALLOWLIST = REPO / ".github" / "audit-allowlist.txt"
 NVMRC = REPO / "frontend" / ".nvmrc"
@@ -399,6 +399,35 @@ def test_untested_list_names_what_could_not_run_here():
     section = _text(RUNBOOK).split("## Untested here", 1)[1].lower()
     for needle in ("docker", "caddy", "age", "cron", "rclone", "github actions"):
         assert needle in section, needle
+
+
+# --- android -------------------------------------------------------------------------------
+
+
+def test_android_workflow_builds_the_debug_apk_on_jdk_21():
+    data = _load("android.yml")
+    steps = _steps(data)
+    uses = [s["uses"].split("@")[0] for _, s in steps if "uses" in s]
+    assert "actions/setup-java" in uses and "actions/upload-artifact" in uses
+    java = [s for _, s in _steps(data) if s.get("uses", "").startswith("actions/setup-java@")][0]
+    assert str(java["with"]["java-version"]) == "21"
+    assert java["with"]["distribution"] == "temurin"
+    runs = [s.get("run", "") for _, s in _steps(data)]
+    assert any("npm run android:sync" in r for r in runs)
+    assert any("./gradlew" in r and "assembleDebug" in r for r in runs)
+    assert any("lintDebug" in r for r in runs)
+
+
+def test_android_workflow_only_runs_for_android_relevant_paths():
+    data = _load("android.yml")
+    paths = data["on"]["pull_request"]["paths"]
+    assert "frontend/**" in paths and ".github/workflows/android.yml" in paths
+
+
+def test_android_workflow_uploads_only_the_debug_apk_and_lint_report():
+    text = _text(WORKFLOWS / "android.yml")
+    assert "app-debug.apk" in text
+    assert "bundleRelease" not in text and "keystore" not in text.lower()
 
 
 # --- hygiene -----------------------------------------------------------------------------------
