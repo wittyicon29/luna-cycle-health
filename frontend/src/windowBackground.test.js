@@ -11,10 +11,18 @@ const frontend = path.join(__dirname, '..');
 const res = path.join(frontend, 'android', 'app', 'src', 'main', 'res', 'values');
 const read = (p) => fs.readFileSync(p, 'utf8');
 
+const SYNC_HINT =
+  'The page background token and android/app/src/main/res/values/colors.xml ' +
+  '(luna_window_background) must change together: a redesign (e.g. Atlas) must update both.';
+
+function bgDeclarations() {
+  return [...read(path.join(__dirname, 'App.js')).matchAll(/--bg:\s*([^;}]+)[;}]/g)].map((m) => m[1].trim());
+}
+
 function pageBackground() {
-  const match = read(path.join(__dirname, 'App.js')).match(/--bg:\s*(#[0-9A-Fa-f]{6})\s*;/);
-  if (!match) throw new Error('--bg token not found in App.js');
-  return match[1].toUpperCase();
+  const [value] = bgDeclarations();
+  if (!/^#[0-9A-Fa-f]{6}$/.test(value || '')) throw new Error(`--bg in App.js is not a #RRGGBB colour (${value}). ${SYNC_HINT}`);
+  return value.toUpperCase();
 }
 
 function colorResource(name) {
@@ -32,6 +40,26 @@ function appThemeItems() {
 }
 
 describe('Android window background', () => {
+  test('App.js declares --bg exactly once', () => {
+    const found = bgDeclarations();
+    if (found.length !== 1) {
+      throw new Error(`expected exactly one --bg declaration in App.js, found ${found.length} (${found.join(', ')}). ${SYNC_HINT}`);
+    }
+  });
+
+  test('no values-* qualifier (e.g. values-night) overrides luna_window_background', () => {
+    const resRoot = path.join(res, '..');
+    const offenders = fs.readdirSync(resRoot, { withFileTypes: true })
+      .filter((d) => d.isDirectory() && d.name.startsWith('values-'))
+      .flatMap((d) => fs.readdirSync(path.join(resRoot, d.name))
+        .filter((f) => f.endsWith('.xml'))
+        .filter((f) => read(path.join(resRoot, d.name, f)).includes('name="luna_window_background"'))
+        .map((f) => `${d.name}/${f}`));
+    if (offenders.length) {
+      throw new Error(`luna_window_background is redefined in ${offenders.join(', ')}; the strips behind the bars would stop matching the page. ${SYNC_HINT}`);
+    }
+  });
+
   test('luna_window_background equals the web --bg token', () => {
     expect(colorResource('luna_window_background')).toBe(pageBackground());
   });

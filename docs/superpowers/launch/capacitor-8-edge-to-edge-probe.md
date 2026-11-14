@@ -113,6 +113,8 @@ Strips: top 24 px, bottom 48 px. Insets column: --safe-area-inset-top/bottom in 
 
 Result against `main`: `diff` of the two outputs is empty (all 48 rows identical, 0 rows "not reached").
 
+This holds by construction: this change touches no CSS or layout JS, and nothing in `frontend/src` or `frontend/public` references `safe-area` or `env()`. The probe is therefore a regression record, not new evidence. It also blocks external requests (including web fonts), so heights that depend on text are measured with fallback fonts.
+
 ## What the probe cannot show
 
 It runs in desktop Chromium, not in the Android WebView, so it cannot show the real inset sizes,
