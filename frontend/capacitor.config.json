@@ -26,6 +26,11 @@
     },
     "Keyboard": {
       "resizeOnFullScreen": true
+    },
+    "SystemBars": {
+      "insetsHandling": "css",
+      "style": "DARK",
+      "hidden": false
     }
   }
 }

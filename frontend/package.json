@@ -14,7 +14,6 @@
     "@capacitor/local-notifications": "8.2.1",
     "@capacitor/share": "8.0.3",
     "@capacitor/splash-screen": "8.0.2",
-    "@capacitor/status-bar": "8.0.4",
     "@capgo/capacitor-social-login": "8.7.7",
     "@capgo/native-purchases": "8.6.0",
     "@testing-library/dom": "^10.4.1",

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Must equal the bg token in frontend/src/App.js (guarded by windowBackground.test.js). -->
+    <color name="luna_window_background">#1A0F2E</color>
+</resources>

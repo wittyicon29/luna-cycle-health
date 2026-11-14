@@ -44,6 +44,7 @@ docs/superpowers/*
 docs/superpowers/launch/*
 !docs/superpowers/launch/store-prep.md
 !docs/superpowers/launch/owner-setup-guide.md
+!docs/superpowers/launch/capacitor-8-edge-to-edge-probe.md
 node_modules/
 frontend/node_modules/
 frontend/build/

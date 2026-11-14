@@ -12,7 +12,14 @@
     <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
-        <item name="android:background">@null</item>
+        <!-- Edge-to-edge (targetSdk 36): the strips behind the system bars show
+             the window background, so it must equal the page background (the bg token).
+             statusBarColor/navigationBarColor only take effect below Android 15,
+             where the bars are not edge-to-edge. windowBackground.test.js keeps
+             luna_window_background in sync with App.js. -->
+        <item name="android:windowBackground">@color/luna_window_background</item>
+        <item name="android:statusBarColor">@color/luna_window_background</item>
+        <item name="android:navigationBarColor">@color/luna_window_background</item>
     </style>
 
 
