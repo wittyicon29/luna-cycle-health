@@ -330,6 +330,16 @@ Who builds: if engineering builds releases, they need the keystore and passwords
 machine; the alternative is that you run `release.sh` yourself. Recommendation: you build releases
 (the upload key never leaves your machine), engineering prepares the commit and tag.
 
+### 4.4 Testing on your own phone without Android Studio
+
+You do not need to build anything to try the app on your phone. The `Android` GitHub Actions
+workflow builds a debug APK for each pull request: open the run, download the `luna-debug-apk`
+artifact, unzip it and install `app-debug.apk` on the phone (allow "Install unknown apps" for the app
+you open it from). Step by step, with the tests to run:
+[`capacitor-8-device-checklist.md`](capacitor-8-device-checklist.md). That APK points at a placeholder
+server, so sign-in, sync and billing only work in a build you make against a running backend. A debug
+APK is not what you upload to Play; releases still come from `release.sh` above.
+
 ---
 
 ## 5. Hosting, domain, e-mail and providers
@@ -485,7 +495,7 @@ Steps with calendar time that nobody can speed up, so start them first:
 | App review of the first production release | Not published; can be several days for new apps | **verify in the console** |
 | Legal review of policy texts | Your lawyer's schedule | |
 | Native Hindi review | Your reviewer's schedule | `frontend/src/i18n/hi-review.md` |
-| Engineering blockers (target SDK 36, R8, AI reporting, web hosting, policy pages) | About 2-3 weeks of work (estimate) | store-prep 7.3 |
+| Engineering blockers (R8, AI reporting, web hosting, policy pages; target SDK 36 is done in draft PR #23, pending your phone test) | About 2-3 weeks of work (estimate) | store-prep 7.3 |
 | DNS propagation, TLS certificate | Minutes to hours | |
 
 Example calendar if you start today (2026-11-10) and nothing slips; every date after week 1 moves

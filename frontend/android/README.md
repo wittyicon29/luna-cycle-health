@@ -1,12 +1,12 @@
 # Luna Health - Android shell
 
-The React app in `frontend/` wrapped with Capacitor 7. The Android project lives here
+The React app in `frontend/` wrapped with Capacitor 8 (8.6.0, target and compile SDK 36). The Android project lives here
 (`frontend/android`). The application id is currently a placeholder (see `appId` in `frontend/capacitor.config.json`);
 see "Deciding the app ID later".
 
 ## Tooling
 
-Capacitor 7 needs **JDK 21**. Install JDK 21 (Temurin), the Android SDK and an emulator image
+Capacitor 8 needs **JDK 21**. Install JDK 21 (Temurin), the Android SDK and an emulator image
 in user space under `.android-tooling/`:
 
 ```bash
@@ -23,10 +23,16 @@ Build with `npm run android:sync` / `npm run android:debug` from `frontend/`, no
 
 Notes on the project configuration:
 
-- `android/build.gradle` pins `androidx.browser` to 1.8.0 (newer versions need compileSdk 36 /
-  AGP 8.9.1+).
-- `adjustMarginsForEdgeToEdge: "auto"` in `capacitor.config.json` keeps content clear of the
-  system bars on Android 15.
+- The `androidx.browser` pin is gone: compileSdk and targetSdk are 36 (`android/variables.gradle`),
+  and the `Android` CI workflow asserts the built APK targets 36.
+- Edge-to-edge: at target 36 Android always draws edge-to-edge. Capacitor 8's `SystemBars` plugin
+  (`plugins.SystemBars` in `capacitor.config.json`: `insetsHandling: "css"`, style `DARK`) pads the window
+  by the system-bar and keyboard insets, and the bar and strip colours come from the
+  `AppTheme.NoActionBar` theme (`luna_window_background`, equal to `--bg` in `App.js`; guarded by
+  `src/windowBackground.test.js`). The old `adjustMarginsForEdgeToEdge` setting no longer exists in
+  Capacitor 8, and `@capacitor/status-bar` was removed (nothing else used it).
+- Two plugins are held below their latest release on purpose, guarded by `src/pluginPins.test.js`
+  (see "Reminders" and "Held plugin versions" below).
 - Screenshots and the recents thumbnail are blocked (`FLAG_SECURE`). Verify on the emulator via
   WebView DevTools or `adb logcat`, not screenshots.
 
@@ -154,7 +160,7 @@ unmodified; keep its licence notices when redistributing the app. Other Capacito
 ## Reminders
 
 Optional check-in reminders are scheduled on the device with `@capacitor/local-notifications`
-(pinned 7.0.7). Preferences are stored locally and nothing about them leaves the device.
+(held at 8.2.1; see "Held plugin versions"). Preferences are stored locally and nothing about them leaves the device.
 
 - We request no exact-alarm permission (no SCHEDULE_EXACT_ALARM / USE_EXACT_ALARM). Delivery is
   inexact on Android 12+ (API 31+) and may be exact on Android 11 and below, where the plugin uses
@@ -237,12 +243,26 @@ the active `.Launcher<Key>`), or `adb shell monkey -p <id> --pct-syskeys 0 -c an
 
 ## Keyboard
 
-With targetSdk 35 the window is edge-to-edge and Android ignores `adjustResize`, so the soft keyboard
-used to cover the bottom of the screen (the day sheet's note field and Save button sat underneath it).
-`@capacitor/keyboard` with `"Keyboard": { "resizeOnFullScreen": true }` in `capacitor.config.json`
-shrinks the WebView to the space above the keyboard again (`visualViewport.height` drops, and
-returns when the keyboard hides). Android Back hides the keyboard first. Check it with
-`adb shell input text` and `window.visualViewport.height` over WebView DevTools.
+At target 36 the window is edge-to-edge and Android ignores `adjustResize`. Capacitor 8's `SystemBars`
+plugin handles the keyboard itself: it pads the window by the keyboard height while the keyboard is
+shown, so the Day sheet's note field and Save button stay above it. `@capacitor/keyboard` still
+provides the keyboard events, but its `resizeOnFullScreen` setting was dead configuration under
+`SystemBars` and was removed from `capacitor.config.json`. Android Back hides the keyboard first. Check
+it on a device (see `docs/superpowers/launch/capacitor-8-device-checklist.md`, test 6).
+
+## Held plugin versions
+
+`src/pluginPins.test.js` fails if either moves:
+
+- `@capacitor/local-notifications` stays at **8.2.1**. From 8.3.0 it adds `SCHEDULE_EXACT_ALARM` and
+  `schedule()` opens the system "Alarms & reminders" screen on every call unless exact alarms are
+  granted, which contradicts the "no exact alarms" decision under Reminders. To bump: rework
+  `reminderScheduler.js` (`isExactNotification: false`, remove the permission with `tools:node="remove"`),
+  update this file and `docs/superpowers/launch/store-prep.md` section 6, then raise the pin in the test.
+- `@capgo/native-purchases` stays at **8.6.0**. From 8.6.1 each offer's price is the recurring phase price,
+  so `toPlans()` in `src/billing/billingClient.js` would no longer recognise a free-trial offer by price 0
+  and the product would vanish from the paywall. To bump: change `toPlans()` to recognise trial offers by
+  phase, test on a device with a trial offer, then raise the pin in the test.
 
 ## Known behaviours
 

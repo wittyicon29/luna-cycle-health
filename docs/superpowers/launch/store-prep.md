@@ -704,8 +704,8 @@ Optional: a 7-inch/10-inch tablet set is not required; the app is phone-first.
 ## 6. Permissions rationale
 
 Declared in `frontend/android/app/src/main/AndroidManifest.xml`, plus permissions added by
-plugins (documented in `frontend/android/README.md`). Plugin manifests were checked in
-`frontend/node_modules`; **confirm the final list from the merged manifest of the release bundle**
+plugins (documented in `frontend/android/README.md`). Plugin manifests were re-derived from `frontend/node_modules`
+on 2026-11-14 for the Capacitor 8 plugin set (the status-bar plugin was removed; its manifest was empty); **confirm the final list from the merged manifest of the release bundle**
 (Android Studio "Merged Manifest", or `bundletool dump manifest --bundle app-release.aab`).
 
 | Permission | Source | Why Luna needs it | Runtime prompt | Play declaration |
@@ -713,7 +713,7 @@ plugins (documented in `frontend/android/README.md`). Plugin manifests were chec
 | `android.permission.INTERNET` | App manifest | Talk to the Luna API | No | None |
 | `android.permission.ACCESS_NETWORK_STATE` | App manifest | Know when the phone is offline so logging goes to the offline queue and syncs later | No | None |
 | `com.android.vending.BILLING` | App manifest | Google Play Billing for the Luna AI plan | No | None (Data safety covers purchase history) |
-| `android.permission.POST_NOTIFICATIONS` | `@capacitor/local-notifications` 7.0.7 | Show reminders; requested only when the user turns a reminder on (Android 13+) | Yes | None |
+| `android.permission.POST_NOTIFICATIONS` | `@capacitor/local-notifications` 8.2.1 | Show reminders; requested only when the user turns a reminder on (Android 13+) | Yes | None |
 | `android.permission.RECEIVE_BOOT_COMPLETED` | `@capacitor/local-notifications` (non-exported boot receiver) | Re-create scheduled reminders after a reboot | No | None |
 | `android.permission.WAKE_LOCK` | `@capacitor/local-notifications` | Deliver alarms while the device is idle | No | None |
 | `android.permission.VIBRATE` | `@capacitor/haptics` (confirmed in its manifest) | Haptic feedback (turned off by "Quiet") | No | None |
@@ -721,6 +721,19 @@ plugins (documented in `frontend/android/README.md`). Plugin manifests were chec
 | `android.permission.USE_BIOMETRIC`, `android.permission.USE_FINGERPRINT` | Transitive Google sign-in / credentials libraries | Not used by Luna | No | None; optionally remove with `tools:node="remove"` after testing sign-in |
 | `<app ID>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | androidx.core | Signature-level, internal to the app | No | None |
 | `com.google.android.gms.permission.AD_ID` | Must **not** be present (**verify in merged manifest**) | Not used | | Advertising ID declaration: No (2.4) |
+
+Held plugin versions (guarded by `frontend/src/pluginPins.test.js`, which fails if they move):
+
+- `@capacitor/local-notifications` is held at **8.2.1**. From 8.3.0 the plugin adds
+  `SCHEDULE_EXACT_ALARM` and `schedule()` opens the system "Alarms & reminders" settings screen on
+  every call unless exact alarms are granted. That contradicts the decision below that reminders do
+  not use exact alarms. Before bumping: rework `reminderScheduler.js` (pass `isExactNotification: false`,
+  remove the permission with `tools:node="remove"`), re-check this table, then raise the pin in the test.
+- `@capgo/native-purchases` is held at **8.6.0**. From 8.6.1 each offer's price is the recurring
+  phase price, so a free-trial offer no longer reports price 0 and `toPlans()` in
+  `frontend/src/billing/billingClient.js` would drop the product from the paywall. Before bumping:
+  change `toPlans()` to recognise trial offers by their phases, test on a device with a trial offer, then
+  raise the pin in the test.
 
 Not requested: `SCHEDULE_EXACT_ALARM` / `USE_EXACT_ALARM` (reminders are inexact on purpose, so
 no exact-alarm declaration is needed), location, camera, storage, contacts, phone, SMS. Other
@@ -742,7 +755,7 @@ Owner-only steps are detailed in [`owner-setup-guide.md`](owner-setup-guide.md).
 
 | Fact | Source (checked 2026-11-10) |
 | --- | --- |
-| New apps and updates must target **Android 16 (API 36)** since 2026-08-31; the extension option ran only to 2026-11-01, already past. Luna targets **API 35** (`frontend/android/variables.gradle`). Verified again by the fact-check 2026-11-10 | <https://developer.android.com/google/play/requirements/target-sdk>, <https://support.google.com/googleplay/android-developer/answer/11926878> |
+| New apps and updates must target **Android 16 (API 36)** since 2026-08-31; the extension option ran only to 2026-11-01, already past. Luna now targets **API 36** (`frontend/android/variables.gradle`, asserted by the `Android` CI workflow; device checklist pending: [`capacitor-8-device-checklist.md`](capacitor-8-device-checklist.md)). Verified again by the fact-check 2026-11-10 | <https://developer.android.com/google/play/requirements/target-sdk>, <https://support.google.com/googleplay/android-developer/answer/11926878> |
 | New personal accounts (created after 2023-11-13) need a closed test with **at least 12 testers opted in for the last 14 continuous days** before applying for production; that review "usually takes seven days or less". Verified again by the fact-check 2026-11-10 | <https://support.google.com/googleplay/android-developer/answer/14151465> |
 | A personal account that monetises shows the developer's **full address** on Google Play. Verified by the fact-check 2026-11-10 | <https://support.google.com/googleplay/android-developer/answer/13628312> |
 | Internal testing: up to 100 testers, builds arrive within minutes, may skip full review | <https://support.google.com/googleplay/android-developer/answer/9845334> |
@@ -762,7 +775,7 @@ Owner-only steps are detailed in [`owner-setup-guide.md`](owner-setup-guide.md).
 
 **B. Code work that blocks any upload (engineering, see 7.3)**
 
-- [ ] targetSdk 36 (Capacitor 8 upgrade).
+- [x] targetSdk 36 (Capacitor 8.6.0 upgrade, draft PR #23; pending the owner's device checklist, [`capacitor-8-device-checklist.md`](capacitor-8-device-checklist.md)).
 - [ ] R8 minify + log stripping in the release build.
 - [ ] In-app AI content reporting.
 - [ ] Web frontend hosted (privacy, terms, verify-email, reset-password).
@@ -812,7 +825,7 @@ Owner-only steps are detailed in [`owner-setup-guide.md`](owner-setup-guide.md).
 
 | # | Item | Why | Blocks |
 | --- | --- | --- | --- |
-| 1 | Raise `compileSdkVersion`/`targetSdkVersion` to 36: upgrade to Capacitor 8 (Capacitor documents target SDK 36 for Android 8.x: <https://capacitorjs.com/docs/next/android/setting-target-sdk>, checked 2026-11-10), lift the `androidx.browser` 1.8.0 pin, re-test edge-to-edge (Capacitor 8 reportedly removes `adjustMarginsForEdgeToEdge`), the keyboard resize, and every plugin (social login, native purchases, secure storage) for Capacitor 8 versions | Play refuses API 35 uploads for new apps since 2026-08-31 | Any upload |
+| 1 | **Done by this PR (Capacitor 8.6.0, targetSdk 36, asserted by CI); pending the owner's device checklist** ([`capacitor-8-device-checklist.md`](capacitor-8-device-checklist.md)). Was: raise `compileSdkVersion`/`targetSdkVersion` to 36 (Capacitor documents target SDK 36 for Android 8.x: <https://capacitorjs.com/docs/next/android/setting-target-sdk>, checked 2026-11-10). The `androidx.browser` pin is lifted, edge-to-edge is handled by the `SystemBars` plugin (`adjustMarginsForEdgeToEdge` is gone), and the keyboard inset is handled by `SystemBars` too | Play refuses API 35 uploads for new apps since 2026-08-31 | Any upload |
 | 2 | R8: `minifyEnabled true`, `proguard-android-optimize.txt`, `-assumenosideeffects` for `Log.d/i/v`, keep rules (exact text in `billing-owner-checklist.md` "Release build") | The billing plugin logs purchase tokens | Release |
 | 3 | In-app "report this reply" (or flag) control for Chat and Insights, sending the message id and reason to the backend, stored for review | Play AI-Generated Content policy | Release |
 | 4 | Host the web frontend build (e.g. a second Caddy site for `app.example.com` serving `frontend/build` with SPA fallback, or static hosting) and add its origin to `ALLOWED_ORIGINS` | Privacy URL; e-mail sign-up cannot complete at all: the password is chosen on the web `/verify-email` page (`auth.py` register stores an empty hash) and the app has no App Links; password reset also opens a web route | Sign-up works at all; Play listing |
@@ -834,9 +847,10 @@ order. Details for each are in 7.3 and the sections referenced.
 
 **Blockers (no release until fixed)**
 
-1. `targetSdk` 35 vs the required 36: Play refuses new uploads since 2026-08-31
-   (<https://developer.android.com/google/play/requirements/target-sdk>). Needs Capacitor 8 and an
-   edge-to-edge retest.
+1. ~~`targetSdk` 35 vs the required 36~~ (Play refuses new uploads since 2026-08-31,
+   <https://developer.android.com/google/play/requirements/target-sdk>): **done by this PR
+   (Capacitor 8.6.0, targetSdk 36, asserted by CI)**, pending the owner's device checklist
+   ([`capacitor-8-device-checklist.md`](capacitor-8-device-checklist.md)).
 2. Web frontend not hosted: e-mail sign-up and password reset cannot complete (the password is
    chosen on the web `/verify-email` page), no public privacy URL, no App Links.
 3. No in-app report/flag control for AI output (Play AI-Generated Content policy,
